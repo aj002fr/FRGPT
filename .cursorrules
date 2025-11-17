@@ -1,0 +1,56 @@
+# Code-Mode MCP Market Agents
+
+## Project Overview
+Pure Python code-mode MCP system with file-based inter-agent communication.
+Zero external dependencies (stdlib only: sqlite3, json, pathlib).
+
+## Architecture
+- **File Bus**: Agents communicate via atomic JSON file writes
+- **Manifest System**: Incremental filenames (000001.json, 000002.json, ...)
+- **Run Logging**: Every execution logged with SQL + metadata
+- **Tools-as-Code**: Direct Python function calls (no network)
+
+## Structure
+```
+src/
+  bus/          - File operations, manifest, schema
+  mcp/          - Tool client & discovery
+  servers/      - Tool implementations (marketdata)
+  agents/       - Producer & consumer agents
+  core/         - Shared logging
+
+scripts/        - 15 test queries, monitoring tools
+tests/e2e/      - Comprehensive E2E tests
+docs/           - Architecture & usage guides
+memory-bank/    - Technical knowledge base
+```
+
+## Key Commands
+- `python main.py` - Run demo
+- `python scripts/test_queries.py --list` - See test queries
+- `python scripts/test_queries.py --query N` - Run query
+- `python scripts/show_logs.py` - View results
+- `python -m pytest tests/e2e/ -v` - Run tests
+
+## Code Style
+- Type hints for public APIs
+- Docstrings for classes and public methods
+- Logging at INFO level for key events
+- Atomic operations for file writes
+
+## Adding Components
+- New agent: `src/agents/new_agent/run.py`
+- New tool: `src/servers/newtool/` with `@register_tool`
+- New utility: `src/core/new_util.py`
+
+## Dependencies
+Runtime: Python 3.11+ stdlib only
+Testing: pytest>=7.4.0
+
+## Current Status
+✅ Complete implementation
+✅ All tests passing
+✅ Zero redundancy
+✅ Production-ready
+
+

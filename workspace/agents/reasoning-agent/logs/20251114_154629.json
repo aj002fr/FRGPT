@@ -1,0 +1,14 @@
+{
+  "run_id": "20251114_154629",
+  "query": "federal shutdown",
+  "session_id": "20251114_154629_af9079",
+  "parsed_topic": "federal shutdown",
+  "parsed_date": null,
+  "comparison_date": "2025-11-07",
+  "output_path": "Z:\\Aastha\\market_data_puller\\workspace\\agents\\reasoning-agent\\out\\000032.json",
+  "status": "success",
+  "error": null,
+  "timestamp": "2025-11-14T15:46:42.695159+00:00",
+  "agent": "reasoning-agent",
+  "version": "2.0"
+}

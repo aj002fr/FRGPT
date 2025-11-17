@@ -1,0 +1,127 @@
+{
+  "data": [
+    {
+      "intent": "historical_opinion",
+      "query": "Bitcoin",
+      "parsed_query": {
+        "intent": "historical_opinion",
+        "topic": "Bitcoin",
+        "date": "2024-11-01",
+        "start_date": null,
+        "end_date": null,
+        "confidence": 0.95
+      },
+      "result": {
+        "intent": "historical_opinion",
+        "query": "Bitcoin",
+        "parsed": {
+          "intent": "historical_opinion",
+          "topic": "Bitcoin",
+          "date": "2024-11-01",
+          "start_date": null,
+          "end_date": null,
+          "confidence": 0.95
+        },
+        "date": "2024-11-01",
+        "markets": [
+          {
+            "market_id": "0xd8b9ff369452daebce1ac8cb6a29d6817903e85168356c72812317f38e317613",
+            "title": "Will Bitcoin reach $1,000,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $1,000,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0025,
+              "No": 0.9975
+            },
+            "volume": 4581864.137033,
+            "liquidity": 233477.30733,
+            "status": "active",
+            "url": "https://polymarket.com/event/what-price-will-bitcoin-hit-in-2025",
+            "close_time": "2025-12-31T12:00:00Z",
+            "slug": "what-price-will-bitcoin-hit-in-2025",
+            "historical_price": {
+              "yes": null,
+              "no": null
+            },
+            "historical_date": "2024-11-01",
+            "historical_data_source": "unavailable",
+            "historical_note": "Historical price data not available. No transactions found for this market on this date in Polymarket Activity Subgraph."
+          },
+          {
+            "market_id": "0xac2be3a5471b343d43b9f0d3f141611b91feb8c66aed8e286cd3d2540714aaba",
+            "title": "Will Bitcoin reach $250,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $250,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.015,
+              "No": 0.985
+            },
+            "volume": 4727564.080366,
+            "liquidity": 166631.57087,
+            "status": "active",
+            "url": "https://polymarket.com/event/what-price-will-bitcoin-hit-in-2025",
+            "close_time": "2025-12-31T12:00:00Z",
+            "slug": "what-price-will-bitcoin-hit-in-2025",
+            "historical_price": {
+              "yes": null,
+              "no": null
+            },
+            "historical_date": "2024-11-01",
+            "historical_data_source": "unavailable",
+            "historical_note": "Historical price data not available. No transactions found for this market on this date in Polymarket Activity Subgraph."
+          },
+          {
+            "market_id": "0x4e2887e913cd6e091c9b07b5e4013b24f372453efa6f11a0b0c5f65371729cf4",
+            "title": "Will Bitcoin reach $200,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $200,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0165,
+              "No": 0.9835
+            },
+            "volume": 8464891.666828,
+            "liquidity": 222235.11753,
+            "status": "active",
+            "url": "https://polymarket.com/event/what-price-will-bitcoin-hit-in-2025",
+            "close_time": "2025-12-31T12:00:00Z",
+            "slug": "what-price-will-bitcoin-hit-in-2025",
+            "historical_price": {
+              "yes": null,
+              "no": null
+            },
+            "historical_date": "2024-11-01",
+            "historical_data_source": "unavailable",
+            "historical_note": "Historical price data not available. No transactions found for this market on this date in Polymarket Activity Subgraph."
+          }
+        ],
+        "note": "Showing markets with historical prices on 2024-11-01",
+        "metadata": {
+          "query": "Bitcoin",
+          "search_method": "phrase_and_keyword_matching",
+          "session_id": "20251113_210539_40fcac",
+          "result_count": 3,
+          "platform": "polymarket",
+          "timestamp": "2025-11-13T21:05:47.039129+00:00"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "query": "Reasoning query: Bitcoin",
+    "timestamp": "2025-11-13T21:05:48.215237Z",
+    "row_count": 1,
+    "agent": "reasoning-agent",
+    "version": "1.0",
+    "intent": "historical_opinion",
+    "confidence": 0.95
+  }
+}

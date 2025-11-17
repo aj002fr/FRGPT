@@ -1,0 +1,14 @@
+{
+  "run_id": "20251114_155020",
+  "query": "Bitcoin predictions",
+  "session_id": "20251114_155020_296529",
+  "parsed_topic": "bitcoin",
+  "parsed_date": null,
+  "comparison_date": "2025-11-07",
+  "output_path": "Z:\\Aastha\\market_data_puller\\workspace\\agents\\reasoning-agent\\out\\000035.json",
+  "status": "success",
+  "error": null,
+  "timestamp": "2025-11-14T15:50:29.564272+00:00",
+  "agent": "reasoning-agent",
+  "version": "2.0"
+}

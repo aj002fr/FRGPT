@@ -1,0 +1,14 @@
+{
+  "run_id": "20251114_184720",
+  "query": "how has opinion on fedrral shutdown ending changed in the last 10 daysand how has that impacted price of ZN bond treasury",
+  "session_id": "20251114_184720_aa49a1",
+  "parsed_topic": "federal shutdown, ZN bond treasury price",
+  "parsed_date": "2025-11-04",
+  "comparison_date": "2025-11-04",
+  "output_path": "Z:\\Aastha\\market_data_puller\\workspace\\agents\\reasoning-agent\\out\\000044.json",
+  "status": "success",
+  "error": null,
+  "timestamp": "2025-11-14T18:47:39.225710+00:00",
+  "agent": "reasoning-agent",
+  "version": "2.0"
+}

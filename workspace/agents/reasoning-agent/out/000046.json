@@ -1,0 +1,441 @@
+{
+  "data": [
+    {
+      "query": "sort the identified dates in descending order",
+      "parsed": {
+        "topic": "identified dates",
+        "date": null,
+        "confidence": 0.95
+      },
+      "comparison_date": "2025-11-07",
+      "date_source": "default",
+      "result": {
+        "query": "sort the identified dates in descending order",
+        "parsed": {
+          "topic": "identified dates",
+          "date": null,
+          "confidence": 0.95
+        },
+        "comparison_date": "2025-11-07",
+        "date_source": "default",
+        "markets": [
+          {
+            "market_id": "0x2993e8c18922f93787756e02dc262c193b79f05c7b952a0c9656e948f9977c88",
+            "clob_token_ids": [
+              "8386751446532853042569016198630156358607889903769804453729689844327538848118",
+              "93230814700069879701298518730808942663991375305371422498472742109612726032594"
+            ],
+            "title": "Will Captain America: Brave New World be the top grossing movie of 2025?",
+            "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Captain America: New World Order' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0025,
+              "No": 0.9975
+            },
+            "volume": 12284004.939508,
+            "liquidity": 549915.51616,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-captain-america-new-world-order-be-the-top-grossing-movie-of-2025",
+            "slug": "will-captain-america-new-world-order-be-the-top-grossing-movie-of-2025",
+            "created_at": "2025-01-01T12:47:25.668337Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.1,
+            "relevance_reason": "The market title mentions a specific year, which could be interpreted as a 'date', but it does not directly relate to 'identified dates'.",
+            "url_valid": false,
+            "url_note": "URL may be incorrect or market removed",
+            "historical_price": {
+              "yes": 0.0025,
+              "no": 0.9975
+            },
+            "historical_date": "2025-11-07",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": 0.0,
+              "direction": "unchanged"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $12,284,005"
+          },
+          {
+            "market_id": "0x1cfde498b977cf83dd6a0276fb287de98dbeb79554c61368d074736730883ad8",
+            "clob_token_ids": [
+              "93233117327291618289066315828674286787516183725243918731390800170422815079307",
+              "75289931624319115290608153453730244947885568969147701097417219989137426744628"
+            ],
+            "title": "Will The Fantastic Four: First Steps be the top grossing movie of 2025?",
+            "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'The Fantastic Four: First Steps' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0025,
+              "No": 0.9975
+            },
+            "volume": 11817834.925887,
+            "liquidity": 573329.55956,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-the-fantastic-four-first-steps-be-the-top-grossing-movie-of-2025",
+            "slug": "will-the-fantastic-four-first-steps-be-the-top-grossing-movie-of-2025",
+            "created_at": "2025-01-01T12:42:11.509033Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.1,
+            "relevance_reason": "The market title mentions a specific year, which could be interpreted as a 'date', but it does not directly relate to 'identified dates'.",
+            "url_valid": false,
+            "url_note": "URL may be incorrect or market removed",
+            "historical_price": {
+              "yes": 0.0025,
+              "no": 0.9975
+            },
+            "historical_date": "2025-11-07",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": 0.0,
+              "direction": "unchanged"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $11,817,835"
+          },
+          {
+            "market_id": "0x46fb01da8662e5eb2496b600bbe874d230f05f3e99b382f2791015ef55b464af",
+            "clob_token_ids": [
+              "35831181492141694980692915198174791166488782428631847611464512939858296812162",
+              "18875137908356847066861167328115524289255817071366542058747152611928152172638"
+            ],
+            "title": "Will Thunderbolts be the top grossing movie of 2025?",
+            "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Thunderbolts' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0035,
+              "No": 0.9965
+            },
+            "volume": 11376160.369087,
+            "liquidity": 585512.28659,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-thunderbolts-be-the-top-grossing-movie-of-2025",
+            "slug": "will-thunderbolts-be-the-top-grossing-movie-of-2025",
+            "created_at": "2025-01-01T12:49:25.106155Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.1,
+            "relevance_reason": "The market title mentions a specific year, which could be interpreted as a 'date', but it does not directly relate to 'identified dates'.",
+            "url_valid": false,
+            "url_note": "URL may be incorrect or market removed",
+            "historical_price": {
+              "yes": 0.0035,
+              "no": 0.9965
+            },
+            "historical_date": "2025-11-07",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": 0.0,
+              "direction": "unchanged"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $11,376,160"
+          },
+          {
+            "market_id": "0x22fa7126aad142e3e7cd7dc6ae6669b86e28ff8ae6f07a57e1a05403c8074b5f",
+            "clob_token_ids": [
+              "30646409979222495179010640605391601763595277726180576145956204557523118278635",
+              "4028900024615641798889926331783229368868957410507016293979076568501033891037"
+            ],
+            "title": "Will How to Train Your Dragon be the top grossing movie of 2025?",
+            "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'How to Train Your Dragon' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0025,
+              "No": 0.9975
+            },
+            "volume": 11149224.442929,
+            "liquidity": 546886.96504,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-how-to-train-your-dragon-be-the-top-grossing-movie-of-2025",
+            "slug": "will-how-to-train-your-dragon-be-the-top-grossing-movie-of-2025",
+            "created_at": "2025-01-01T12:51:30.849417Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.1,
+            "relevance_reason": "The market title mentions a specific year, which could be interpreted as a 'date', but it does not directly relate to 'identified dates'.",
+            "url_valid": false,
+            "url_note": "URL may be incorrect or market removed",
+            "historical_price": {
+              "yes": 0.0025,
+              "no": 0.9975
+            },
+            "historical_date": "2025-11-07",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": 0.0,
+              "direction": "unchanged"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $11,149,224"
+          },
+          {
+            "market_id": "0x6e9fda006161184b29a2df3754b5b9c3757f8a2adc1f44291fe9907f8fc6ae97",
+            "clob_token_ids": [
+              "4597169797317084862349120825009191286596299748214987624297297321423753269997",
+              "78147044225554496091161531539620463431702013997868045046909328755496366540182"
+            ],
+            "title": "Will Jurassic World: Rebirth be the top grossing movie of 2025?",
+            "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Jurassic World: Rebirth' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0035,
+              "No": 0.9965
+            },
+            "volume": 7252200.981761,
+            "liquidity": 563289.41247,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-jurassic-world-rebirth-be-the-top-grossing-movie-of-2025",
+            "slug": "will-jurassic-world-rebirth-be-the-top-grossing-movie-of-2025",
+            "created_at": "2025-01-01T12:42:50.005176Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.1,
+            "relevance_reason": "The market title mentions a specific year, which could be interpreted as a 'date', but it does not directly relate to 'identified dates'.",
+            "url_valid": false,
+            "url_note": "URL may be incorrect or market removed",
+            "historical_price": {
+              "yes": 0.0035,
+              "no": 0.9965
+            },
+            "historical_date": "2025-11-07",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": 0.0,
+              "direction": "unchanged"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $7,252,201"
+          },
+          {
+            "market_id": "0x039b48827f3c6b83f50153715af8a66f2b74b04fcfc5def13acb3f151eeb3d81",
+            "clob_token_ids": [
+              "105082902118227548826249086653013297053246139018561657722591473048372450842215",
+              "85911276259621891622762857990548349370844912080593349315151384895663269500769"
+            ],
+            "title": "Will Superman be the top grossing movie of 2025?",
+            "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Superman' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0025,
+              "No": 0.9975
+            },
+            "volume": 5174725.148308,
+            "liquidity": 555639.32436,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-superman-be-the-top-grossing-movie-of-2025",
+            "slug": "will-superman-be-the-top-grossing-movie-of-2025",
+            "created_at": "2025-01-01T12:40:26.820038Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.1,
+            "relevance_reason": "The market title mentions a specific year, which could be interpreted as a 'date', but it does not directly relate to 'identified dates'.",
+            "url_valid": false,
+            "url_note": "URL may be incorrect or market removed",
+            "historical_price": {
+              "yes": 0.0025,
+              "no": 0.9975
+            },
+            "historical_date": "2025-11-07",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": 0.0,
+              "direction": "unchanged"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $5,174,725"
+          },
+          {
+            "market_id": "0x6fa38b11b1909151a7c1c3bdfb77b24716adbd7ecbe9904ed14a572886120e76",
+            "clob_token_ids": [
+              "49225255785153140271978028633331398187057596497890648373700315193116553934019",
+              "32547511354537402737906707386159811464601407572722378636661354247067721792930"
+            ],
+            "title": "Will Zootopia 2 be the top grossing movie of 2025?",
+            "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Zootopia 2' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.227,
+              "No": 0.773
+            },
+            "volume": 2299368.134561,
+            "liquidity": 40657.26582,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-zootopia-2-be-the-top-grossing-movie-of-2025",
+            "slug": "will-zootopia-2-be-the-top-grossing-movie-of-2025",
+            "created_at": "2025-01-01T12:48:16.420017Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.1,
+            "relevance_reason": "The market title mentions a specific year, which could be interpreted as a 'date', but it does not directly relate to 'identified dates'.",
+            "url_valid": false,
+            "url_note": "URL may be incorrect or market removed",
+            "historical_price": {
+              "yes": 0.2618,
+              "no": 0.7382
+            },
+            "historical_date": "2025-11-07",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -3.48,
+              "direction": "down"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $2,299,368"
+          },
+          {
+            "market_id": "0x21400affa8e3fdfff07bb8421d708635bc7be52f5396268dd281ef92a31bb86f",
+            "clob_token_ids": [
+              "46031991343302022758885232715327973278894914473014946268947234642842781512787",
+              "97483512396734374396901092556083776727016015018005180917776704659356263830525"
+            ],
+            "title": "Will Avatar 3 be the top grossing movie of 2025?",
+            "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Avatar: Fire and Ash'(Avatar 3) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0675,
+              "No": 0.9325
+            },
+            "volume": 2229148.218314,
+            "liquidity": 161591.83177,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-avatar-3-be-the-top-grossing-movie-of-2025",
+            "slug": "will-avatar-3-be-the-top-grossing-movie-of-2025",
+            "created_at": "2025-01-01T12:33:23.025504Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.1,
+            "relevance_reason": "The market title mentions a specific year, which could be interpreted as a 'date', but it does not directly relate to 'identified dates'.",
+            "url_valid": false,
+            "url_note": "URL may be incorrect or market removed",
+            "historical_price": {
+              "yes": 0.0685,
+              "no": 0.9315
+            },
+            "historical_date": "2025-11-07",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -0.1,
+              "direction": "down"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $2,229,148"
+          },
+          {
+            "market_id": "0xe87b10afe191706bb36b22526b65983e2a88a12ccce36827e857e16791973493",
+            "clob_token_ids": [
+              "71350214161024617954154195455943908791106743541648093809575805337027292856307",
+              "64115571112663071888929599027003715026866623388277198289581125847375946298399"
+            ],
+            "title": "Will A Minecraft Movie be the top grossing movie of 2025?",
+            "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'A Minecraft Movie' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.087,
+              "No": 0.913
+            },
+            "volume": 1498144.942828,
+            "liquidity": 48872.17696,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-a-minecraft-movie-be-the-top-grossing-movie-of-2025",
+            "slug": "will-a-minecraft-movie-be-the-top-grossing-movie-of-2025",
+            "created_at": "2025-01-01T12:52:54.221418Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.1,
+            "relevance_reason": "The market title mentions a specific year, which could be interpreted as a 'date', but it does not directly relate to 'identified dates'.",
+            "url_valid": false,
+            "url_note": "URL may be incorrect or market removed",
+            "historical_price": {
+              "yes": 0.1623,
+              "no": 0.8377
+            },
+            "historical_date": "2025-11-07",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -7.53,
+              "direction": "down"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $1,498,145"
+          },
+          {
+            "market_id": "0x08c8fffc2fb962e36d835621b82434b941a8a124f47558454d8eb666eeed59f9",
+            "clob_token_ids": [
+              "107516807630292044096997874487388103106064958463700149740608855411786327728317",
+              "24392063984627190307257767585691140245716045207914817527470093499518405056967"
+            ],
+            "title": "Will Wicked: For Good be the top grossing movie of 2025?",
+            "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Wicked: For Good' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.579,
+              "No": 0.421
+            },
+            "volume": 1279345.356963,
+            "liquidity": 65989.25739,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-wicked-for-good-be-the-top-grossing-movie-of-2025",
+            "slug": "will-wicked-for-good-be-the-top-grossing-movie-of-2025",
+            "created_at": "2025-01-01T12:38:07.941369Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.1,
+            "relevance_reason": "The market title mentions a specific year, which could be interpreted as a 'date', but it does not directly relate to 'identified dates'.",
+            "url_valid": false,
+            "url_note": "URL may be incorrect or market removed",
+            "historical_price": {
+              "yes": 0.472,
+              "no": 0.528
+            },
+            "historical_date": "2025-11-07",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": 10.7,
+              "direction": "up"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $1,279,345"
+          }
+        ],
+        "metadata": {
+          "total_markets": 10,
+          "low_volume_count": 0,
+          "comparison_note": "Comparing current vs 2025-11-07 (default)"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "query": "Market query: sort the identified dates in descending order",
+    "timestamp": "2025-11-14T19:28:01.974428Z",
+    "row_count": 1,
+    "agent": "reasoning-agent",
+    "version": "2.0",
+    "comparison_date": "2025-11-07",
+    "date_source": "default",
+    "low_volume_threshold": 1000
+  }
+}

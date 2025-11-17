@@ -1,0 +1,20 @@
+{
+  "run_id": "20251114_202854",
+  "sql": "",
+  "params": {
+    "conditions": "symbol LIKE ? AND price BETWEEN ? AND ? AND is_valid = 1",
+    "values": [
+      "%ZN%",
+      112.5,
+      112.9
+    ]
+  },
+  "output_path": null,
+  "status": "failed",
+  "row_count": 0,
+  "timestamp": "2025-11-14T20:28:54.205343+00:00",
+  "duration_ms": 0.59,
+  "agent": "market-data-agent",
+  "version": "1.0",
+  "error": "Invalid template: custom. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+}

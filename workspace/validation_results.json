@@ -1,0 +1,345 @@
+{
+  "timestamp": "2025-11-11T16:36:08.399370",
+  "summary": {
+    "total": 23,
+    "pass": 7,
+    "needs_review": 0,
+    "fail": 0,
+    "error": 16,
+    "avg_correctness": 24.782608695652176,
+    "avg_completeness": 28.695652173913043,
+    "avg_overall": 26.73913043478261
+  },
+  "results": [
+    {
+      "query_num": 1,
+      "name": "All Call Options (sample)",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid column: theoretical. Allowed: id, symbol, bid, ask, price, bid_quantity, offer_quantity, timestamp, file_date, data_source, is_valid, created_at"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 2,
+      "name": "All Put Options (sample)",
+      "status": "PASS",
+      "overall_score": 87.5,
+      "correctness_score": 85,
+      "completeness_score": 90,
+      "correctness_issues": [
+        "Pattern '%.P' not found in SQL"
+      ],
+      "completeness_issues": [
+        "High null rate for price: 20/20"
+      ],
+      "row_count": 20,
+      "output_file": "000010.json"
+    },
+    {
+      "query_num": 3,
+      "name": "Product Options (pattern)",
+      "status": "PASS",
+      "overall_score": 87.5,
+      "correctness_score": 85,
+      "completeness_score": 90,
+      "correctness_issues": [
+        "Pattern 'XCME.OZN.%' not found in SQL"
+      ],
+      "completeness_issues": [
+        "High null rate for price: 50/50"
+      ],
+      "row_count": 50,
+      "output_file": "000011.json"
+    },
+    {
+      "query_num": 4,
+      "name": "Calls for Product and Date",
+      "status": "PASS",
+      "overall_score": 82.5,
+      "correctness_score": 65,
+      "completeness_score": 100,
+      "correctness_issues": [
+        "Pattern 'XCME.OZN.%.C' not found in SQL",
+        "Date filter '2025-07-21' not found in SQL"
+      ],
+      "completeness_issues": [],
+      "row_count": 208,
+      "output_file": "000012.json"
+    },
+    {
+      "query_num": 5,
+      "name": "Puts for Product and Date",
+      "status": "PASS",
+      "overall_score": 82.5,
+      "correctness_score": 65,
+      "completeness_score": 100,
+      "correctness_issues": [
+        "Pattern 'XCME.VY3.%.P' not found in SQL",
+        "Date filter '2025-07-21' not found in SQL"
+      ],
+      "completeness_issues": [],
+      "row_count": 208,
+      "output_file": "000013.json"
+    },
+    {
+      "query_num": 6,
+      "name": "Expiry Month Filter",
+      "status": "PASS",
+      "overall_score": 87.5,
+      "correctness_score": 85,
+      "completeness_score": 90,
+      "correctness_issues": [
+        "Pattern '%AUG25%' not found in SQL"
+      ],
+      "completeness_issues": [
+        "High null rate for price: 50/50"
+      ],
+      "row_count": 50,
+      "output_file": "000014.json"
+    },
+    {
+      "query_num": 7,
+      "name": "Top-of-book (latest timestamp)",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: latest_per_symbol. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 8,
+      "name": "Time range for a symbol",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: by_symbol_and_timerange. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 9,
+      "name": "Price range filter",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: by_price_range. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 10,
+      "name": "Large orders",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: by_qty_threshold. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 11,
+      "name": "Widest bid-ask spreads",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: top_n_spread_widest. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 12,
+      "name": "Narrowest bid-ask spreads",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: top_n_spread_narrowest. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 13,
+      "name": "Missing theoretical prices",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: missing_theoretical. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 14,
+      "name": "Implied volatility candidates",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: theoretical_vs_mid. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 15,
+      "name": "Aggregated volumes per symbol (day)",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: aggregate_by_symbol_and_date. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 16,
+      "name": "Intraday VWAP-like (volume-weighted avg price)",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: vwap_by_symbol_and_date. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 17,
+      "name": "Latest snapshot for a product",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: latest_for_symbol_pattern. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 18,
+      "name": "Historical time series (OHLC-ish)",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: daily_ohlc_mid. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 19,
+      "name": "Compare two symbols at a timestamp",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: snapshot_two_symbols_at_ts. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 20,
+      "name": "Cross-product spread candidates",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: cross_product_spread_candidates. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    },
+    {
+      "query_num": 21,
+      "name": "Quick health check - sample rows",
+      "status": "PASS",
+      "overall_score": 95.0,
+      "correctness_score": 100,
+      "completeness_score": 90,
+      "correctness_issues": [],
+      "completeness_issues": [
+        "High null rate for price: 5/5"
+      ],
+      "row_count": 5,
+      "output_file": "000015.json"
+    },
+    {
+      "query_num": 22,
+      "name": "Specific columns only",
+      "status": "PASS",
+      "overall_score": 92.5,
+      "correctness_score": 85,
+      "completeness_score": 100,
+      "correctness_issues": [
+        "Pattern '%.C' not found in SQL"
+      ],
+      "completeness_issues": [],
+      "row_count": 10,
+      "output_file": "000016.json"
+    },
+    {
+      "query_num": 23,
+      "name": "Rows with out-of-order timestamps",
+      "status": "ERROR",
+      "overall_score": 0,
+      "correctness_score": 0,
+      "completeness_score": 0,
+      "correctness_issues": [
+        "Invalid template: anomalous_timestamp_order. Available: by_symbol, by_date, by_symbol_and_date, all_valid"
+      ],
+      "completeness_issues": [],
+      "row_count": 0,
+      "output_file": null
+    }
+  ]
+}

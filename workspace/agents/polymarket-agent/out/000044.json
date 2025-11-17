@@ -1,0 +1,209 @@
+{
+  "data": [
+    {
+      "query": "super bowl champion 2026 ",
+      "session_id": "20251113195913_281bac",
+      "expanded_keywords": [],
+      "markets": [
+        {
+          "market_id": "0xe3afb091ba0c2bd1d0660ac9256f37e0c7560b02eee15641c6cce6ceb62f3769",
+          "title": "Will Max Verstappen be the 2025 Drivers Champion?",
+          "description": "This market will resolve according to the driver that finishes 1st in the driver standings for the 2025 F1 season. Otherwise, this market will resolve to \"No\".\n\nAs soon as the results for the final scheduled race of the 2025 F1 season are known this market will resolve.\n\nIf at any point it becomes impossible for a listed driver to win the 2025 F1 Drivers Championship based on the rules of F1 (e.g., they are mathematically eliminated from contention), this market will resolve to “No”.\n\nIf the F1 season is permanently canceled or has not been completed by February 28, 2026, 11:59 PM this market will resolve to “Other”.\n\nThe primary resolution source for this market will be official information from Formula 1. \n",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.056,
+            "No": 0.944
+          },
+          "volume": 5906570.748813,
+          "liquidity": 75771.43374,
+          "status": "active",
+          "url": "https://polymarket.com/event/f1-drivers-champion",
+          "close_time": "2025-12-07T12:00:00Z",
+          "slug": "f1-drivers-champion"
+        },
+        {
+          "market_id": "0xd8fb9e7567f1d4d9cbcf9c31ea3461181fab7299d7483d019a911c6c056ad0e1",
+          "title": "Will Lando Norris be the 2025 Drivers Champion?",
+          "description": "This market will resolve according to the driver that finishes 1st in the driver standings for the 2025 F1 season. Otherwise, this market will resolve to \"No\".\n\nAs soon as the results for the final scheduled race of the 2025 F1 season are known this market will resolve.\n\nIf at any point it becomes impossible for a listed driver to win the 2025 F1 Drivers Championship based on the rules of F1 (e.g., they are mathematically eliminated from contention), this market will resolve to “No”.\n\nIf the F1 season is permanently canceled or has not been completed by February 28, 2026, 11:59 PM this market will resolve to “Other”.\n\nThe primary resolution source for this market will be official information from Formula 1. \n",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.805,
+            "No": 0.195
+          },
+          "volume": 3189240.400004,
+          "liquidity": 85796.3266,
+          "status": "active",
+          "url": "https://polymarket.com/event/f1-drivers-champion",
+          "close_time": "2025-12-07T12:00:00Z",
+          "slug": "f1-drivers-champion"
+        },
+        {
+          "market_id": "0xa56ac5f70b0a4ac821cfe4ac8ddce319633aef33063546b55b0ad7da3325f207",
+          "title": "Will Oscar Piastri be the 2025 Drivers Champion?",
+          "description": "This market will resolve according to the driver that finishes 1st in the driver standings for the 2025 F1 season. Otherwise, this market will resolve to \"No\".\n\nAs soon as the results for the final scheduled race of the 2025 F1 season are known this market will resolve.\n\nIf at any point it becomes impossible for a listed driver to win the 2025 F1 Drivers Championship based on the rules of F1 (e.g., they are mathematically eliminated from contention), this market will resolve to “No”.\n\nIf the F1 season is permanently canceled or has not been completed by February 28, 2026, 11:59 PM this market will resolve to “Other”.\n\nThe primary resolution source for this market will be official information from Formula 1. \n",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.125,
+            "No": 0.875
+          },
+          "volume": 4746248.35003,
+          "liquidity": 78277.54142,
+          "status": "active",
+          "url": "https://polymarket.com/event/f1-drivers-champion",
+          "close_time": "2025-12-07T12:00:00Z",
+          "slug": "f1-drivers-champion"
+        },
+        {
+          "market_id": "0xe6508d867d153a268bdab732aa8abc8cc57e652d28a23aa042da40895bf031b2",
+          "title": "Will 2025 be the hottest year on record?",
+          "description": "This market will resolve to \"Yes\" if the data for the Global Land-Ocean Temperature Index for 2025 shows an increase greater than that of any previously recorded year when it is released. Otherwise, this market will resolve to \"No\".\n\nAn anomaly greater than that of any previously recorded year for 2025 is necessary and sufficient to resolve this market to \"Yes\" immediately once the data becomes available, regardless of whether the figure for 2024 and/or 2025 is later revised.\n\nThe primary resolution source for this market will be the figure found in the table titled \"Land-Ocean Temperature Index (C)\" under the column \"No_Smoothing\" in the row \"2025\" (https://data.giss.nasa.gov/gistemp/graphs/graph_data/Global_Mean_Estimates_based_on_Land_and_Ocean_Data/graph.txt). If NASA's \"Global Temperature Index\" is rendered permanently unavailable, other information from NASA may be used. If no information for 2025 is provided by NASA by March 1, 2026, 11:59 PM ET, this market will resolve based on a consensus of credible reporting.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0335,
+            "No": 0.9665
+          },
+          "volume": 1846500.859766,
+          "liquidity": 27055.04211,
+          "status": "active",
+          "url": "https://polymarket.com/event/will-2025-be-the-hottest-year-on-record",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "will-2025-be-the-hottest-year-on-record"
+        },
+        {
+          "market_id": "0x21400affa8e3fdfff07bb8421d708635bc7be52f5396268dd281ef92a31bb86f",
+          "title": "Will Avatar 3 be the top grossing movie of 2025?",
+          "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Avatar: Fire and Ash'(Avatar 3) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.068,
+            "No": 0.932
+          },
+          "volume": 2196477.945338,
+          "liquidity": 142600.20043,
+          "status": "active",
+          "url": "https://polymarket.com/event/highest-grossing-movie-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "highest-grossing-movie-in-2025"
+        },
+        {
+          "market_id": "0x08c8fffc2fb962e36d835621b82434b941a8a124f47558454d8eb666eeed59f9",
+          "title": "Will Wicked: For Good be the top grossing movie of 2025?",
+          "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Wicked: For Good' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.565,
+            "No": 0.435
+          },
+          "volume": 1258841.357148,
+          "liquidity": 58809.44949,
+          "status": "active",
+          "url": "https://polymarket.com/event/highest-grossing-movie-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "highest-grossing-movie-in-2025"
+        },
+        {
+          "market_id": "0x039b48827f3c6b83f50153715af8a66f2b74b04fcfc5def13acb3f151eeb3d81",
+          "title": "Will Superman be the top grossing movie of 2025?",
+          "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Superman' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0025,
+            "No": 0.9975
+          },
+          "volume": 5105560.275642,
+          "liquidity": 517893.26009,
+          "status": "active",
+          "url": "https://polymarket.com/event/highest-grossing-movie-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "highest-grossing-movie-in-2025"
+        },
+        {
+          "market_id": "0x1cfde498b977cf83dd6a0276fb287de98dbeb79554c61368d074736730883ad8",
+          "title": "Will The Fantastic Four: First Steps be the top grossing movie of 2025?",
+          "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'The Fantastic Four: First Steps' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0025,
+            "No": 0.9975
+          },
+          "volume": 11752803.260387,
+          "liquidity": 510975.4101,
+          "status": "active",
+          "url": "https://polymarket.com/event/highest-grossing-movie-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "highest-grossing-movie-in-2025"
+        },
+        {
+          "market_id": "0x6e9fda006161184b29a2df3754b5b9c3757f8a2adc1f44291fe9907f8fc6ae97",
+          "title": "Will Jurassic World: Rebirth be the top grossing movie of 2025?",
+          "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Jurassic World: Rebirth' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0035,
+            "No": 0.9965
+          },
+          "volume": 7168095.435774,
+          "liquidity": 504337.23065,
+          "status": "active",
+          "url": "https://polymarket.com/event/highest-grossing-movie-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "highest-grossing-movie-in-2025"
+        },
+        {
+          "market_id": "0x2993e8c18922f93787756e02dc262c193b79f05c7b952a0c9656e948f9977c88",
+          "title": "Will Captain America: Brave New World be the top grossing movie of 2025?",
+          "description": "This market will resolve to \"Yes\" if the \"Gross\" column on https://www.boxofficemojo.com/year/2025/?grossesOption=calendarGrosses shows 'Captain America: New World Order' (2025) as the film with the highest 2025 gross once data for December 31 is made available. Otherwise, this market will resolve to \"No\".\n\nNote: This market is about the movie's domestic calendar gross in 2025 - dates outside of 2025 will not count toward this movie's gross.\n\nIn the event of an exact tie the film that comes first alphabetically will be considered the winner.\n\nIf there is no final data available by January 7, 2026, 11:59 PM ET, another credible resolution source will be chosen.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0025,
+            "No": 0.9975
+          },
+          "volume": 12154311.646508,
+          "liquidity": 583820.97939,
+          "status": "active",
+          "url": "https://polymarket.com/event/highest-grossing-movie-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "highest-grossing-movie-in-2025"
+        }
+      ],
+      "result_count": 10
+    }
+  ],
+  "metadata": {
+    "query": "Polymarket search: super bowl champion 2026 ",
+    "timestamp": "2025-11-13T19:59:15.522091Z",
+    "row_count": 1,
+    "agent": "polymarket-agent",
+    "version": "1.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "query": "Will Bitcoin reach $100,000 by end of 2025?",
+      "session_id": "20251113161123_0d963f",
+      "expanded_keywords": [
+        "bitcoin price prediction",
+        "bitcoin $100k forecast",
+        "bitcoin value 2025",
+        "cryptocurrency market predictions",
+        "bitcoin price 2025",
+        "bitcoin future value",
+        "btc $100",
+        "000 prediction",
+        "cryptocurrency future prices",
+        "bitcoin price increase",
+        "btc price forecast 2025"
+      ],
+      "markets": [],
+      "result_count": 0
+    }
+  ],
+  "metadata": {
+    "query": "Polymarket search: Will Bitcoin reach $100,000 by end of 2025?",
+    "timestamp": "2025-11-13T16:11:29.638140Z",
+    "row_count": 1,
+    "agent": "polymarket-agent",
+    "version": "1.0"
+  }
+}

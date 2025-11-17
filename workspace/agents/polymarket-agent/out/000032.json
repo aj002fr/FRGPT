@@ -1,0 +1,18 @@
+{
+  "data": [
+    {
+      "query": "Are markets predicting an end to the Russia-Ukraine war soon?",
+      "session_id": "20251113174348_7d3620",
+      "expanded_keywords": [],
+      "markets": [],
+      "result_count": 0
+    }
+  ],
+  "metadata": {
+    "query": "Polymarket search: Are markets predicting an end to the Russia-Ukraine war soon?",
+    "timestamp": "2025-11-13T17:43:49.707228Z",
+    "row_count": 1,
+    "agent": "polymarket-agent",
+    "version": "1.0"
+  }
+}

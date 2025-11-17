@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "query": "federal shutdown nov 1st 2025",
+      "parsed": {
+        "topic": "federal shutdown",
+        "date": "2025-11-01",
+        "confidence": 0.95
+      },
+      "comparison_date": "2025-11-01",
+      "date_source": "specified",
+      "result": {
+        "query": "federal shutdown nov 1st 2025",
+        "parsed": {
+          "topic": "federal shutdown",
+          "date": "2025-11-01",
+          "confidence": 0.95
+        },
+        "comparison_date": "2025-11-01",
+        "date_source": "specified",
+        "markets": [],
+        "error": "No markets found about 'federal shutdown'"
+      }
+    }
+  ],
+  "metadata": {
+    "query": "Market query: federal shutdown nov 1st 2025",
+    "timestamp": "2025-11-14T16:33:48.009477Z",
+    "row_count": 1,
+    "agent": "reasoning-agent",
+    "version": "2.0",
+    "comparison_date": "2025-11-01",
+    "date_source": "specified",
+    "low_volume_threshold": 1000
+  }
+}

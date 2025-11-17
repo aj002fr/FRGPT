@@ -1,0 +1,51 @@
+{
+  "data": [
+    {
+      "symbol": "XCME.OZN.AUG25.113.C",
+      "bid": 0.0069999,
+      "ask": 0.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.VY3.21JUL25.111:75.C",
+      "bid": null,
+      "ask": 0.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.VY3.21JUL25.110.C",
+      "bid": 0.765625,
+      "ask": 0.78125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.VY3.21JUL25.111:25.C",
+      "bid": 0.0069999,
+      "ask": 0.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.VY3.21JUL25.110:25.C",
+      "bid": 0.515625,
+      "ask": 0.546875,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    }
+  ],
+  "metadata": {
+    "query": "SELECT symbol, bid, ask, price, timestamp, file_date FROM market_data WHERE symbol LIKE ? AND is_valid = 1 LIMIT 5",
+    "timestamp": "2025-11-11T21:14:45.305094Z",
+    "row_count": 5,
+    "agent": "market-data-agent",
+    "version": "1.0"
+  }
+}

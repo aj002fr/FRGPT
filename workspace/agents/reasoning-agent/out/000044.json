@@ -1,0 +1,197 @@
+{
+  "data": [
+    {
+      "query": "how has opinion on fedrral shutdown ending changed in the last 10 daysand how has that impacted price of ZN bond treasury",
+      "parsed": {
+        "topic": "federal shutdown, ZN bond treasury price",
+        "date": "2025-11-04",
+        "confidence": 0.95
+      },
+      "comparison_date": "2025-11-04",
+      "date_source": "specified",
+      "result": {
+        "query": "how has opinion on fedrral shutdown ending changed in the last 10 daysand how has that impacted price of ZN bond treasury",
+        "parsed": {
+          "topic": "federal shutdown, ZN bond treasury price",
+          "date": "2025-11-04",
+          "confidence": 0.95
+        },
+        "comparison_date": "2025-11-04",
+        "date_source": "specified",
+        "markets": [
+          {
+            "market_id": "0xbad74413f87762c2b4423dfcd72ccce4c561bc59f33e7ed474b33ef917b802a0",
+            "clob_token_ids": [
+              "98630047191775990735065696468194683121788596548341281814432978358347540174025",
+              "57078968279589423491008299590971100004307005863355466952010614894688841268930"
+            ],
+            "title": "US defaults on debt in 2025?",
+            "description": "This market will resolve to \"Yes\" if the United States federal government fails to make a scheduled payment on any Treasury note, bond, or bill at any point between April 8 and December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nIf Standard & Poor’s, Moody’s, or Fitch publicly classify any U.S. sovereign debt as being in default during the qualifying period this will qualify for a “Yes” resolution. \n\nThe resolution source will be official information from the U.S. Department of the Treasury, Standard & Poor’s, Moody’s, and Fitch.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0105,
+              "No": 0.9895
+            },
+            "volume": 113114.530282,
+            "liquidity": 11872.70676,
+            "status": "active",
+            "url": "https://polymarket.com/event/us-defaults-on-debt-in-2025",
+            "slug": "us-defaults-on-debt-in-2025",
+            "created_at": "2025-04-08T15:18:34.918282Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.75,
+            "relevance_reason": "The market is related to US treasury bonds, which could be affected by a federal shutdown, but it does not directly address the query.",
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0182,
+              "no": 0.9818
+            },
+            "historical_date": "2025-11-04",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -0.77,
+              "direction": "down"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $113,115"
+          },
+          {
+            "market_id": "0x8e92751b30e2fa4db04f775006743498512526a027dc4e11d9069404471b644b",
+            "clob_token_ids": [
+              "43517464021875839716921813218503830908530655976163499455005835852618985686326",
+              "87792450881523546724093693087007760129168913572052580982166176445195073519869"
+            ],
+            "title": "Major U.S. bank bailout in 2025?",
+            "description": "This market will resolve to \"Yes\" if a U.S. bank with total assets exceeding $50 billion as of December 31, 2024 (see:https://www.federalreserve.gov/releases/lbr/current/), is bailed out by the U.S. federal government by December 31, 2025, 11:59 PM ET. Otherwise this market will resolve to “No”.\n\nA bailout is defined as any of these actions in direct response to directly related to solvency, liquidity, or capital adequacy concerns.\n\n-Establishing a Federal Reserve emergency lending facility\n-Creating an FDIC-assisted resolution or bridge bank\n-A U.S. Treasury capital injection\n-A publicly disclosed, regulatory-facilitated acquisition\n\nAn official announcement from the U.S. government that they are taking any of these actions will qualify regardless of if/when the action occurs.\n \nRoutine access to standing facilities (such as the discount window or BTFP) or participation in stress tests, capital raises, or ordinary supervision will not on their own qualify. \n\nIf a bank experiences distress but is acquired privately without public intervention or coordination, this will not qualify.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.065,
+              "No": 0.935
+            },
+            "volume": 30092.332534,
+            "liquidity": 2817.809,
+            "status": "active",
+            "url": "https://polymarket.com/event/major-us-bank-bailout-in-2025",
+            "slug": "major-us-bank-bailout-in-2025",
+            "created_at": "2025-04-10T19:52:04.338102Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.35,
+            "relevance_reason": "The market is related to US financial situation, which could be affected by a federal shutdown, but it does not directly address the query.",
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0934,
+              "no": 0.9066
+            },
+            "historical_date": "2025-11-04",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -2.84,
+              "direction": "down"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $30,092"
+          },
+          {
+            "market_id": "0x714ceefda8cdb35da63d794652f2a2d8043aa66f02da4fe3a75eb211d32fb086",
+            "clob_token_ids": [
+              "65598631162871272129496882333703198651248564785616630126875649168364253959090",
+              "42213186210951283544594199364978633758902026315814508519198720225771267472777"
+            ],
+            "title": "Will Trump remove municipal bond tax exemption in 2025?",
+            "description": "This market will resolve to \"Yes\" if Donald Trump signs a bill into law or performs any executive action changing US tax law to eliminate the federal tax exemption on interest from municipal bonds by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nIf the exemption is eliminated only for specific types or classes of municipal bonds (e.g., only newly issued bonds, only bonds from certain states or localities, or only bonds purchased after a certain date), it will still count toward a \"Yes\" resolution for this market.\n\nIf the bill is signed into law, or executive action is instituted before the resolution date, it will suffice to resolve this market to \"Yes\" regardless of when it takes effect.\n\nThe primary resolution source for this market will be official information from the US federal government, however a consensus of credible reporting will also be used.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.072,
+              "No": 0.928
+            },
+            "volume": 28835.986025,
+            "liquidity": 3012.58591,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-trump-remove-municipal-bond-tax-exemption-in-2025",
+            "slug": "will-trump-remove-municipal-bond-tax-exemption-in-2025",
+            "created_at": "2025-03-25T20:47:03.993695Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "relevance_score": 0.3,
+            "relevance_reason": "The market is related to bonds, but not specifically to ZN bond treasury price or federal shutdown.",
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0133,
+              "no": 0.9867
+            },
+            "historical_date": "2025-11-04",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": 5.87,
+              "direction": "up"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $28,836"
+          },
+          {
+            "market_id": "0x318b222c1435b47c338e66ca6001f782711186a488ae7b7248f7edc6ff076a83",
+            "clob_token_ids": [
+              "56738600572035832904895845056468792275697823297413384908752239327866518310010",
+              "63773739594775606083258239254748928077067768053882704658119720069071630213026"
+            ],
+            "title": "Will Trump & Elon reduce the deficit in 2025? ",
+            "description": "The U.S. federal budget deficit for December 2024 was $86,731,619,013.29 (see: https://fiscaldata.treasury.gov/datasets/monthly-treasury-statement/summary-of-receipts-outlays-and-the-deficit-surplus-of-the-u-s-government). \n\nThis market will resolve to \"Yes\" if the Monthly Treasury Statement (MTS) reports a lower monthly deficit in December 2025 than in December 2024. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source will be the Monthly Treasury Statement (MTS) published by the U.S. Department of the Treasury (fiscaldata.treasury.gov). The month surplus can be found in the column labeled \"Current Month Deficit Surplus Amount\" in the the table \"Summary of Receipts, Outlays, and Surplus or Deficit” in the MTS (see: https://fiscaldata.treasury.gov/datasets/monthly-treasury-statement/summary-of-receipts-outlays-and-the-deficit-surplus-of-the-u-s-government).  If no report is published by February 28, 2026, 11:59 PM ET another credible source will be used. \n",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.152,
+              "No": 0.848
+            },
+            "volume": 150766.791517,
+            "liquidity": 7391.04288,
+            "status": "active",
+            "url": "https://polymarket.com/event/will-trump-elon-reduce-the-deficit-in-2025",
+            "slug": "will-trump-elon-reduce-the-deficit-in-2025",
+            "created_at": "2025-01-31T21:33:10.262428Z",
+            "close_time": "2026-02-28T12:00:00Z",
+            "relevance_score": 0.2,
+            "relevance_reason": "The market is related to federal budget, but it does not directly address the federal shutdown or ZN bond treasury price.",
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.1687,
+              "no": 0.8313
+            },
+            "historical_date": "2025-11-04",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -1.67,
+              "direction": "down"
+            },
+            "low_volume_flag": false,
+            "volume_note": "Volume: $150,767"
+          }
+        ],
+        "metadata": {
+          "total_markets": 4,
+          "low_volume_count": 0,
+          "comparison_note": "Comparing current vs 2025-11-04 (specified)"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "query": "Market query: how has opinion on fedrral shutdown ending changed in the last 10 daysand how has that impacted price of ZN bond treasury",
+    "timestamp": "2025-11-14T18:47:39.211489Z",
+    "row_count": 1,
+    "agent": "reasoning-agent",
+    "version": "2.0",
+    "comparison_date": "2025-11-04",
+    "date_source": "specified",
+    "low_volume_threshold": 1000
+  }
+}

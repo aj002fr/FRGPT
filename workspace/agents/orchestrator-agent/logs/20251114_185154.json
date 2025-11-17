@@ -1,0 +1,12 @@
+{
+  "run_id": "20251114_185154",
+  "query": "What were the predictions for when federal shutdown is ending during thr last 10 days and how has the marklet price data changed in this period",
+  "output_path": null,
+  "status": "failed",
+  "validation_passed": null,
+  "timestamp": "2025-11-14T18:52:06.636220+00:00",
+  "duration_ms": 11897.75,
+  "agent": "orchestrator-agent",
+  "version": "1.0",
+  "error": "'charmap' codec can't encode character '\\u2713' in position 6036: character maps to <undefined>"
+}

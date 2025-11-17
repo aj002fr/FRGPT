@@ -1,0 +1,209 @@
+{
+  "data": [
+    {
+      "query": " gov shutdown",
+      "session_id": "20251113180114_d6885d",
+      "expanded_keywords": [],
+      "markets": [
+        {
+          "market_id": "0x4319532e181605cb15b1bd677759a3bc7f7394b2fdf145195b700eeaedfd5221",
+          "title": "Fed rate hike in 2025?",
+          "description": "This market will resolve to “Yes” if the upper bound of the target federal funds rate is increased at any point between January 1, 2025 and the Fed's December 2025 meeting, currently scheduled for December 9-10. Otherwise, this market will resolve to “No”.\n\nThis market may not resolve to \"No\" until the Fed has released its rate changes information following its December meeting.\n\nThe primary resolution source for this market will be the official website of the Federal Reserve (https://www.federalreserve.gov/monetarypolicy/openmarket.htm), however a consensus of credible reporting may also be used.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.008,
+            "No": 0.992
+          },
+          "volume": 760437.574361,
+          "liquidity": 63069.08919,
+          "status": "active",
+          "url": "https://polymarket.com/event/fed-rate-hike-in-2025",
+          "close_time": "2025-12-10T12:00:00Z",
+          "slug": "fed-rate-hike-in-2025"
+        },
+        {
+          "market_id": "0xfa48a99317daef1654d5b03e30557c4222f276657275628d9475e141c64b545d",
+          "title": "US recession in 2025?",
+          "description": "This market will resolve to “Yes”, if either of the following conditions are met:\n\n1.  The National Bureau of Economic Research (NBER) publicly announces that a recession has occurred in the United States, at any point in 2025, with the announcement made by December 31, 2025, 11:59 PM ET.\n\n2.  The seasonally adjusted annualized percent change in quarterly U.S. real GDP from the previous quarter is less than 0.0 for two consecutive quarters between Q4 2024 and Q4 2025 (inclusive), as reported by the Bureau of Economic Analysis (BEA). \n\nOtherwise, this market will resolve to \"No\". \n\nNote that advance estimates will be considered. For example, if upon release, the advance estimate for Q2 2025 was negative, and the Q1 2025's most recent, up-to-date estimate was also negative, this market would resolve to \"Yes\". If on December 31, 2025 the latest estimate for quarterly GDP in Q3 2025 was negative, this market will stay open until the Advance estimate of Q4 2025 is published, at which point it will resolve to \"Yes\" if Q4 2025 was negative or if the NBER declares a recession by then.\n\nThe resolution source will be the official announcements from the NBER and the BEA’s estimate of seasonally adjusted annualized percent change in quarterly US real GDP from previous quarters as released by the Bureau of Economic Analysis (BEA), https://www.bea.gov/data/gdp/gross-domestic-product",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.038,
+            "No": 0.962
+          },
+          "volume": 10083232.883307,
+          "liquidity": 74717.77425,
+          "status": "active",
+          "url": "https://polymarket.com/event/us-recession-in-2025",
+          "close_time": "2026-02-28T12:00:00Z",
+          "slug": "us-recession-in-2025"
+        },
+        {
+          "market_id": "0xcddb4f52babca280f8e5fc4b9146f2520f0bfb88e134ff9ac8d52ea674185d79",
+          "title": "Fed emergency rate cut in 2025?",
+          "description": "This market will resolve to \"Yes\" if the Federal Open Market Committee (FOMC) holds an emergency meeting after which the upper bound of the target federal funds rate is lowered between January 1 and December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nAn emergency meeting is defined as any unscheduled meeting called by the Federal Reserve Board or the Federal Open Market Committee (FOMC) apart from the regular eight pre-scheduled meetings for 2025.\n\nThe resolution source will be official announcements from the Federal Reserve’s website (federalreserve.gov) or credible news sources reporting on the emergency meeting.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0255,
+            "No": 0.9745
+          },
+          "volume": 1200896.443985,
+          "liquidity": 48782.37727,
+          "status": "active",
+          "url": "https://polymarket.com/event/fed-emergency-rate-cut-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "fed-emergency-rate-cut-in-2025"
+        },
+        {
+          "market_id": "0x5a54c2fe06f97a6abf5f7790d9d19e42680ae1ca61b344360deabaab28bd0f30",
+          "title": "Weed rescheduled in 2025?",
+          "description": "This market will resolve to \"Yes\" if marijuana is rescheduled down from I to any other level (or is unscheduled completely) by the Drug Enforcement Agency of the United States (https://www.dea.gov/drug-information/drug-scheduling), by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the US government, however a consensus of credible reporting will also be used.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.08,
+            "No": 0.92
+          },
+          "volume": 70032.274556,
+          "liquidity": 5850.3639,
+          "status": "active",
+          "url": "https://polymarket.com/event/weed-rescheduled-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "weed-rescheduled-in-2025"
+        },
+        {
+          "market_id": "0x05af636e0989accb08334a74f69e5368e0aa28fe498fd16a3ca991e6dc5ae2cc",
+          "title": "Will 2 Fed rate cuts happen in 2025?",
+          "description": "The FED interest rates are defined in this market by the upper bound of the target federal funds range. The decisions on the target federal fund range are made by the Federal Open Market Committee (FOMC) meetings.\n\nThis market will resolve to “Yes” if the there are exactly 2 cuts of 25 basis points by the Fed's December meeting (including any cuts made during Dec meeting). Otherwise, this market will resolve to “No.”\n\nThis market may resolve to \"Yes\" immediately after the statement from the Fed's December 2025 meeting has been released if there has been exactly 2 rate cuts by then.\n\nFor example, if the FED cuts rates by 50 bps after a meeting, it would be considered 2 cuts (of 25 bps each). If there are 3 or more rate cuts at any point before this market's resolution date, this market will resolve to \"No\".\n\nNote that cuts between 1-24 bps (inclusive) will also be considered 1 rate cut.\n\nThe resolution source for this market will be FOMC statements after meetings scheduled in 2025 according to the official calendar: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm. The level and change of the target federal funds rate is also published at the official website of the Federal Reserve at https://www.federalreserve.gov/monetarypolicy/openmarket.htm.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.445,
+            "No": 0.555
+          },
+          "volume": 2762313.388129,
+          "liquidity": 42390.5919,
+          "status": "active",
+          "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2025",
+          "close_time": "2025-12-10T12:00:00Z",
+          "slug": "how-many-fed-rate-cuts-in-2025"
+        },
+        {
+          "market_id": "0x6df2f2ca434b5bacaef33d6b24edf42845199f4f794e66580de2d2c880a25275",
+          "title": "Will 3 Fed rate cuts happen in 2025?",
+          "description": "The FED interest rates are defined in this market by the upper bound of the target federal funds range. The decisions on the target federal fund range are made by the Federal Open Market Committee (FOMC) meetings.\n\nThis market will resolve to “Yes” if the there are exactly 3 cuts of 25 basis points by the Fed's December meeting (including any cuts made during Dec meeting). Otherwise, this market will resolve to “No.”\n\nThis market may resolve to \"Yes\" immediately after the statement from the Fed's December 2025 meeting has been released if there has been exactly 3 rate cuts by then.\n\nNote that cuts between 1-24 bps (inclusive) will also be considered 1 rate cut.\n\nFor example, if the FED cuts rates by 50 bps after a meeting, it would be considered 2 cuts (of 25 bps each). If there are 4 or more rate cuts at any point before this market's resolution date, this market will resolve to \"No\".\n\nThe resolution source for this market will be FOMC statements after meetings scheduled in 2025 according to the official calendar: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm. The level and change of the target federal funds rate is also published at the official website of the Federal Reserve at https://www.federalreserve.gov/monetarypolicy/openmarket.htm.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.545,
+            "No": 0.455
+          },
+          "volume": 2755777.451799,
+          "liquidity": 31408.3733,
+          "status": "active",
+          "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2025",
+          "close_time": "2025-12-10T12:00:00Z",
+          "slug": "how-many-fed-rate-cuts-in-2025"
+        },
+        {
+          "market_id": "0xc2846f35e85eb09a094edbd4e93e345d3c682dc0436615adc27122222fccbd81",
+          "title": "Will 4 Fed rate cuts happen in 2025?",
+          "description": "The FED interest rates are defined in this market by the upper bound of the target federal funds range. The decisions on the target federal fund range are made by the Federal Open Market Committee (FOMC) meetings.\n\nThis market will resolve to “Yes” if the there are exactly 4 cuts of 25 basis points by the Fed's December meeting (including any cuts made during Dec meeting). Otherwise, this market will resolve to “No.”\n\nThis market may resolve to \"Yes\" immediately after the statement from the Fed's December 2025 meeting has been released if there has been exactly 4 rate cuts by then.\n\nFor example, if the FED cuts rates by 50 bps after a meeting, it would be considered 2 cuts (of 25 bps each). If there are 5 or more rate cuts at any point before this market's resolution date, this market will resolve to \"No\".\n\nNote that cuts between 1-24 bps (inclusive) will also be considered 1 rate cut.\n\nThe resolution source for this market will be FOMC statements after meetings scheduled in 2025 according to the official calendar: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm. The level and change of the target federal funds rate is also published at the official website of the Federal Reserve at https://www.federalreserve.gov/monetarypolicy/openmarket.htm.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0225,
+            "No": 0.9775
+          },
+          "volume": 2708881.799846,
+          "liquidity": 89034.53163,
+          "status": "active",
+          "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2025",
+          "close_time": "2025-12-10T12:00:00Z",
+          "slug": "how-many-fed-rate-cuts-in-2025"
+        },
+        {
+          "market_id": "0x6ee22365b6602d928aa7136f549cc0d718bb16b044a6d15191041b84b5f1f43d",
+          "title": "Will 5 Fed rate cuts happen in 2025?",
+          "description": "The FED interest rates are defined in this market by the upper bound of the target federal funds range. The decisions on the target federal fund range are made by the Federal Open Market Committee (FOMC) meetings.\n\nThis market will resolve to “Yes” if the there are exactly 5 cuts of 25 basis points by the Fed's December meeting (including any cuts made during Dec meeting). Otherwise, this market will resolve to “No.”\n\nThis market may resolve to \"Yes\" immediately after the statement from the Fed's December 2025 meeting has been released if there has been exactly 5 rate cuts by then.\n\nFor example, if the FED cuts rates by 50 bps after a meeting, it would be considered 2 cuts (of 25 bps each). If there are 6 or more rate cuts at any point before this market's resolution date, this market will resolve to \"No\".\n\nNote that cuts between 1-24 bps (inclusive) will also be considered 1 rate cut.\n\nThe resolution source for this market will be FOMC statements after meetings scheduled in 2025 according to the official calendar: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm. The level and change of the target federal funds rate is also published at the official website of the Federal Reserve at https://www.federalreserve.gov/monetarypolicy/openmarket.htm.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.004,
+            "No": 0.996
+          },
+          "volume": 1972722.047123,
+          "liquidity": 181715.07479,
+          "status": "active",
+          "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2025",
+          "close_time": "2025-12-10T12:00:00Z",
+          "slug": "how-many-fed-rate-cuts-in-2025"
+        },
+        {
+          "market_id": "0x12b6268efb832fe64bb746b9f50a51245b761d6b170e172b3cd81a7c4f39432b",
+          "title": "Will 8+ Fed rate cuts happen in 2025?",
+          "description": "The FED interest rates are defined in this market by the upper bound of the target federal funds range. The decisions on the target federal fund range are made by the Federal Open Market Committee (FOMC) meetings.\n\nThis market will resolve to “Yes” if the there are 8 or more cuts of 25 basis points by the Fed's December meeting (including any cuts made during Dec meeting). Otherwise, this market will resolve to “No.”\n\nFor example, if the FED cuts rates by 50 bps after a meeting, it would be considered 2 cuts (of 25 bps each).\n\nNote that cuts between 1-24 bps (inclusive) will also be considered 1 rate cut.\n\nThe resolution source for this market will be FOMC statements after meetings scheduled in 2025 according to the official calendar: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm. The level and change of the target federal funds rate is also published at the official website of the Federal Reserve at https://www.federalreserve.gov/monetarypolicy/openmarket.htm.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0015,
+            "No": 0.9985
+          },
+          "volume": 2350138.377117,
+          "liquidity": 170228.02707,
+          "status": "active",
+          "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2025",
+          "close_time": "2025-12-10T12:00:00Z",
+          "slug": "how-many-fed-rate-cuts-in-2025"
+        },
+        {
+          "market_id": "0xf4d03ce9ce65ea06654f23e26dead828005511d65bb650cd5a9dc77891406d12",
+          "title": "Will 7 Fed rate cuts happen in 2025?",
+          "description": "The FED interest rates are defined in this market by the upper bound of the target federal funds range. The decisions on the target federal fund range are made by the Federal Open Market Committee (FOMC) meetings.\n\nThis market will resolve to “Yes” if the there are exactly 7 cuts of 25 basis points by the Fed's December meeting (including any cuts made during Dec meeting). Otherwise, this market will resolve to “No.”\n\nThis market may resolve to \"Yes\" immediately after the statement from the Fed's December 2025 meeting has been released if there has been exactly 7 rate cuts by then.\n\nFor example, if the FED cuts rates by 50 bps after a meeting, it would be considered 2 cuts (of 25 bps each). If there are 8 or more rate cuts at any point before this market's resolution date, this market will resolve to \"No\".\n\nNote that cuts between 1-24 bps (inclusive) will also be considered 1 rate cut.\n\nThe resolution source for this market will be FOMC statements after meetings scheduled in 2025 according to the official calendar: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm. The level and change of the target federal funds rate is also published at the official website of the Federal Reserve at https://www.federalreserve.gov/monetarypolicy/openmarket.htm.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0005,
+            "No": 0.9995
+          },
+          "volume": 2920584.49664,
+          "liquidity": 286991.45341,
+          "status": "active",
+          "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2025",
+          "close_time": "2025-12-10T12:00:00Z",
+          "slug": "how-many-fed-rate-cuts-in-2025"
+        }
+      ],
+      "result_count": 10
+    }
+  ],
+  "metadata": {
+    "query": "Polymarket search:  gov shutdown",
+    "timestamp": "2025-11-13T18:01:15.612376Z",
+    "row_count": 1,
+    "agent": "polymarket-agent",
+    "version": "1.0"
+  }
+}

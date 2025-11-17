@@ -1,0 +1,29 @@
+{
+  "data": [
+    {
+      "query": "Will federal shutdown end by November 15, 2025?",
+      "session_id": "20251113161140_02ab6e",
+      "expanded_keywords": [
+        "us government shutdown 2025",
+        "federal shutdown end date",
+        "us government shutdown predictions",
+        "2025 federal shutdown timeline",
+        "us government shutdown forecast",
+        "predictions for 2025 government shutdown",
+        "2025 federal budget predictions",
+        "us fiscal policy 2025 predictions",
+        "predicted date for end of federal shutdown",
+        "us shutdown 2025 predictions"
+      ],
+      "markets": [],
+      "result_count": 0
+    }
+  ],
+  "metadata": {
+    "query": "Polymarket search: Will federal shutdown end by November 15, 2025?",
+    "timestamp": "2025-11-13T16:11:45.530956Z",
+    "row_count": 1,
+    "agent": "polymarket-agent",
+    "version": "1.0"
+  }
+}

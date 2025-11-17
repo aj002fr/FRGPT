@@ -1,0 +1,91 @@
+{
+  "data": [
+    {
+      "query": "Will Bitcoin reach ,000?",
+      "session_id": "20251113165902_50dec0",
+      "expanded_keywords": [],
+      "markets": [
+        {
+          "market_id": "0x4319532e181605cb15b1bd677759a3bc7f7394b2fdf145195b700eeaedfd5221",
+          "title": "Fed rate hike in 2025?",
+          "description": "This market will resolve to “Yes” if the upper bound of the target federal funds rate is increased at any point between January 1, 2025 and the Fed's December 2025 meeting, currently scheduled for December 9-10. Otherwise, this market will resolve to “No”.\n\nThis market may not resolve to \"No\" until the Fed has released its rate changes information following its December meeting.\n\nThe primary resolution source for this market will be the official website of the Federal Reserve (https://www.federalreserve.gov/monetarypolicy/openmarket.htm), however a consensus of credible reporting may also be used.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.008,
+            "No": 0.992
+          },
+          "volume": 760415.574361,
+          "liquidity": 62857.55029,
+          "status": "active",
+          "url": "https://polymarket.com/event/0x4319532e181605cb15b1bd677759a3bc7f7394b2fdf145195b700eeaedfd5221",
+          "close_time": "2025-12-10T12:00:00Z"
+        },
+        {
+          "market_id": "0xfa48a99317daef1654d5b03e30557c4222f276657275628d9475e141c64b545d",
+          "title": "US recession in 2025?",
+          "description": "This market will resolve to “Yes”, if either of the following conditions are met:\n\n1.  The National Bureau of Economic Research (NBER) publicly announces that a recession has occurred in the United States, at any point in 2025, with the announcement made by December 31, 2025, 11:59 PM ET.\n\n2.  The seasonally adjusted annualized percent change in quarterly U.S. real GDP from the previous quarter is less than 0.0 for two consecutive quarters between Q4 2024 and Q4 2025 (inclusive), as reported by the Bureau of Economic Analysis (BEA). \n\nOtherwise, this market will resolve to \"No\". \n\nNote that advance estimates will be considered. For example, if upon release, the advance estimate for Q2 2025 was negative, and the Q1 2025's most recent, up-to-date estimate was also negative, this market would resolve to \"Yes\". If on December 31, 2025 the latest estimate for quarterly GDP in Q3 2025 was negative, this market will stay open until the Advance estimate of Q4 2025 is published, at which point it will resolve to \"Yes\" if Q4 2025 was negative or if the NBER declares a recession by then.\n\nThe resolution source will be the official announcements from the NBER and the BEA’s estimate of seasonally adjusted annualized percent change in quarterly US real GDP from previous quarters as released by the Bureau of Economic Analysis (BEA), https://www.bea.gov/data/gdp/gross-domestic-product",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.038,
+            "No": 0.962
+          },
+          "volume": 10083118.803307,
+          "liquidity": 74730.61225,
+          "status": "active",
+          "url": "https://polymarket.com/event/0xfa48a99317daef1654d5b03e30557c4222f276657275628d9475e141c64b545d",
+          "close_time": "2026-02-28T12:00:00Z"
+        },
+        {
+          "market_id": "0xcddb4f52babca280f8e5fc4b9146f2520f0bfb88e134ff9ac8d52ea674185d79",
+          "title": "Fed emergency rate cut in 2025?",
+          "description": "This market will resolve to \"Yes\" if the Federal Open Market Committee (FOMC) holds an emergency meeting after which the upper bound of the target federal funds rate is lowered between January 1 and December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nAn emergency meeting is defined as any unscheduled meeting called by the Federal Reserve Board or the Federal Open Market Committee (FOMC) apart from the regular eight pre-scheduled meetings for 2025.\n\nThe resolution source will be official announcements from the Federal Reserve’s website (federalreserve.gov) or credible news sources reporting on the emergency meeting.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0255,
+            "No": 0.9745
+          },
+          "volume": 1200896.443985,
+          "liquidity": 49333.06459,
+          "status": "active",
+          "url": "https://polymarket.com/event/0xcddb4f52babca280f8e5fc4b9146f2520f0bfb88e134ff9ac8d52ea674185d79",
+          "close_time": "2025-12-31T12:00:00Z"
+        },
+        {
+          "market_id": "0x1bbdc459d73e6972f5ba1f687d739fde70a9774f4875611699fb00a9eb28f090",
+          "title": "Tether insolvent in 2025?",
+          "description": "This market will resolve to \"Yes\" if official information released by Tether Limited Inc., official representatives of Tether Limited Inc. (e.g. lawyers, spokespeople, etc.), or a consensus of credible reporting announces by December 31, 2025, 11:59 PM ET that Tether Limited Inc. is insolvent or is filing/has filed for any variety of bankruptcy. Otherwise, this market will resolve to \"No\".",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0095,
+            "No": 0.9905
+          },
+          "volume": 323672.748077,
+          "liquidity": 41669.12663,
+          "status": "active",
+          "url": "https://polymarket.com/event/0x1bbdc459d73e6972f5ba1f687d739fde70a9774f4875611699fb00a9eb28f090",
+          "close_time": "2025-12-31T12:00:00Z"
+        }
+      ],
+      "result_count": 4
+    }
+  ],
+  "metadata": {
+    "query": "Polymarket search: Will Bitcoin reach ,000?",
+    "timestamp": "2025-11-13T16:59:03.202608Z",
+    "row_count": 1,
+    "agent": "polymarket-agent",
+    "version": "1.0"
+  }
+}

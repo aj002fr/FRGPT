@@ -1,0 +1,13 @@
+{
+  "run_id": "20251113_160259",
+  "query": "Will Bitcoin reach $100,000 by end of 2025?",
+  "session_id": "20251113160259_22c3e5",
+  "output_path": null,
+  "status": "failed",
+  "result_count": 0,
+  "timestamp": "2025-11-13T16:03:09.560215+00:00",
+  "duration_ms": 9602.32,
+  "agent": "polymarket-agent",
+  "version": "1.0",
+  "error": "'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte"
+}

@@ -1,0 +1,9 @@
+# Testing
+pytest>=7.4.0
+
+# AI/LLM Integration (for Reasoning Agent)
+openai>=2.0.0
+
+# Optional: Environment management (not required for core functionality)
+# python-dotenv>=1.0.0
+

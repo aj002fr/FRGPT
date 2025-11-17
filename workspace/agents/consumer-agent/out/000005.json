@@ -1,0 +1,28 @@
+{
+  "data": [
+    {
+      "source": "market-data-agent",
+      "source_query": "SELECT symbol, bid, ask, price, timestamp, file_date FROM market_data WHERE file_date = ? AND is_valid = 1 LIMIT 5",
+      "source_row_count": 5,
+      "timestamp": "2025-11-11T21:14:45.898150+00:00",
+      "statistics": {
+        "total_records": 5,
+        "records_with_bid": 4,
+        "records_with_ask": 5,
+        "bid_min": 0.0069999,
+        "bid_max": 1.0,
+        "bid_avg": 0.275187475,
+        "ask_min": 0.015625,
+        "ask_max": 1.015625,
+        "ask_avg": 0.2375
+      }
+    }
+  ],
+  "metadata": {
+    "query": "Processed from Z:\\Aastha\\market_data_puller\\workspace\\agents\\market-data-agent\\out\\000007.json",
+    "timestamp": "2025-11-11T21:14:46.026856Z",
+    "row_count": 1,
+    "agent": "consumer-agent",
+    "version": "1.0"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "data": [
+    {
+      "query": "Fed rate cut",
+      "session_id": "20251113173444_5942fd",
+      "expanded_keywords": [],
+      "markets": [
+        {
+          "market_id": "0x05af636e0989accb08334a74f69e5368e0aa28fe498fd16a3ca991e6dc5ae2cc",
+          "title": "Will 2 Fed rate cuts happen in 2025?",
+          "description": "The FED interest rates are defined in this market by the upper bound of the target federal funds range. The decisions on the target federal fund range are made by the Federal Open Market Committee (FOMC) meetings.\n\nThis market will resolve to “Yes” if the there are exactly 2 cuts of 25 basis points by the Fed's December meeting (including any cuts made during Dec meeting). Otherwise, this market will resolve to “No.”\n\nThis market may resolve to \"Yes\" immediately after the statement from the Fed's December 2025 meeting has been released if there has been exactly 2 rate cuts by then.\n\nFor example, if the FED cuts rates by 50 bps after a meeting, it would be considered 2 cuts (of 25 bps each). If there are 3 or more rate cuts at any point before this market's resolution date, this market will resolve to \"No\".\n\nNote that cuts between 1-24 bps (inclusive) will also be considered 1 rate cut.\n\nThe resolution source for this market will be FOMC statements after meetings scheduled in 2025 according to the official calendar: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm. The level and change of the target federal funds rate is also published at the official website of the Federal Reserve at https://www.federalreserve.gov/monetarypolicy/openmarket.htm.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.435,
+            "No": 0.565
+          },
+          "volume": 2759529.092674,
+          "liquidity": 40170.8659,
+          "status": "active",
+          "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2025",
+          "close_time": "2025-12-10T12:00:00Z",
+          "slug": "how-many-fed-rate-cuts-in-2025"
+        },
+        {
+          "market_id": "0x6df2f2ca434b5bacaef33d6b24edf42845199f4f794e66580de2d2c880a25275",
+          "title": "Will 3 Fed rate cuts happen in 2025?",
+          "description": "The FED interest rates are defined in this market by the upper bound of the target federal funds range. The decisions on the target federal fund range are made by the Federal Open Market Committee (FOMC) meetings.\n\nThis market will resolve to “Yes” if the there are exactly 3 cuts of 25 basis points by the Fed's December meeting (including any cuts made during Dec meeting). Otherwise, this market will resolve to “No.”\n\nThis market may resolve to \"Yes\" immediately after the statement from the Fed's December 2025 meeting has been released if there has been exactly 3 rate cuts by then.\n\nNote that cuts between 1-24 bps (inclusive) will also be considered 1 rate cut.\n\nFor example, if the FED cuts rates by 50 bps after a meeting, it would be considered 2 cuts (of 25 bps each). If there are 4 or more rate cuts at any point before this market's resolution date, this market will resolve to \"No\".\n\nThe resolution source for this market will be FOMC statements after meetings scheduled in 2025 according to the official calendar: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm. The level and change of the target federal funds rate is also published at the official website of the Federal Reserve at https://www.federalreserve.gov/monetarypolicy/openmarket.htm.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.545,
+            "No": 0.455
+          },
+          "volume": 2755761.451799,
+          "liquidity": 29903.4086,
+          "status": "active",
+          "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2025",
+          "close_time": "2025-12-10T12:00:00Z",
+          "slug": "how-many-fed-rate-cuts-in-2025"
+        },
+        {
+          "market_id": "0xc2846f35e85eb09a094edbd4e93e345d3c682dc0436615adc27122222fccbd81",
+          "title": "Will 4 Fed rate cuts happen in 2025?",
+          "description": "The FED interest rates are defined in this market by the upper bound of the target federal funds range. The decisions on the target federal fund range are made by the Federal Open Market Committee (FOMC) meetings.\n\nThis market will resolve to “Yes” if the there are exactly 4 cuts of 25 basis points by the Fed's December meeting (including any cuts made during Dec meeting). Otherwise, this market will resolve to “No.”\n\nThis market may resolve to \"Yes\" immediately after the statement from the Fed's December 2025 meeting has been released if there has been exactly 4 rate cuts by then.\n\nFor example, if the FED cuts rates by 50 bps after a meeting, it would be considered 2 cuts (of 25 bps each). If there are 5 or more rate cuts at any point before this market's resolution date, this market will resolve to \"No\".\n\nNote that cuts between 1-24 bps (inclusive) will also be considered 1 rate cut.\n\nThe resolution source for this market will be FOMC statements after meetings scheduled in 2025 according to the official calendar: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm. The level and change of the target federal funds rate is also published at the official website of the Federal Reserve at https://www.federalreserve.gov/monetarypolicy/openmarket.htm.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0225,
+            "No": 0.9775
+          },
+          "volume": 2708818.289645,
+          "liquidity": 87115.18951,
+          "status": "active",
+          "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2025",
+          "close_time": "2025-12-10T12:00:00Z",
+          "slug": "how-many-fed-rate-cuts-in-2025"
+        }
+      ],
+      "result_count": 3
+    }
+  ],
+  "metadata": {
+    "query": "Polymarket search: Fed rate cut",
+    "timestamp": "2025-11-13T17:34:45.320330Z",
+    "row_count": 1,
+    "agent": "polymarket-agent",
+    "version": "1.0"
+  }
+}

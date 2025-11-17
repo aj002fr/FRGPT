@@ -1,0 +1,14 @@
+{
+  "run_id": "20251114_135853",
+  "query": "What was opinion on Nov 1 2024 about Bitcoin?",
+  "session_id": "20251114_135853_14cfad",
+  "parsed_intent": "historical_opinion",
+  "parsed_topic": "Bitcoin",
+  "parsed_date": "2024-11-01",
+  "output_path": "Z:\\Aastha\\market_data_puller\\workspace\\agents\\reasoning-agent\\out\\000027.json",
+  "status": "success",
+  "error": null,
+  "timestamp": "2025-11-14T13:59:01.313725+00:00",
+  "agent": "reasoning-agent",
+  "version": "1.0"
+}

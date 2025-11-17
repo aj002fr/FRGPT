@@ -1,0 +1,106 @@
+{
+  "data": [
+    {
+      "intent": "historical_opinion",
+      "query": "What was opinion on November 1 about government shutdown?",
+      "parsed_query": {
+        "intent": "historical_opinion",
+        "topic": "What was opinion on November 1 about government shutdown?",
+        "date": null,
+        "start_date": null,
+        "end_date": null,
+        "confidence": 0.5
+      },
+      "result": {
+        "intent": "historical_opinion",
+        "query": "What was opinion on November 1 about government shutdown?",
+        "parsed": {
+          "intent": "historical_opinion",
+          "topic": "What was opinion on November 1 about government shutdown?",
+          "date": null,
+          "start_date": null,
+          "end_date": null,
+          "confidence": 0.5
+        },
+        "date": null,
+        "markets": [
+          {
+            "market_id": "0xaa4a28609b8687578cbe1bcc3825de4e1b6166f2c39e4c649c738a25f852e003",
+            "title": "Le Pen sentence reduced in 2025?",
+            "description": "On March 31, President of the French National Rally parliamentary group Marine Le Pen was sentenced to 4 years in prison, 2 of which are suspended, and fined €100,000. Additionally, she has been banned from running for office for 5 years. She is expected to appeal the case. You can read more about that here: https://www.bbc.com/news/articles/cwyq40yz70qo\n\nThis market will resolve to \"Yes\" if Marine Le Pen receives a reduced sentence as a result of a formal appeal decision by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\n A reduced sentence includes any official change that lessens the severity or length of the original sentence, such as a shorter prison term, a reduced fine, or restoration of Le Pen's eligibility to run for public office.\n\nThe reduced sentence must apply to the referenced case, where she was convicted of \"Abuse of Public Funds\".\n\nThe primary resolution source for this market will be information from the government of France, however a consensus of credible reporting will also be used.\n\n",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.014,
+              "No": 0.986
+            },
+            "volume": 25061.980254,
+            "liquidity": 5252.7954,
+            "status": "active",
+            "url": "https://polymarket.com/event/le-pen-sentence-reduced-in-2025",
+            "close_time": "2025-12-31T12:00:00Z",
+            "slug": "le-pen-sentence-reduced-in-2025"
+          },
+          {
+            "market_id": "0x3ac065cd980a5b4b060861186d0952bbdd74b2e1a2aaa056d4b61d8228fdcf02",
+            "title": "Deel CEO jailed in 2025?",
+            "description": "Keith O'Brien, a man accused of being a corporate spy for the software firm Deel, recently stated that he was acting under the direct orders of CEO Alex Bouaziz. You can read more about that here: https://fortune.com/2025/04/02/alleged-deel-spy-court-filing-admits-passing-information-rippling-hr-scandal/\n\nThis market will resolve to \"Yes\" if Alex Bouaziz serves any time in a federal, state, or local U.S. jail or prison between April 2, and December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from the U.S. Government, however a consensus of credible reporting may also be used.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.333,
+              "No": 0.667
+            },
+            "volume": 2429.816312,
+            "liquidity": 936.40523,
+            "status": "active",
+            "url": "https://polymarket.com/event/deel-ceo-jailed-in-2025",
+            "close_time": "2025-12-31T12:00:00Z",
+            "slug": "deel-ceo-jailed-in-2025"
+          },
+          {
+            "market_id": "0x416316490efec1038ce09ec0184f82f1f7921876ee0594a30c783635ea6983d0",
+            "title": "USDT depeg in 2025?",
+            "description": "This market will resolve to “Yes” immediately if all Coinbase 1 minute candles for USDT-USD for any 24 hour period are below 98 cents, for candles between 01 Jan '25 00:00 and 31 Dec '25 23:59 in the ET timezone. Otherwise, this market will resolve to “No”.\n\nBelow 98 cents means all candles in the period have a final “High” price below 0.98000 (i.e. 0.97999 or lower). A 24h period of USDT below 98 cents that starts on the last day in 2025 will count.\n\nThe resolution source for this market is https://www.coinbase.com/, specifically the USDT-USD “High” prices currently available at https://www.coinbase.com/advanced-trade/spot/USDT-USD with “1m” and “Candles” selected on the top bar. To see the “High” prices, mouse over particular candles and look at the value after “H” at the top of the chart.\n\nPlease note that this market is about the price according to Coinbase USDT-USD. If Coinbase stops having the necessary USDT information to resolve this market, a consensus of credible sources for whether USDT was below 98 cents for 24h+ may be used to resolve this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.026,
+              "No": 0.974
+            },
+            "volume": 1073664.732261,
+            "liquidity": 112721.5734,
+            "status": "active",
+            "url": "https://polymarket.com/event/usdt-depeg-in-2025",
+            "close_time": "2025-12-31T12:00:00Z",
+            "slug": "usdt-depeg-in-2025"
+          }
+        ],
+        "note": "Historical price data integration coming soon. Showing current markets.",
+        "metadata": {
+          "query": "What was opinion on November 1 about government shutdown?",
+          "search_method": "phrase_and_keyword_matching",
+          "session_id": "20251113_204043_97c388",
+          "result_count": 3,
+          "platform": "polymarket",
+          "timestamp": "2025-11-13T20:40:45.689961+00:00"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "query": "Reasoning query: What was opinion on November 1 about government shutdown?",
+    "timestamp": "2025-11-13T20:40:45.803329Z",
+    "row_count": 1,
+    "agent": "reasoning-agent",
+    "version": "1.0",
+    "intent": "historical_opinion",
+    "confidence": 0.5
+  }
+}

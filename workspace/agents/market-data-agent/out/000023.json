@@ -1,0 +1,19 @@
+{
+  "data": [
+    {
+      "symbol": "XCME.HY2.11SEP25.111:5.P",
+      "bid": 0.109375,
+      "ask": 0.171875,
+      "price": 0.105276056695416,
+      "timestamp": "2025-09-01T12:00:00Z",
+      "file_date": "2025-09-01"
+    }
+  ],
+  "metadata": {
+    "query": "SELECT symbol, bid, ask, price, timestamp, file_date FROM market_data WHERE symbol LIKE ? AND is_valid = 1 ORDER BY file_date DESC LIMIT 1",
+    "timestamp": "2025-11-17T16:02:35.246184Z",
+    "row_count": 1,
+    "agent": "market-data-agent",
+    "version": "1.0"
+  }
+}

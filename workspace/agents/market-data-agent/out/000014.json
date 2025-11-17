@@ -1,0 +1,411 @@
+{
+  "data": [
+    {
+      "symbol": "XCME.OZN.AUG25.113.C",
+      "bid": 0.0069999,
+      "ask": 0.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110.P",
+      "bid": 0.03125,
+      "ask": 0.046875,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:25.P",
+      "bid": 0.0625,
+      "ask": 0.09375,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:75.P",
+      "bid": 1.0,
+      "ask": 1.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:25.P",
+      "bid": 1.484375,
+      "ask": 1.5,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:25.C",
+      "bid": 0.59375,
+      "ask": 0.609375,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:75.C",
+      "bid": 0.015625,
+      "ask": 0.046875,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:5.C",
+      "bid": 0.046875,
+      "ask": 0.0625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110.C",
+      "bid": 0.796875,
+      "ask": 0.828125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:75.C",
+      "bid": 0.25,
+      "ask": 0.28125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:25.C",
+      "bid": 0.0069999,
+      "ask": 0.03125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:75.P",
+      "bid": 0.234375,
+      "ask": 0.25,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112.P",
+      "bid": 1.234375,
+      "ask": 1.265625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:5.P",
+      "bid": 1.71875,
+      "ask": 1.75,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:5.P",
+      "bid": 0.125,
+      "ask": 0.15625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:5.C",
+      "bid": 0.40625,
+      "ask": 0.421875,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:5.C",
+      "bid": 0.0069999,
+      "ask": 0.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112.C",
+      "bid": 0.015625,
+      "ask": 0.03125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:75.C",
+      "bid": 0.0069999,
+      "ask": 0.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:75.P",
+      "bid": 1.96875,
+      "ask": 2.0,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111.C",
+      "bid": 0.140625,
+      "ask": 0.171875,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:25.P",
+      "bid": 0.546875,
+      "ask": 0.578125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.113.P",
+      "bid": 2.21875,
+      "ask": 2.25,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:25.C",
+      "bid": 0.078125,
+      "ask": 0.09375,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:5.P",
+      "bid": 0.765625,
+      "ask": 0.796875,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111.P",
+      "bid": 0.375,
+      "ask": 0.390625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.113.C",
+      "bid": 0.0069999,
+      "ask": 0.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110.P",
+      "bid": 0.03125,
+      "ask": 0.046875,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:25.P",
+      "bid": 0.0625,
+      "ask": 0.09375,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:75.P",
+      "bid": 1.0,
+      "ask": 1.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:25.P",
+      "bid": 1.484375,
+      "ask": 1.5,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:25.C",
+      "bid": 0.59375,
+      "ask": 0.609375,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:75.C",
+      "bid": 0.015625,
+      "ask": 0.046875,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:5.C",
+      "bid": 0.046875,
+      "ask": 0.0625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110.C",
+      "bid": 0.796875,
+      "ask": 0.828125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:75.C",
+      "bid": 0.25,
+      "ask": 0.28125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:25.C",
+      "bid": 0.0069999,
+      "ask": 0.03125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:75.P",
+      "bid": 0.234375,
+      "ask": 0.25,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112.P",
+      "bid": 1.234375,
+      "ask": 1.265625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:5.P",
+      "bid": 1.71875,
+      "ask": 1.75,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:5.P",
+      "bid": 0.125,
+      "ask": 0.15625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.110:5.C",
+      "bid": 0.40625,
+      "ask": 0.421875,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:5.C",
+      "bid": 0.0069999,
+      "ask": 0.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112.C",
+      "bid": 0.015625,
+      "ask": 0.03125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:75.C",
+      "bid": 0.0069999,
+      "ask": 0.015625,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.112:75.P",
+      "bid": 1.96875,
+      "ask": 2.0,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111.C",
+      "bid": 0.140625,
+      "ask": 0.171875,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:25.P",
+      "bid": 0.546875,
+      "ask": 0.578125,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.113.P",
+      "bid": 2.21875,
+      "ask": 2.25,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    },
+    {
+      "symbol": "XCME.OZN.AUG25.111:25.C",
+      "bid": 0.078125,
+      "ask": 0.09375,
+      "price": null,
+      "timestamp": "2025-07-21T12:00:00Z",
+      "file_date": "2025-07-21"
+    }
+  ],
+  "metadata": {
+    "query": "SELECT symbol, bid, ask, price, timestamp, file_date FROM market_data WHERE symbol LIKE ? AND is_valid = 1 LIMIT 50",
+    "timestamp": "2025-11-11T21:36:04.514566Z",
+    "row_count": 50,
+    "agent": "market-data-agent",
+    "version": "1.0"
+  }
+}

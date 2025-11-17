@@ -1,0 +1,14 @@
+{
+  "run_id": "20251113_204827",
+  "query": "What was the market opinion on November 1st about federal shutdown ending?",
+  "session_id": "20251113_204827_b49679",
+  "parsed_intent": "historical_opinion",
+  "parsed_topic": "federal shutdown ending",
+  "parsed_date": "2025-11-01",
+  "output_path": "Z:\\Aastha\\market_data_puller\\workspace\\agents\\reasoning-agent\\out\\000007.json",
+  "status": "success",
+  "error": null,
+  "timestamp": "2025-11-13T20:48:38.788180+00:00",
+  "agent": "reasoning-agent",
+  "version": "1.0"
+}

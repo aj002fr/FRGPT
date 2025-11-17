@@ -1,0 +1,14 @@
+{
+  "run_id": "20251113_204303",
+  "query": "What did the market think about Ukraine ceasefire on Oct 15?",
+  "session_id": "20251113_204303_5689aa",
+  "parsed_intent": "current_search",
+  "parsed_topic": "What did the market think about Ukraine ceasefire on Oct 15?",
+  "parsed_date": null,
+  "output_path": "Z:\\Aastha\\market_data_puller\\workspace\\agents\\reasoning-agent\\out\\000005.json",
+  "status": "success",
+  "error": null,
+  "timestamp": "2025-11-13T20:43:05.239588+00:00",
+  "agent": "reasoning-agent",
+  "version": "1.0"
+}

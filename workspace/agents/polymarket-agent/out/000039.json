@@ -1,0 +1,209 @@
+{
+  "data": [
+    {
+      "query": "Will OpenAI release GPT-5 in 2025?",
+      "session_id": "20251113181246_76ab46",
+      "expanded_keywords": [],
+      "markets": [
+        {
+          "market_id": "0xfa48a99317daef1654d5b03e30557c4222f276657275628d9475e141c64b545d",
+          "title": "US recession in 2025?",
+          "description": "This market will resolve to “Yes”, if either of the following conditions are met:\n\n1.  The National Bureau of Economic Research (NBER) publicly announces that a recession has occurred in the United States, at any point in 2025, with the announcement made by December 31, 2025, 11:59 PM ET.\n\n2.  The seasonally adjusted annualized percent change in quarterly U.S. real GDP from the previous quarter is less than 0.0 for two consecutive quarters between Q4 2024 and Q4 2025 (inclusive), as reported by the Bureau of Economic Analysis (BEA). \n\nOtherwise, this market will resolve to \"No\". \n\nNote that advance estimates will be considered. For example, if upon release, the advance estimate for Q2 2025 was negative, and the Q1 2025's most recent, up-to-date estimate was also negative, this market would resolve to \"Yes\". If on December 31, 2025 the latest estimate for quarterly GDP in Q3 2025 was negative, this market will stay open until the Advance estimate of Q4 2025 is published, at which point it will resolve to \"Yes\" if Q4 2025 was negative or if the NBER declares a recession by then.\n\nThe resolution source will be the official announcements from the NBER and the BEA’s estimate of seasonally adjusted annualized percent change in quarterly US real GDP from previous quarters as released by the Bureau of Economic Analysis (BEA), https://www.bea.gov/data/gdp/gross-domestic-product",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.038,
+            "No": 0.962
+          },
+          "volume": 10083262.883307,
+          "liquidity": 74717.77425,
+          "status": "active",
+          "url": "https://polymarket.com/event/us-recession-in-2025",
+          "close_time": "2026-02-28T12:00:00Z",
+          "slug": "us-recession-in-2025"
+        },
+        {
+          "market_id": "0x2573b652eb48365d20cd4396072e0e71b5401ed8ae2866a02b80dbc690fe9063",
+          "title": "Sam Altman out as OpenAI CEO in 2025?",
+          "description": "This market will resolve to \"Yes\" if Sam Altman is no longer serving as CEO of OpenAI for any length of time from the date of this market's inception, December 29, 2024 through December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nAn announcement of Sam Altman's resignation/firing before this market's end date will immediately resolve this market to \"Yes\", regardless of when the announced resignation/firing goes into effect.\n\nThis market's primary resolution source will be official information from OpenAI and/or Sam Altman, however a consensus of credible reporting sources will also be used.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0335,
+            "No": 0.9665
+          },
+          "volume": 78841.33348,
+          "liquidity": 4315.71373,
+          "status": "active",
+          "url": "https://polymarket.com/event/which-ceos-will-be-out-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "which-ceos-will-be-out-in-2025"
+        },
+        {
+          "market_id": "0x5bc691beb6ed8ff892f13d1cda71a2144c8d28c1bbb9029c9f5767b26e641055",
+          "title": "One Direction reunion in 2025?",
+          "description": "This market will resolve to \"Yes\" if One Direction either performs together, releases new music as a group, or publicly announces they will do either of these things by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nAn announcement that One Direction will perform together or release new music as a group before the resolution date will suffice to resolve this market to \"Yes\" regardless of if/when they actually do so.\n\nQualifying performances include live events, televised appearances, online streaming, etc. Releases include any single, EP, or album credited to \"One Direction.\" All living members of the group must be part of an event for it to qualify as a reunion.\n\nThe resolution source will be an announcement from One Direction or its official representatives, or a consensus of credible reporting.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0535,
+            "No": 0.9465
+          },
+          "volume": 16305.974446,
+          "liquidity": 1006.01029,
+          "status": "active",
+          "url": "https://polymarket.com/event/one-direction-reunion-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "one-direction-reunion-in-2025"
+        },
+        {
+          "market_id": "0xad5642932e897c551def57ddc3066bdea2cf0eb13fc40979c1043743fceb5c9c",
+          "title": "Will OpenAI have the top AI model on December 31?",
+          "description": "This market will resolve to \"Yes\" if any model owned by OpenAI has the highest arena score based off the Chatbot Arena LLM Leaderboard (https://lmarena.ai/leaderboard/text) when the table under the \"Leaderboard\" tab is checked on December 31, 2025, 12:00 PM ET. Otherwise, this market will resolve to \"No\".\n\nIf two models are tied for the top arena score at this market's check time, resolution will be based on whichever company's name, as it is described in this market group, comes first in alphabetical order (e.g. if both were tied, \"Google\" would resolve to \"Yes\", and \"xAI\" would resolve to \"No\")\n\nThe resolution source for this market is the Chatbot Arena LLM Leaderboard found at https://lmarena.ai/. If this resolution source is unavailable at check time, this market will remain open until the leaderboard comes back online and resolve based on the first check after it becomes available. If it becomes permanently unavailable, this market will resolve based on another resolution source.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.065,
+            "No": 0.935
+          },
+          "volume": 553931.608926,
+          "liquidity": 36445.4354,
+          "status": "active",
+          "url": "https://polymarket.com/event/which-company-has-best-ai-model-end-of-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "which-company-has-best-ai-model-end-of-2025"
+        },
+        {
+          "market_id": "0x310c3d08f015157ec78e04f3f4fefed659b5e2bd88ae80cb38ff27ef970c39bd",
+          "title": "OpenAI announces it has achieved AGI in 2025?",
+          "description": "This market will resolve to \"Yes\" if OpenAI or an official representative of the company announces that it has created an artificial general intelligence (AGI) by December 31, 2025 ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official information from OpenAI and/or its official representative, however a consensus of credible reporting will also be used.\n",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0145,
+            "No": 0.9855
+          },
+          "volume": 276083.64965,
+          "liquidity": 12392.94969,
+          "status": "active",
+          "url": "https://polymarket.com/event/openai-announces-it-has-achieved-agi-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "openai-announces-it-has-achieved-agi-in-2025"
+        },
+        {
+          "market_id": "0x0538834fe16e0e505f5425a735c8295de9cb9f2e27115d549e66e41a4a7d48ba",
+          "title": "U.S. enacts AI safety bill in 2025?",
+          "description": "This market will resolve to \"Yes\" if a bill that includes at least one of the following provisions is signed into federal law in the United States  by December 31, 2025, 11:59 PM ET. \n\n- Prohibition on Creation or Release: Forbids the creation or release of specific AI systems or models.\n\n- Training Restrictions: Sets limits on how AI systems can be trained, such as restricting access to previously available training data or imposing a maximum limit on the number of parameters used for training.\n\n- Usage Restrictions:  Prevents AI systems from being used in certain applications, such as interacting with customers, interfacing with other applications, or performing actions on the web.\n\n- Human-in-the-Loop Requirements: Requires AI systems to include mechanisms ensuring human oversight or involvement in their operation.\n\nOtherwise this market will resolve to \"No\". \n\nThe resolution source will be official U.S. federal government (e.g., Congress.gov) however a consensus of credible reporting may also be used. ",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0805,
+            "No": 0.9195
+          },
+          "volume": 89655.842656,
+          "liquidity": 4381.27367,
+          "status": "active",
+          "url": "https://polymarket.com/event/us-enacts-ai-safety-bill-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "us-enacts-ai-safety-bill-in-2025"
+        },
+        {
+          "market_id": "0x7340d11f38c12e86886114cf7d3e0f1063758de8b7ac81db7e580b797aa9dd75",
+          "title": "GTA VI released in 2025?",
+          "description": "This market will resolve to \"Yes\" if it Grand Theft Auto VI is officially released in the US by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nFor the purposes of this market, \"release\" refers to the game becoming publicly available for purchase or download in the US. Early access, beta versions, other forms of pre-release availability, or leaks will not count as an official release. If the release is only for certain consoles (e.g. Xbox Series X/S) it will count.\n\nThe resolution source will be official information from Rockstar Games or its parent company, Take-Two Interactive.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0125,
+            "No": 0.9875
+          },
+          "volume": 991663.243734,
+          "liquidity": 53949.26026,
+          "status": "active",
+          "url": "https://polymarket.com/event/gta-vi-released-in-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "gta-vi-released-in-2025"
+        },
+        {
+          "market_id": "0x1fe2c84b8f1b32e3c0c82bdf7c6d640e62876d5aafeda68dcb277842bcafcd6a",
+          "title": "Will Elon and DOGE cut less than 50k employees in 2025?",
+          "description": "This market will resolve based on the seasonally adjusted number of federal employees, as reported by the U.S. Bureau of Labor Statistics (BLS) under the \"All Employees, Federal\" series (CES9091000001), displayed here (https://fred.stlouisfed.org/series/CES9091000001)\n\nThis market will resolve according to the decrease in the seasonally adjusted number of federal employees between the December 2024 report and the December 2025 report.\n\nIf the reported value falls exactly between two brackets, then this market will resolve to the higher range bracket.\n\nThe difference will be calculated as the December 2024 value minus the December 2025 value.\n\nThe December 2024 figure will be based on the initial December 2024 BLS Employment Situation report scheduled for release on January 3, 2025, and the initial December 2025 figure will be based on the report scheduled for release on January 9, 2026. Revisions made to these figures will not be considered, only the values reported in the initial reports will be used.\n\nThe resolution source will be the BLS Employment Situation data, specifically the series CES9091000001, available at https://fred.stlouisfed.org/series/CES9091000001 or the official BLS website.\n",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0025,
+            "No": 0.9975
+          },
+          "volume": 213492.828488,
+          "liquidity": 4097.98487,
+          "status": "active",
+          "url": "https://polymarket.com/event/of-jobs-elon-and-doge-cut-in-2025",
+          "close_time": "2026-01-06T12:00:00Z",
+          "slug": "of-jobs-elon-and-doge-cut-in-2025"
+        },
+        {
+          "market_id": "0xb331efeaaff0f0ce986b071bd212ecfa121298427f98e61d22296c4db9d61b50",
+          "title": "Will Elon and DOGE cut 50-100k employees in 2025?",
+          "description": "This market will resolve based on the seasonally adjusted number of federal employees, as reported by the U.S. Bureau of Labor Statistics (BLS) under the \"All Employees, Federal\" series (CES9091000001), displayed here (https://fred.stlouisfed.org/series/CES9091000001)\n\nThis market will resolve according to the decrease in the seasonally adjusted number of federal employees between the December 2024 report and the December 2025 report.\n\nIf the reported value falls exactly between two brackets, then this market will resolve to the higher range bracket.\n\nThe difference will be calculated as the December 2024 value minus the December 2025 value.\n\nThe December 2024 figure will be based on the initial December 2024 BLS Employment Situation report scheduled for release on January 3, 2025, and the initial December 2025 figure will be based on the report scheduled for release on January 9, 2026. Revisions made to these figures will not be considered, only the values reported in the initial reports will be used.\n\nThe resolution source will be the BLS Employment Situation data, specifically the series CES9091000001, available at https://fred.stlouisfed.org/series/CES9091000001 or the official BLS website.\n",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.067,
+            "No": 0.933
+          },
+          "volume": 24280.450713,
+          "liquidity": 2432.7368,
+          "status": "active",
+          "url": "https://polymarket.com/event/of-jobs-elon-and-doge-cut-in-2025",
+          "close_time": "2026-01-06T12:00:00Z",
+          "slug": "of-jobs-elon-and-doge-cut-in-2025"
+        },
+        {
+          "market_id": "0xf3260faa08170da537349f447dc4c19e30c02df0ec5c0d6ef1bbf950453dd0c2",
+          "title": "Will Elon and DOGE cut 100-150k employees in 2025?",
+          "description": "This market will resolve based on the seasonally adjusted number of federal employees, as reported by the U.S. Bureau of Labor Statistics (BLS) under the \"All Employees, Federal\" series (CES9091000001), displayed here (https://fred.stlouisfed.org/series/CES9091000001)\n\nThis market will resolve according to the decrease in the seasonally adjusted number of federal employees between the December 2024 report and the December 2025 report.\n\nIf the reported value falls exactly between two brackets, then this market will resolve to the higher range bracket.\n\nThe difference will be calculated as the December 2024 value minus the December 2025 value.\n\nThe December 2024 figure will be based on the initial December 2024 BLS Employment Situation report scheduled for release on January 3, 2025, and the initial December 2025 figure will be based on the report scheduled for release on January 9, 2026. Revisions made to these figures will not be considered, only the values reported in the initial reports will be used.\n\nThe resolution source will be the BLS Employment Situation data, specifically the series CES9091000001, available at https://fred.stlouisfed.org/series/CES9091000001 or the official BLS website.\n",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.2,
+            "No": 0.8
+          },
+          "volume": 22934.290692,
+          "liquidity": 1458.7148,
+          "status": "active",
+          "url": "https://polymarket.com/event/of-jobs-elon-and-doge-cut-in-2025",
+          "close_time": "2026-01-06T12:00:00Z",
+          "slug": "of-jobs-elon-and-doge-cut-in-2025"
+        }
+      ],
+      "result_count": 10
+    }
+  ],
+  "metadata": {
+    "query": "Polymarket search: Will OpenAI release GPT-5 in 2025?",
+    "timestamp": "2025-11-13T18:12:48.461573Z",
+    "row_count": 1,
+    "agent": "polymarket-agent",
+    "version": "1.0"
+  }
+}

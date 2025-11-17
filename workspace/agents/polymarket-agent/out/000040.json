@@ -1,0 +1,38 @@
+{
+  "data": [
+    {
+      "query": "Will Supreme Court overturn Roe v Wade decision?",
+      "session_id": "20251113181306_841624",
+      "expanded_keywords": [],
+      "markets": [
+        {
+          "market_id": "0xb09e22aadc33b6747756ff9248475e356adcf3b99fbd9d70217e0de350385470",
+          "title": "Supreme Court vacancy in 2025?",
+          "description": "This market will resolve to \"Yes\" if at least one seat on the United States Supreme Court becomes vacant between January 1 and December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be official announcements from the U.S. Government. However, a consensus of credible reporting may also be used.  ",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.05,
+            "No": 0.95
+          },
+          "volume": 31118.948188,
+          "liquidity": 4839.6217,
+          "status": "active",
+          "url": "https://polymarket.com/event/supreme-court-vacancy-2025",
+          "close_time": "2025-12-31T12:00:00Z",
+          "slug": "supreme-court-vacancy-2025"
+        }
+      ],
+      "result_count": 1
+    }
+  ],
+  "metadata": {
+    "query": "Polymarket search: Will Supreme Court overturn Roe v Wade decision?",
+    "timestamp": "2025-11-13T18:13:07.148349Z",
+    "row_count": 1,
+    "agent": "polymarket-agent",
+    "version": "1.0"
+  }
+}
