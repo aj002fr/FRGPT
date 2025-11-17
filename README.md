@@ -1,6 +1,6 @@
-# Market Data Puller - Code-Mode MCP System
 
-> **Pure Python MCP system for market data analysis with AI-powered reasoning**
+
+> **Pure Python MCP system for extracting information from all market sources**
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -8,48 +8,6 @@
 
 ---
 
-## 🎯 What is This?
-
-A production-ready Python system that combines:
-- **Model Context Protocol (MCP)** for tool orchestration
-- **GPT-4 Reasoning v2.0** - simplified, always shows current + historical
-- **Polymarket Integration** for prediction market data
-- **Smart Sorting** - relevance first, then volume
-- **Low Volume Flags** - automatic risk warnings
-- **Zero Dependencies** (stdlib only for core functionality)
-
-### Quick Example
-
-```bash
-# Run the unified demo
-python main.py
-
-# This runs 3 pipelines automatically:
-# 1. SQL Market Data (Database → Statistics)
-# 2. Polymarket Intelligence (AI → API → Validation)
-# 3. Direct Polymarket Search (API only, no AI)
-
-# Or ask specific questions:
-python scripts/test_reasoning.py --custom "What was opinion on Jan 1 2025 about Bitcoin?"
-
-# System automatically (v2.0):
-# 1. Extracts topic + date (GPT-4)
-# 2. Searches Polymarket markets
-# 3. Shows current state (always)
-# 4. Compares with Jan 1 (or past week if no date)
-# 5. Sorts by relevance → volume
-# 6. Flags low volume markets
-
-# Output:
-# Will Bitcoin reach $200K by Dec 31, 2025?
-# 📊 Current: Yes 1.7%, No 98.4%
-# 📅 Jan 1, 2025: Yes 21.1%, No 78.9%
-# 📉 Change: -19.4pp (down)
-# 💰 Volume: $125,000
-# 🎯 Relevance: 0.98
-```
-
----
 
 ## 🚀 Quick Start
 
@@ -82,24 +40,19 @@ python main.py                                   # Runs all 3 pipelines
 
 # Individual pipelines:
 
-# 0. ⭐ Orchestrator (Multi-Agent Coordination) - NEW!
+# 0. ⭐ Orchestrator (Multi-Agent Coordination) 
 python scripts/test_orchestrator.py --list       # Show sample queries
 python scripts/test_orchestrator.py --query 4    # Complex multi-agent query
-python scripts/test_orchestrator.py --custom "What were Bitcoin predictions and market data?"
+python scripts/test_orchestrator.py --custom ""
 
 # 1. SQL Market Data
 python scripts/test_queries.py --list            # Show available queries
 python scripts/test_queries.py --query 1         # Run specific query
 
-# 2. Polymarket Intelligence (AI)
-python scripts/test_reasoning.py --list          # Show test queries
-python scripts/test_reasoning.py --query 1       # Run test query
-python scripts/test_reasoning.py --custom "What was opinion on Bitcoin?"
-
-# 3. Direct Polymarket Search (No AI)
+# 2. Direct Polymarket Search 
 python scripts/test_polymarket.py --list         # Show sample queries
-python scripts/test_polymarket.py --query 3      # Bitcoin markets
-python scripts/test_polymarket.py --custom "AI regulation"
+python scripts/test_polymarket.py --query 3      
+python scripts/test_polymarket.py --custom ""
 
 # View results
 python scripts/show_logs.py
@@ -110,8 +63,8 @@ python scripts/show_logs.py
 ## 📖 Documentation
 
 - **[Quick Start](QUICK_START.md)** - Get running in 5 minutes
-- **[Orchestrator Quick Start](docs/ORCHESTRATOR_QUICKSTART.md)** - ⭐ **NEW** - Multi-agent coordination in 5 minutes
-- **[Orchestrator Implementation](docs/ORCHESTRATOR_IMPLEMENTATION.md)** - ⭐ **NEW** - Complete orchestrator guide
+- **[Orchestrator Quick Start](docs/ORCHESTRATOR_QUICKSTART.md)** 
+- **[Orchestrator Implementation](docs/ORCHESTRATOR_IMPLEMENTATION.md)** - Complete orchestrator guide
 - **[Index](docs/INDEX.md)** - Central documentation hub
 - **[Architecture](docs/ARCHITECTURE.md)** - System design & patterns
 - **[API Reference](docs/API.md)** - Complete tool reference
@@ -159,7 +112,7 @@ market_data_puller/
 - **Tools**: SQL queries, API searches, price history
 
 ### 2. **Agents** (5 Core Agents)
-- **OrchestratorAgent**: ⭐ **NEW** - Meta-agent that coordinates multiple workers for complex queries
+- **OrchestratorAgent**:  - Meta-agent that coordinates multiple workers for complex queries
 - **ReasoningAgent v2.0**: Simplified GPT-4 parsing - always shows current + historical, sorted by relevance & volume
 - **PolymarketAgent**: Direct API search with validation (no AI required)
 - **MarketDataAgent**: SQL query execution with whitelist security
@@ -194,42 +147,7 @@ market_data_puller/
 
 ---
 
-## 🎯 Key Features
 
-### ✅ Natural Language Queries
-```python
-"What was opinion on Nov 1 2024 about Bitcoin?"
-→ Extracts: historical_opinion, Bitcoin, 2024-11-01
-→ Searches: 3 relevant markets
-→ Returns: Historical prices with comparison
-```
-
-### ✅ Multi-Layer Validation
-- **URL Validation**: Checks if markets exist
-- **Date Validation**: Ensures markets existed on query date
-- **Token ID Resolution**: Uses correct CLOB token IDs
-- **Data Parsing**: Handles JSON strings and arrays
-
-### ✅ Historical Price Data
-```python
-# Single date
-get_market_price_history(market_id, date="2025-01-01")
-→ {"yes": 0.21, "no": 0.79}
-
-# Date range
-get_market_price_range(market_id, start="2025-01-01", end="2025-01-31")
-→ Daily prices + trend analysis
-```
-
-### ✅ Production Ready
-- **Zero Network Protocol**: Direct function calls
-- **Atomic Operations**: Crash-safe file writes
-- **Comprehensive Logging**: INFO level events + file logs
-- **Error Handling**: Graceful degradation
-- **Type Hints**: Full type annotations
-- **Tests**: E2E test suite included
-
----
 
 ## 🧪 Testing
 
@@ -275,13 +193,6 @@ openai>=2.0.0 (reasoning agent only)
 pytest>=7.4.0
 ```
 
-### What We DON'T Need
-- ❌ No web3 or blockchain libraries
-- ❌ No authentication for price data
-- ❌ No external databases
-- ❌ No complex frameworks
-
----
 
 ## 🛠️ Development
 
@@ -321,25 +232,7 @@ def my_tool(param: str) -> dict:
     return {"result": "data"}
 
 # 3. Tool auto-discovered on import
-```
 
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make changes with tests
-4. Update documentation
-5. Submit pull request
-
-### Code Style
-- Type hints for public APIs
-- Docstrings for classes/methods
-- Logging at INFO level
-- Atomic file operations
-
----
 
 ## 📄 License
 
@@ -347,93 +240,4 @@ MIT License - see LICENSE file
 
 ---
 
-## 🔗 Links
 
-- **Documentation**: [docs/](docs/)
-- **Memory Bank**: [memory-bank/](memory-bank/)
-- **Tests**: [tests/e2e/](tests/e2e/)
-- **Scripts**: [scripts/](scripts/)
-- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
-
----
-
-## 💡 Example Workflows
-
-### Workflow 1: Historical Analysis
-```bash
-# Query historical opinion
-python scripts/test_reasoning.py --custom "What did people think about Trump winning on Nov 5 2024?"
-
-# System flow:
-# 1. GPT-4 parses: historical_opinion, "Trump winning", 2024-11-05
-# 2. Searches Polymarket for Trump election markets
-# 3. Validates market existed on Nov 5
-# 4. Fetches historical prices for that date
-# 5. Compares with current prices
-# 6. Returns analysis
-```
-
-### Workflow 2: Price Trends
-```bash
-# Get price evolution
-python -c "
-from src.mcp.client import MCPClient
-client = MCPClient()
-result = client.call_tool('get_market_price_range', {
-    'market_id': '12345...',
-    'start_date': '2025-01-01',
-    'end_date': '2025-01-31',
-    'interval_days': 7
-})
-print(result)
-"
-```
-
-### Workflow 3: Market Discovery
-```bash
-# Find and analyze markets
-python scripts/test_polymarket.py --custom "AI regulation 2025"
-
-# System:
-# 1. Searches 600 markets (400 recent + 200 popular)
-# 2. Filters by keywords with scoring
-# 3. Validates URLs and data
-# 4. Returns top results with prices/volumes
-```
-
----
-
-## 🎓 Learning Path
-
-1. **Start Here**: Read this README
-2. **Quick Test**: Run `python main.py`
-3. **Try Queries**: `python scripts/test_reasoning.py --list`
-4. **Understand Architecture**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-5. **Explore Code**: [memory-bank/code-index.md](memory-bank/code-index.md)
-6. **Advanced Usage**: [docs/USAGE.md](docs/USAGE.md)
-7. **Build Your Own**: Follow agent/tool templates above
-
----
-
-## ❓ FAQ
-
-**Q: Do I need API keys?**
-A: Only for GPT-4 reasoning agent. Polymarket data is public.
-
-**Q: Can I use this without OpenAI?**
-A: Yes! Use `test_polymarket.py` or `test_queries.py` directly.
-
-**Q: How do I add more markets?**
-A: Just query them! Polymarket has 1000s of active markets.
-
-**Q: Is historical data accurate?**
-A: Yes, from official Polymarket CLOB API with weighted averaging.
-
-**Q: Can I deploy this in production?**
-A: Yes! Zero external dependencies (except OpenAI if using reasoning).
-
----
-
-**Questions? Check [docs/](docs/) or [memory-bank/](memory-bank/)**
-
-**Ready to start? Run:** `python main.py`
