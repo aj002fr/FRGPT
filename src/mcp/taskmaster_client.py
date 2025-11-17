@@ -15,9 +15,7 @@ logger = logging.getLogger(__name__)
 
 class TaskPlannerClient:
     """
-    AI-powered task planning and validation client.
-    
-    Uses OpenAI GPT-4 or Anthropic Claude for intelligent task decomposition
+    Uses OpenAI GPT-4 for intelligent task decomposition
     and answer validation, inspired by Task Master's workflow principles.
     """
     
@@ -54,12 +52,6 @@ class TaskPlannerClient:
         return config
     
     def _get_ai_client(self):
-        """
-        Get AI client (OpenAI or Anthropic).
-        
-        Returns:
-            AI client instance
-        """
         if self.client is not None:
             return self.client
         
@@ -75,15 +67,15 @@ class TaskPlannerClient:
                 logger.warning("OpenAI library not installed")
         
         # Try Anthropic
-        if self.config.get('ANTHROPIC_API_KEY'):
-            try:
-                import anthropic
-                self.client = anthropic.Anthropic(api_key=self.config['ANTHROPIC_API_KEY'])
-                self.client_type = 'anthropic'
-                logger.info("Using Anthropic for task planning")
-                return self.client
-            except ImportError:
-                logger.warning("Anthropic library not installed")
+        # if self.config.get('ANTHROPIC_API_KEY'):
+        #     try:
+        #         import anthropic
+        #         self.client = anthropic.Anthropic(api_key=self.config['ANTHROPIC_API_KEY'])
+        #         self.client_type = 'anthropic'
+        #         logger.info("Using Anthropic for task planning")
+        #         return self.client
+        #     except ImportError:
+        #         logger.warning("Anthropic library not installed")
         
         # No client available
         logger.warning("No AI API key available, will use fallback planning")
@@ -95,37 +87,6 @@ class TaskPlannerClient:
         available_agents: Optional[List[str]] = None,
         num_subtasks: int = 5
     ) -> Dict[str, Any]:
-        """
-        Use taskmaster to decompose query into subtasks.
-        
-        Args:
-            query: Natural language query
-            available_agents: List of available agent names
-            num_subtasks: Number of subtasks to generate
-            
-        Returns:
-            Task plan with subtasks and dependencies
-            
-        Example output:
-            {
-                "query": "What were Bitcoin predictions...",
-                "subtasks": [
-                    {
-                        "id": 1,
-                        "description": "Get Bitcoin prediction data",
-                        "agent": "polymarket_agent",
-                        "dependencies": []
-                    },
-                    {
-                        "id": 2,
-                        "description": "Get SQL market data",
-                        "agent": "market_data_agent",
-                        "dependencies": []
-                    }
-                ],
-                "execution_order": [[1, 2]]  # Parallel groups
-            }
-        """
         logger.info(f"Planning task for query: '{query[:100]}...'")
         
         # Build prompt for taskmaster
@@ -163,7 +124,7 @@ For each subtask, provide:
 Return a structured task plan with MINIMAL task count."""
         
         try:
-            # Call AI for task decomposition
+
             result = self._call_ai_decompose(planning_prompt, num_subtasks, available_agents)
             
             logger.info(f"Task plan generated with {len(result.get('subtasks', []))} subtasks")
@@ -242,7 +203,6 @@ Return a validation report."""
         if client is None:
             raise Exception("No AI client available")
         
-        # Enhanced prompt with agent context
         agent_context = ""
         if available_agents:
             agent_context = f"\n\nAvailable worker agents:\n" + "\n".join(f"- {agent}" for agent in available_agents)
@@ -262,11 +222,18 @@ Return ONLY a JSON object with this structure:
             "dependencies": []
         }}
     ],
-    "execution_order": [[1, 2], [3]]
+    "execution_order": [
+        [1, 2],
+        [3]
+    ]
 }}
 
-The execution_order should group tasks that can run in parallel.
-Tasks with dependencies should be in later groups.
+The execution_order is an array of rows.
+Each row is an ordered sequence of task IDs that must run sequentially from left to right.
+Tasks in different rows can run in parallel.
+If a task depends on the output of another task, put BOTH tasks in the SAME row,
+with the dependency appearing earlier in that row.
+Independent tasks that can be executed in parallel should be placed in different rows.
 Limit to {num_subtasks} or fewer subtasks."""
         
         try:
@@ -423,7 +390,8 @@ Be strict: valid should be true only if the answer fully addresses ALL parts of 
         return {
             "query": query,
             "subtasks": subtasks,
-            "execution_order": [[st["id"] for st in subtasks]],  # All parallel
+            # Each independent task in its own row so they can run in parallel
+            "execution_order": [[st["id"]] for st in subtasks],
             "method": "fallback"
         }
     

@@ -15,28 +15,13 @@ from src.core.logging_config import setup_logging
 
 
 # Sample queries for testing
-SAMPLE_QUERIES = [
-    {
-        "id": 3,
-        "query": "What were Bitcoin predictions on January 1st 2025?",
-        "description": "Historical analysis with reasoning agent"
-    },
-    {
-        "id": 4,
-        "query": "What were Bitcoin predictions on Jan 1st and how do market data prices compare?",
-        "description": "Complex multi-agent query (reasoning + market data)"
-    },
-    {
-        "id": 7,
-        "query": "What's the sentiment on Trump and show related SQL data",
-        "description": "Political predictions + market data"
-    },
-    {
-        "id": 8,
-        "query": "Show me all US bond treasuries market data from 2025-07-21",
-        "description": "Date-filtered SQL query"
-    }
-]
+# SAMPLE_QUERIES = [
+#     {
+#         "id": 8,
+#         "query": "Show me all US bond treasuries market data from 2025-07-21",
+#         "description": "Date-filtered SQL query"
+#     }
+# ]
 
 
 def list_queries():

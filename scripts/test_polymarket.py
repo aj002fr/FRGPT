@@ -18,45 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 # Sample queries for testing
-SAMPLE_QUERIES = {
-    1: {
-        "query": "Will Bitcoin reach $100,000 by end of 2025?",
-        "description": "Cryptocurrency price prediction"
-    },
-    2: {
-        "query": "Will federal shutdown end by November 15, 2025?",
-        "description": "Government shutdown prediction"
-    },
-    3: {
-        "query": "Will Donald Trump win the 2024 election?",
-        "description": "2024 presidential election"
-    },
-    4: {
-        "query": "Will there be a recession in 2025?",
-        "description": "Economic predictions"
-    },
-    5: {
-        "query": "Will OpenAI release GPT-5 in 2025?",
-        "description": "AI development predictions"
-    },
-    6: {
-        "query": "Will Ethereum reach $10,000 by end of 2025?",
-        "description": "Cryptocurrency price prediction"
-    },
-
-    8: {
-        "query": "Will Taylor Swift and Travis Kelce get engaged in 2025?",
-        "description": "Celebrity predictions"
-    },
-    9: {
-        "query": "Will SpaceX successfully land humans on Mars by 2030?",
-        "description": "Space exploration predictions"
-    },
-    10: {
-        "query": "Will Apple release AR glasses in 2025?",
-        "description": "Technology product predictions"
-    }
-}
+# SAMPLE_QUERIES = {
+#     1:  {
+#         "query": "Will federal shutdown end by November 15, 2025?",
+#         "description": "Government shutdown prediction"
+#     }
+# }
 
 
 def list_queries():
