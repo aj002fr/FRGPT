@@ -46,8 +46,13 @@ config/keys.env
 !.env.example
 
 # Database
+*.db
 *.db-shm
 *.db-wal
+
+# Workspace output files (runtime data)
+workspace/agents/*/out/*.json
+workspace/agents/*/logs/*.json
 
 # Testing
 .pytest_cache/
