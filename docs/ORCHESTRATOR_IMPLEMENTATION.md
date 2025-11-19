@@ -8,7 +8,7 @@ The current implementation uses a **Two-Stage Planner Architecture**:
 - **Planner 1**: AI-powered task decomposition + dependency analysis (via `TaskPlannerClient`)
 - **Planner 2**: Tool discovery and parameter extraction per dependency path (lazy loading)
 - **Coder**: Script generation that executes worker agents and writes to SQLite + file bus
-- **Workers**: Existing agents (`market_data_agent`, `polymarket_agent`, `reasoning_agent`)
+- **Workers**: Existing agents (`market_data_agent`, `polymarket_agent`)
 - **Runner**: DB-based consolidation and AI validation
 
 Legacy single-stage components (`code_generator.py`, `consolidator.py`) are retained only for tests and backwards compatibility; the production path uses the two-stage system.
@@ -116,7 +116,7 @@ tests/e2e/
 
 ## Worker Agent Registry
 
-The orchestrator knows about three worker agents:
+The orchestrator knows about two worker agents:
 
 ### 1. market_data_agent
 - **Purpose**: Execute SQL queries on market_data table
@@ -128,20 +128,14 @@ The orchestrator knows about three worker agents:
   - Retrieve bid/ask prices
 
 ### 2. polymarket_agent
-- **Purpose**: Search Polymarket prediction markets
-- **Keywords**: polymarket, prediction market, prediction, forecast, probability, odds, betting
+- **Purpose**: Search Polymarket prediction markets with AI-powered reasoning
+- **Keywords**: polymarket, prediction market, prediction, forecast, probability, odds, betting, historical, opinion, comparison, trend, analysis, sentiment, change, evolution
 - **Capabilities**:
   - Search Polymarket markets
   - Get market prices and probabilities
   - Retrieve volume and liquidity data
   - LLM-powered relevance scoring
-
-### 3. reasoning_agent
-- **Purpose**: AI-powered market analysis with historical comparison
-- **Keywords**: historical, opinion, comparison, trend, analysis, sentiment, change, evolution
-- **Capabilities**:
-  - Parse natural language queries
-  - Extract dates and topics
+  - Parse natural language queries with date extraction
   - Compare current vs historical market states
   - Sort by relevance and volume
   - Flag low volume markets
@@ -187,37 +181,6 @@ print(result['answer'])
 print(f"Validation passed: {result['validation']['valid']}")
 print(f"Agents used: {result['metadata']['agents_used']}")
 ```
-
-## Example Queries
-
-### Simple Queries (Single Agent)
-
-1. **"What are current Bitcoin predictions?"**
-   - Maps to: `polymarket_agent`
-   - Returns: Bitcoin prediction markets with prices
-
-2. **"Show me market data for Bitcoin symbols"**
-   - Maps to: `market_data_agent`
-   - Returns: SQL query results for Bitcoin data
-
-3. **"What were Bitcoin predictions on January 1st 2025?"**
-   - Maps to: `reasoning_agent`
-   - Returns: Historical analysis with comparison
-
-### Complex Queries (Multiple Agents)
-
-4. **"What were Bitcoin predictions on Jan 1st and how do market data prices compare?"**
-   - Maps to: `reasoning_agent` + `market_data_agent`
-   - Executes in parallel
-   - Returns: Consolidated analysis from both sources
-
-5. **"Compare Ethereum and Bitcoin prediction markets"**
-   - Maps to: Multiple `polymarket_agent` calls
-   - Returns: Side-by-side comparison
-
-6. **"Analyze AI regulation markets and related market data"**
-   - Maps to: `polymarket_agent` + `market_data_agent`
-   - Returns: Comprehensive cross-source analysis
 
 ## Output Format
 
@@ -307,9 +270,6 @@ For each agent, specific parameters are extracted:
 **polymarket_agent**:
 - Query text
 - Result limit
-
-**reasoning_agent**:
-- Full query text
 - Auto-generated session ID
 
 ## Code Generation

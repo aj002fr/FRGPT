@@ -173,7 +173,6 @@ class OrchestratorAgent:
             
             scripts = []
             for path_plan in path_plans:
-                # Generate script
                 script_code = self.coder.generate(
                     path_plan=path_plan,
                     run_id=run_id,

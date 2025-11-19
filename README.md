@@ -21,10 +21,6 @@ cd market_data_puller
 # Install dependencies
 pip install -r requirements.txt
 
-# Set up OpenAI API key (for reasoning agent only)
-# Create config/keys.env and add:
-# OPENAI_API_KEY=your-key-here
-
 # Initialize databases
 python scripts/setup_polymarket_db.py
 
@@ -49,10 +45,8 @@ python scripts/test_orchestrator.py --custom ""
 python scripts/test_queries.py --list            # Show available queries
 python scripts/test_queries.py --query 1         # Run specific query
 
-# 2. Direct Polymarket Search 
-python scripts/test_polymarket.py --list         # Show sample queries
-python scripts/test_polymarket.py --query 3      
-python scripts/test_polymarket.py --custom ""
+# 2. Direct Polymarket Search (simple, API-only)
+python scripts/test_polymarket_simple.py --custom "super bowl champion 2026" --max-results 10
 
 # View results
 python scripts/show_logs.py
@@ -78,7 +72,7 @@ python scripts/show_logs.py
 ```
 market_data_puller/
 ├── src/
-│   ├── agents/          # AI agents (reasoning, polymarket, consumer)
+│   ├── agents/          # AI agents (polymarket, market data, consumer)
 │   ├── servers/         # MCP tools (marketdata, polymarket)
 │   ├── bus/             # File-based communication
 │   ├── mcp/             # Tool discovery & execution
@@ -111,10 +105,9 @@ market_data_puller/
 - **Execution**: Direct Python function calls (no network)
 - **Tools**: SQL queries, API searches, price history
 
-### 2. **Agents** (5 Core Agents)
-- **OrchestratorAgent**:  - Meta-agent that coordinates multiple workers for complex queries
-- **ReasoningAgent v2.0**: Simplified GPT-4 parsing - always shows current + historical, sorted by relevance & volume
-- **PolymarketAgent**: Direct API search with validation (no AI required)
+### 2. **Agents** (4 Core Agents)
+- **OrchestratorAgent**: Meta-agent that coordinates multiple workers for complex queries
+- **PolymarketAgent**: Simple API-only Polymarket search (volume-sorted, keyword-filtered)
 - **MarketDataAgent**: SQL query execution with whitelist security
 - **ConsumerAgent**: Data processing & statistics computation
 
@@ -126,7 +119,7 @@ market_data_puller/
 
 ### 4. **Tools** (Data Sources)
 - **run_query**: Execute SQL on market_data table
-- **search_polymarket_markets**: Search Polymarket with LLM scoring
+- **search_polymarket_markets**: Search Polymarket markets via Gamma API
 - **get_market_price_history**: Historical prices from CLOB API
 - **get_market_price_range**: Price trends over date ranges
 - **get_*_history**: Query history retrieval
@@ -161,9 +154,8 @@ python -m pytest tests/e2e/test_polymarket_e2e.py -v
 python -m pytest tests/e2e/test_predictions_e2e.py -v
 
 # Manual testing
-python scripts/test_queries.py --query 1      # Market data
-python scripts/test_polymarket.py --query 2   # Polymarket
-python scripts/test_reasoning.py --query 3    # AI reasoning
+python scripts/test_queries.py --query 1                  # Market data
+python scripts/test_polymarket_simple.py --custom "..."   # Direct Polymarket search
 ```
 
 ---
@@ -185,7 +177,7 @@ python scripts/test_reasoning.py --query 3    # AI reasoning
 ### Runtime
 ```
 Python 3.11+ (stdlib only for core)
-openai>=2.0.0 (reasoning agent only)
+openai>=2.0.0 (optional, for orchestrator task planning)
 ```
 
 ### Testing

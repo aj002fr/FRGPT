@@ -19,7 +19,6 @@ from src.core.logging_config import setup_logging
 from src.agents.market_data_agent import MarketDataAgent
 from src.agents.consumer_agent import ConsumerAgent
 from src.agents.polymarket_agent import PolymarketAgent
-from src.agents.reasoning_agent import ReasoningAgent
 from src.bus.file_bus import read_json
 
 
@@ -104,7 +103,7 @@ def run_polymarket_pipeline():
     """
     Pipeline 2: Polymarket Intelligence (v2.0 - Simplified)
     
-    Flow: ReasoningAgent → Current State + Historical Comparison
+    Flow: PolymarketAgent → Current State + Historical Comparison
     Always shows: Current prices + change over time (specified date or past week)
     """
     print_section("PIPELINE 2: POLYMARKET INTELLIGENCE", "=")
@@ -113,8 +112,8 @@ def run_polymarket_pipeline():
     print("🔧 Tools: GPT-4 parsing + Polymarket API + validation")
     print("📝 Output: Current state + historical comparison + sorted by relevance & volume\n")
     
-    # Initialize reasoning agent
-    reasoning = ReasoningAgent()
+    # Initialize unified polymarket agent (reasoning-enabled)
+    agent = PolymarketAgent()
     
     # Query 1: Date-specific query
     print("\n[STEP 1] Natural Language Query with Date")
@@ -130,7 +129,7 @@ def run_polymarket_pipeline():
     print("  ⚠️  Flags low volume markets...")
     
     try:
-        output = reasoning.run(query)
+        output = agent.run(query)
         
         # Read results
         result_data = read_json(output)
@@ -190,9 +189,9 @@ def run_polymarket_pipeline():
         print(f"\n📂 Artifact: {output.name}")
         
         return {
-            'markets_found': len(markets),
-            'low_volume_count': metadata.get('low_volume_count', 0),
-            'comparison_date': result['comparison_date']
+            "markets_found": len(markets),
+            "low_volume_count": metadata.get("low_volume_count", 0),
+            "comparison_date": result["comparison_date"],
         }
         
     except Exception as e:
@@ -244,8 +243,8 @@ def run_direct_polymarket():
         print(f"\n📂 Artifact: {output.name}")
         
         return {
-            'markets_found': len(markets),
-            'method': 'direct_search'
+            "markets_found": len(markets),
+            "method": "direct_search",
         }
         
     except Exception as e:
@@ -270,17 +269,19 @@ def main():
     print("   3. Direct Polymarket Search (API Only, No AI)")
     
     # Run pipelines
-    results = {}
+    results: dict[str, dict[str, object]] = {}
     
     try:
         # Pipeline 1: SQL
-        results['sql'] = run_sql_pipeline()
+        results["sql"] = run_sql_pipeline()
         
         # Pipeline 2: Polymarket with AI
-        results['reasoning'] = run_polymarket_pipeline()
+        # Polymarket reasoning pipeline
+        results["polymarket"] = run_polymarket_pipeline()
         
         # Pipeline 3: Direct Polymarket
-        results['direct'] = run_direct_polymarket()
+        # Direct Polymarket search (fast mode)
+        results["direct"] = run_direct_polymarket()
         
     except KeyboardInterrupt:
         print("\n\n⚠️  Interrupted by user")
@@ -298,14 +299,20 @@ def main():
         print(f"   Producer runs: {results['sql'].get('producer_runs', 'N/A')}")
         print(f"   Consumer runs: {results['sql'].get('consumer_runs', 'N/A')}")
     
-    print("\n✅ Pipeline 2 (Reasoning - v2.0):")
-    if 'reasoning' in results:
-        if 'error' in results['reasoning']:
-            print(f"   ⚠️  {results['reasoning']['error']}")
+    print("\n✅ Pipeline 2 (Polymarket - reasoning mode):")
+    if "polymarket" in results:
+        if "error" in results["polymarket"]:
+            print(f"   ⚠️  {results['polymarket']['error']}")
         else:
-            print(f"   Markets found: {results['reasoning'].get('markets_found', 'N/A')}")
-            print(f"   Low volume flagged: {results['reasoning'].get('low_volume_count', 0)}")
-            print(f"   Comparison date: {results['reasoning'].get('comparison_date', 'N/A')}")
+            print(
+                f"   Markets found: {results['polymarket'].get('markets_found', 'N/A')}"
+            )
+            print(
+                f"   Low volume flagged: {results['polymarket'].get('low_volume_count', 0)}"
+            )
+            print(
+                f"   Comparison date: {results['polymarket'].get('comparison_date', 'N/A')}"
+            )
     
     print("\n✅ Pipeline 3 (Direct):")
     if 'direct' in results:

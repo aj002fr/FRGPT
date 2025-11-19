@@ -126,27 +126,29 @@ class Runner:
             Merged data dictionary
         """
         merged = {
-            'market_data': [],
-            'polymarket_markets': [],
-            'reasoning_insights': [],
-            'summary_statistics': {}
+            "market_data": [],
+            "polymarket_markets": [],
+            # Reasoning-style insights now come from the unified polymarket agent
+            "reasoning_insights": [],
+            "summary_statistics": {},
         }
         
         for output in task_outputs:
             agent_name = output['agent_name']
             output_data = output['output_data']
             
-            if agent_name == 'market_data_agent':
-                merged['market_data'].extend(output_data)
-            
-            elif agent_name == 'polymarket_agent':
-                # Extract markets from output
+            if agent_name == "market_data_agent":
+                merged["market_data"].extend(output_data)
+
+            elif agent_name == "polymarket_agent":
+                # Extract markets and reasoning insights from unified polymarket output
                 for item in output_data:
-                    if 'markets' in item:
-                        merged['polymarket_markets'].extend(item['markets'])
-            
-            elif agent_name == 'reasoning_agent':
-                merged['reasoning_insights'].extend(output_data)
+                    # Reasoning-enabled agent wraps full data under "result"
+                    result = item.get("result", item)
+                    markets = result.get("markets", [])
+                    if markets:
+                        merged["polymarket_markets"].extend(markets)
+                    merged["reasoning_insights"].append(result)
         
         # Calculate summary statistics
         merged['summary_statistics'] = self._calculate_summary_stats(merged)
@@ -159,9 +161,9 @@ class Runner:
     ) -> Dict[str, Any]:
         """Calculate summary statistics from merged data."""
         stats = {
-            'total_market_data_records': len(merged_data.get('market_data', [])),
-            'total_polymarket_markets': len(merged_data.get('polymarket_markets', [])),
-            'total_reasoning_insights': len(merged_data.get('reasoning_insights', []))
+            "total_market_data_records": len(merged_data.get("market_data", [])),
+            "total_polymarket_markets": len(merged_data.get("polymarket_markets", [])),
+            "total_reasoning_insights": len(merged_data.get("reasoning_insights", [])),
         }
         
         # Market data statistics

@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-"""
-Display a console-friendly summary of validation results
-"""
 
 import json
 from pathlib import Path

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Display Reasoning Agent v2.0 summary."""
+"""Display Polymarket Agent (reasoning mode, v2.0-style) summary."""
 
 import sys
 import io
@@ -11,7 +11,7 @@ if sys.platform == 'win32':
 
 print()
 print("=" * 80)
-print(" REASONING AGENT V2.0 - SIMPLIFICATION COMPLETE ".center(80))
+print(" POLYMARKET AGENT (REASONING MODE) - SIMPLIFICATION COMPLETE ".center(80))
 print("=" * 80)
 print()
 print("🎯 Your Request:")
@@ -63,12 +63,10 @@ print("=" * 80)
 print()
 print("📁 Updated Files:")
 print()
-print("   • src/agents/reasoning_agent/run.py       - Complete rewrite")
-print("   • src/agents/reasoning_agent/config.py    - New settings")
-print("   • src/agents/reasoning_agent/prompt.md    - New documentation")
+print("   • src/agents/polymarket_agent/run.py      - Reasoning pipeline unified")
+print("   • src/agents/polymarket_agent/config.py   - New settings")
+print("   • src/agents/polymarket_agent/prompt.md   - Updated documentation")
 print("   • main.py                                 - Updated demo")
-print("   • REASONING_AGENT_V2_SUMMARY.md          - Full details")
-print("   • REASONING_V2_QUICK_SUMMARY.md          - This summary")
 print()
 print("=" * 80)
 print()

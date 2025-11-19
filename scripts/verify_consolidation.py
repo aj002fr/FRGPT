@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Verify System Consolidation
-Checks that all 4 agents and 7 tools are properly configured.
+Checks that all core agents and tools are properly configured.
 """
 
 import sys
@@ -25,20 +25,19 @@ def main():
     print("=" * 80)
     
     # Check 1: Agent imports
-    print("\n[CHECK 1] Importing 4 core agents...")
+    print("\n[CHECK 1] Importing core agents...")
     try:
-        from src.agents.reasoning_agent import ReasoningAgent
         from src.agents.polymarket_agent import PolymarketAgent
         from src.agents.market_data_agent import MarketDataAgent
         from src.agents.consumer_agent import ConsumerAgent
-        print("✅ All 4 core agents imported successfully")
+
+        print("✅ Core agents imported successfully")
         agents = {
-            'ReasoningAgent': ReasoningAgent,
-            'PolymarketAgent': PolymarketAgent,
-            'MarketDataAgent': MarketDataAgent,
-            'ConsumerAgent': ConsumerAgent
+            "PolymarketAgent": PolymarketAgent,
+            "MarketDataAgent": MarketDataAgent,
+            "ConsumerAgent": ConsumerAgent,
         }
-        for name, cls in agents.items():
+        for name in agents.keys():
             print(f"   • {name}")
     except ImportError as e:
         print(f"❌ Agent import failed: {e}")
@@ -68,7 +67,6 @@ def main():
         "QUICK_START.md",
         "CHANGELOG.md",
         "requirements.txt",
-        "src/agents/reasoning_agent/run.py",
         "src/agents/polymarket_agent/run.py",
         "src/agents/market_data_agent/run.py",
         "src/agents/consumer_agent/run.py",

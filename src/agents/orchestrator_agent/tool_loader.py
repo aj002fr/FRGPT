@@ -20,13 +20,13 @@ class ToolLoader:
     # Agent to tool mapping
     AGENT_TOOL_MAP = {
         "market_data_agent": ["run_query"],
-        "polymarket_agent": ["search_polymarket_markets", "get_polymarket_history"],
-        "reasoning_agent": [
+        # Unified polymarket agent has access to all polymarket tools, including price history
+        "polymarket_agent": [
             "search_polymarket_markets",
             "get_polymarket_history",
             "get_market_price_history",
-            "get_market_price_range"
-        ]
+            "get_market_price_range",
+        ],
     }
     
     def __init__(self):

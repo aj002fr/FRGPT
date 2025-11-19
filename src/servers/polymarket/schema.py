@@ -126,8 +126,14 @@ def format_market_result(market: Dict[str, Any]) -> Dict[str, Any]:
     else:
         status = MARKET_STATUS_RESOLVED
     
-    # Build URL from slug
-    url = f"https://polymarket.com/event/{slug}" if slug else ""
+    # Build URL:
+    # Prefer full URL from API payload if present; otherwise fall back to slug-based path.
+    raw_url = market.get('url', '')
+    if isinstance(raw_url, str) and raw_url.startswith('http'):
+        url = raw_url
+    else:
+        # Current Polymarket front-end uses /market/{slug} for individual markets/events.
+        url = f"https://polymarket.com/market/{slug}" if slug else ""
     
     # Extract creation and close times
     created_at = market.get('createdAt', market.get('created_at', ''))

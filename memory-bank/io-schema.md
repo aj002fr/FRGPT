@@ -310,15 +310,15 @@ None required. All configuration in `config/settings.py`.
 
 ---
 
-## Polymarket Agent (Producer)
+## Polymarket Agent (Producer - Reasoning Mode)
 
 ### Inputs
 
 | Name | Type | Description | Example |
 |------|------|-------------|---------|
-| query | str | Natural language search query | "Will Bitcoin reach $100k?" |
+| query | str | Natural language search query | "What was opinion on Jan 1 2025 about Bitcoin?" |
 | session_id | str (optional) | Session identifier (auto-generated if not provided) | "20251113143022_a3f2e9" |
-| limit | int (optional) | Maximum results (default: 10, max: 50) | 10 |
+| limit | int (optional) | Maximum markets to consider (default: 10, max: 50) | 10 |
 
 ### Outputs
 
@@ -327,36 +327,58 @@ None required. All configuration in `config/settings.py`.
 ```json
 {
   "data": [{
-    "query": "Will Bitcoin reach $100k?",
-    "session_id": "20251113143022_a3f2e9",
-    "search_method": "hybrid_llm",
-    "llm_scoring_enabled": true,
-    "markets": [
-      {
-        "market_id": "0x123...",
-        "title": "Bitcoin to reach $100,000 by end of 2025?",
-        "description": "Resolves YES if Bitcoin reaches $100k",
-        "outcomes": ["Yes", "No"],
-        "prices": {"Yes": 0.65, "No": 0.35},
-        "volume": 1250000,
-        "liquidity": 85000,
-        "status": "active",
-        "url": "https://polymarket.com/event/bitcoin-100k-2025",
-        "slug": "bitcoin-100k-2025",
-        "close_time": "2025-12-31T23:59:59Z",
-        "relevance_score": 0.85,
-        "relevance_reason": "Directly matches Bitcoin price prediction"
+    "query": "What was opinion on Jan 1 2025 about Bitcoin?",
+    "parsed": {
+      "topic": "bitcoin",
+      "date": "2025-01-01",
+      "confidence": 0.95
+    },
+    "comparison_date": "2025-01-01",
+    "date_source": "specified",
+    "result": {
+      "query": "What was opinion on Jan 1 2025 about Bitcoin?",
+      "parsed": {
+        "topic": "bitcoin",
+        "date": "2025-01-01",
+        "confidence": 0.95
+      },
+      "comparison_date": "2025-01-01",
+      "date_source": "specified",
+      "markets": [
+        {
+          "title": "Bitcoin to reach $100,000 by end of 2025?",
+          "url": "https://polymarket.com/event/bitcoin-100k-2025",
+          "url_valid": true,
+          "prices": {"Yes": 0.65, "No": 0.35},
+          "volume": 1250000,
+          "low_volume_flag": false,
+          "volume_note": "Volume: $1,250,000",
+          "relevance_score": 0.95,
+          "historical_price": {"yes": 0.60, "no": 0.40},
+          "historical_date": "2025-01-01",
+          "historical_note": "Data from Polymarket CLOB API",
+          "price_change": {
+            "yes_change": 5.0,
+            "direction": "up"
+          }
+        }
+      ],
+      "metadata": {
+        "total_markets": 5,
+        "low_volume_count": 1,
+        "comparison_note": "Comparing current vs 2025-01-01 (specified)"
       }
-    ],
-    "result_count": 5
+    }
   }],
   "metadata": {
-    "query": "Polymarket search: Will Bitcoin reach $100k?",
-    "search_method": "hybrid_llm",
+    "query": "Polymarket reasoning: What was opinion on Jan 1 2025 about Bitcoin?",
     "timestamp": "2025-11-13T14:30:22Z",
     "row_count": 1,
     "agent": "polymarket-agent",
-    "version": "1.0"
+    "version": "2.0",
+    "comparison_date": "2025-01-01",
+    "date_source": "specified",
+    "low_volume_threshold": 1000
   }
 }
 ```
@@ -366,15 +388,13 @@ None required. All configuration in `config/settings.py`.
 ```json
 {
   "run_id": "20251113_143022",
-  "query": "Will Bitcoin reach $100k?",
+  "query": "What was opinion on Jan 1 2025 about Bitcoin?",
   "session_id": "20251113143022_a3f2e9",
   "output_path": "workspace/agents/polymarket-agent/out/000001.json",
   "status": "success",
-  "result_count": 5,
   "timestamp": "2025-11-13T14:30:22Z",
-  "duration_ms": 2134.56,
   "agent": "polymarket-agent",
-  "version": "1.0"
+  "version": "2.0"
 }
 ```
 

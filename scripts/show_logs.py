@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-"""
-Show Logs - Display run logs in a readable format
-"""
 
 import sys
 import json

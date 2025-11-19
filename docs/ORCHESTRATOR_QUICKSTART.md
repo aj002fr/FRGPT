@@ -112,7 +112,7 @@ Answer:
 Query: What were Bitcoin predictions on Jan 1st and how do market data prices compare?
 Results from 2 worker agent(s):
 
-reasoning_agent:
+polymarket_agent:
   - Performed 1 analysis/analyses
   - Topics: Bitcoin
   - Dates analyzed: 2025-01-01
@@ -131,7 +131,7 @@ Duration: 8234.56 ms
 Total Tasks: 2
 Successful: 2
 Failed: 0
-Agents Used: reasoning_agent, market_data_agent
+Agents Used: polymarket_agent, market_data_agent
 Unmappable Tasks: 0
 
 Validation:
@@ -302,8 +302,7 @@ result = agent.run(
 ### Available Agents
 
 - **market_data_agent**: SQL queries on market_data table
-- **polymarket_agent**: Polymarket prediction markets
-- **reasoning_agent**: AI-powered historical analysis
+- **polymarket_agent**: Polymarket prediction markets with AI-powered reasoning and historical analysis
 
 ### Output Structure
 

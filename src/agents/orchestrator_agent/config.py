@@ -47,12 +47,32 @@ AGENT_CAPABILITIES = {
             "SQL queries on market_data table",
             "Filter by symbol patterns",
             "Filter by date",
-            "Retrieve bid/ask prices"
-        ]
+            "Retrieve bid/ask prices",
+        ],
     },
     "polymarket_agent": {
-        "keywords": ["polymarket", "prediction market", "prediction", "forecast", "probability", "odds", "betting"],
-        "description": "Search Polymarket prediction markets",
+        # Unified polymarket agent now also handles reasoning-style analysis
+        "keywords": [
+            "polymarket",
+            "prediction market",
+            "prediction",
+            "forecast",
+            "probability",
+            "odds",
+            "betting",
+            "historical",
+            "opinion",
+            "comparison",
+            "trend",
+            "analysis",
+            "sentiment",
+            "change",
+            "evolution",
+        ],
+        "description": (
+            "AI-powered Polymarket analysis with current state, historical comparison, "
+            "and LLM-powered relevance scoring"
+        ),
         "class": "PolymarketAgent",
         "module": "src.agents.polymarket_agent.run",
         "input_params": ["query", "session_id", "limit"],
@@ -60,23 +80,14 @@ AGENT_CAPABILITIES = {
             "Search Polymarket markets",
             "Get market prices and probabilities",
             "Retrieve volume and liquidity data",
-            "LLM-powered relevance scoring"
-        ]
-    },
-    "reasoning_agent": {
-        "keywords": ["historical", "opinion", "comparison", "trend", "analysis", "sentiment", "change", "evolution"],
-        "description": "AI-powered market analysis with historical comparison",
-        "class": "ReasoningAgent",
-        "module": "src.agents.reasoning_agent.run",
-        "input_params": ["query", "session_id"],
-        "capabilities": [
+            "LLM-powered relevance scoring",
             "Parse natural language queries",
             "Extract dates and topics",
             "Compare current vs historical market states",
             "Sort by relevance and volume",
-            "Flag low volume markets"
-        ]
-    }
+            "Flag low volume markets",
+        ],
+    },
 }
 
 # Default taskmaster settings

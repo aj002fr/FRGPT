@@ -25,7 +25,6 @@ from src.core.logging_config import setup_logging
 
 
 def list_queries():
-    """List all sample queries."""
     print("\n" + "="*70)
     print("SAMPLE ORCHESTRATOR QUERIES")
     print("="*70)

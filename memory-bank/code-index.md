@@ -39,7 +39,7 @@ Polymarket tool schema and constants. Defines `POLYMARKET_API_BASE_URL` (CLOB AP
 Historical price data tool using Polymarket CLOB API. `fetch_price_history_from_polymarket()` calls the `prices-history` endpoint to get time-series price data. `find_price_at_target_time()` uses weighted averaging to find prices at specific timestamps. `@register_tool` decorated `get_market_price_history()` returns prices for a specific date. `get_market_price_range()` fetches price trends over date ranges. Uses stdlib urllib only (no web3 or blockchain dependencies).
 
 ### search_markets.py
-Polymarket market search tool with LLM-powered relevance scoring. `@register_tool` decorated `search_polymarket_markets()` function uses hybrid approach: (1) fetches markets from Polymarket Gamma API (hybrid: 400 recent + 200 popular), (2) fast keyword filtering to get ~50 candidates, (3) GPT-4 semantic re-ranking for accuracy with relevance scores and reasons. Falls back to keyword-only if no OpenAI API key available. Validates market data and stores results in `polymarket_markets.db` with relevance scores. Returns market data including prices, volume, liquidity, outcomes, and optional LLM relevance metadata.
+Polymarket market search tool built on the Gamma API. `@register_tool` decorated `search_polymarket_markets()` can fetch recent/popular markets, run keyword filtering, and (optionally) apply LLM-based relevance scoring. Validates market data and stores results in `polymarket_markets.db` with prices, volume, liquidity, and outcomes. The main Polymarket agent now uses a simpler `/markets` volume-sorted flow instead of the full hybrid LLM pipeline.
 
 ### llm_relevance_scorer.py
 LLM-powered relevance scoring utilities for Polymarket search. Provides `score_market_relevance_batch()` for batch GPT-4 scoring of markets (0-10 scale with reasons), `score_market_relevance_streaming()` for individual scoring, and `hybrid_search()` combining fast keyword filtering with accurate LLM re-ranking. Auto-loads OpenAI API key from `config/keys.env` or environment. Gracefully falls back to keyword-only if API key unavailable or LLM calls fail. Always returns at least 1 result if any markets exist (multi-layer fallback: LLM → keyword → top by volume).
@@ -69,13 +69,13 @@ Consumer configuration constants. Defines `AGENT_NAME`, workspace paths, output 
 ## Polymarket Agent (`src/agents/polymarket_agent/`)
 
 ### run.py
-Producer agent for Polymarket prediction markets with LLM-powered relevance scoring. `PolymarketAgent` class orchestrates: query validation, session ID generation, Polymarket API search with hybrid LLM scoring (keyword filter + GPT-4 re-ranking), atomic output writing to file bus, and run logging. Each execution writes `out/{id}.json` and `logs/{timestamp}.json` with market data including prices, volume, liquidity, and optional relevance scores/reasons from LLM. Reports search method used (hybrid_llm or keyword_fallback).
+Unified Polymarket agent implementing a simple, API-only search. `PolymarketAgent` calls the Gamma `/markets` endpoint to fetch active markets sorted by volume, filters them by keyword relevance and high volume, validates prices, and writes standardized outputs to the file bus (`out/{id}.json`) and logs (`logs/{timestamp}.json`) under `workspace/agents/polymarket-agent/`. The same simple behavior is used for all callers (scripts, orchestrator, tests).
 
 ### config.py
-Agent configuration constants. Defines `AGENT_NAME`, workspace paths, `DEFAULT_MAX_RESULTS`, `MAX_RESULTS`, and `SESSION_ID_HASH_LENGTH` for unique session identifier generation.
+Agent configuration constants. Defines `AGENT_NAME`, workspace path helper, output/log directory names, `LOW_VOLUME_THRESHOLD`, `DEFAULT_LOOKBACK_DAYS`, `MAX_MARKETS_TO_RETURN`, and `MAX_QUERY_LENGTH` for safe parsing.
 
 ### prompt.md
-Agent instructions and examples. Documents purpose, inputs (query, session_id, limit), outputs (markets with expanded keywords, prices, volume, liquidity), process flow with LLM keyword expansion, and example usage patterns. Includes database storage details and file bus integration.
+Agent instructions and examples. Documents purpose, inputs (query, session_id, limit), unified reasoning flow (current + historical), volume flagging, and integration with Polymarket tools and `polymarket_markets.db`.
 
 ## Orchestrator Agent (`src/agents/orchestrator_agent/`) - Two-Stage Planner
 
@@ -83,13 +83,13 @@ Agent instructions and examples. Documents purpose, inputs (query, session_id, l
 Meta-agent with **Two-Stage Planner Architecture**. `OrchestratorAgent` implements 6-step workflow: (1) Planner 1: AI task decomposition with dependency analysis, (2) Planner 2: lazy tool loading per dependency path, (3) Coder: async Python script generation with DB writes, (4) Workers: parallel/sequential execution with dual storage (SQLite + file bus), (5) Runner: DB-based consolidation with AI validation, (6) file bus output. Key features: context-efficient tool loading, full DAG support, dependency-aware execution, queryable task history. Replaces single-stage planning with path-isolated tool discovery.
 
 ### config.py
-Orchestrator configuration with Two-Stage Planner settings. Defines `AGENT_CAPABILITIES` registry (market_data_agent, polymarket_agent, reasoning_agent), database paths (`get_db_path()` for orchestrator_results.db), execution timeouts including `DEPENDENCY_WAIT_TIMEOUT`, and directory structure (including DB_DIR). Provides workspace and database configuration for dual storage system.
+Orchestrator configuration with Two-Stage Planner settings. Defines `AGENT_CAPABILITIES` registry (market_data_agent, polymarket_agent), database paths (`get_db_path()` for orchestrator_results.db), execution timeouts including `DEPENDENCY_WAIT_TIMEOUT`, and directory structure (including DB_DIR). Provides workspace and database configuration for dual storage system.
 
 ### planner_stage1.py
 Stage 1 Planner - Task decomposition and dependency analysis. `PlannerStage1` uses `TaskPlannerClient` for AI-powered task breakdown, `TaskMapper` for agent assignment, and `DependencyAnalyzer` for DAG extraction. `plan()` returns subtasks with dependencies, parallel execution groups, and dependency paths. Normalizes task IDs, validates for cycles, calculates execution depth. Outputs structured plan with mappable/unmappable task separation.
 
 ### planner_stage2.py
-Stage 2 Planner - Tool discovery per dependency path. `PlannerStage2` loads only relevant tools for agents in specific path using `ToolLoader` for lazy loading. `discover_tools_and_params()` extracts tool parameters from task descriptions, builds execution plan with tool-specific params. Context isolation: each path sees only its own tools. Factory function `create_planners_for_paths()` creates one Planner 2 instance per dependency path. Supports agent-specific parameter extraction for market_data_agent (SQL), polymarket_agent (search), and reasoning_agent (analysis).
+Stage 2 Planner - Tool discovery per dependency path. `PlannerStage2` loads only relevant tools for agents in specific path using `ToolLoader` for lazy loading. `discover_tools_and_params()` extracts tool parameters from task descriptions, builds execution plan with tool-specific params. Context isolation: each path sees only its own tools. Factory function `create_planners_for_paths()` creates one Planner 2 instance per dependency path. Supports agent-specific parameter extraction for `market_data_agent` (SQL) and `polymarket_agent` (search + reasoning analysis).
 
 ### dependency_analyzer.py
 DAG analysis and path extraction. `DependencyAnalyzer` builds dependency graphs, detects cycles via DFS, extracts execution paths from leaf to root tasks, and computes parallel execution groups via topological sort. `analyze()` returns dependency paths, parallel groups, max depth, and cycle detection. `_extract_paths()` traces all paths from leaves to roots. `_compute_parallel_groups()` identifies tasks that can run simultaneously. Supports transitive dependency queries and topological ordering.
@@ -195,8 +195,11 @@ CLI for running individual agents. Supports subcommands:
 ### test_predictions.py
 CLI for testing predictive markets agent. Provides 8 pre-configured sample queries (election, crypto, AI, economy, sports, climate, finance). Supports `--list` (show queries), `--query N` (run sample), `--custom "text"` (run custom query), `--max-results` (limit results). Displays session ID, result count, and top results with URLs.
 
-### test_polymarket.py
-CLI for testing Polymarket agent. Provides 10 pre-configured sample queries covering cryptocurrency, politics, economics, AI, sports, and celebrity predictions. Supports `--list` (show queries), `--query N` (run sample), `--custom "text"` (run custom query), `--max-results` (limit results). Displays session ID, expanded keywords, market results with prices, volumes, and URLs.
+### test_polymarket_simple.py
+CLI for testing the simple Polymarket agent. Accepts only custom queries (`--custom "text"`) and an optional `--max-results` limit. Calls `PolymarketAgent.run_simple()` to fetch high-volume, keyword-relevant markets from the Gamma `/markets` API and prints titles, URLs (when available), prices, and volumes.
+
+### test_price_history.py
+CLI helper for testing Polymarket historical prices end-to-end for a natural language query. Uses `PolymarketAgent.run_simple()` to find markets, derives token IDs via `get_token_id_for_price_history()`, then calls the `get_market_price_history` MCP tool for a past date and for today, printing prices and data-point counts for the top matches.
 
 ### test_orchestrator.py
 CLI for testing Orchestrator Agent with multi-agent coordination. Provides 8 pre-configured sample queries (simple single-agent and complex multi-agent). Supports `--list` (show queries), `--query N` (run sample), `--custom "text"` (run custom query), `--skip-validation` (faster execution), `--num-subtasks N` (limit subtasks), `--verbose` (debug logging). Displays consolidated answer, metadata (agents used, task counts, duration), validation report, and output/script paths. Demonstrates parallel execution, result consolidation, and AI validation.

@@ -14,11 +14,11 @@ src/
 ├── mcp/          # MCP infrastructure (client, discovery)
 ├── servers/      # Tools (marketdata, polymarket)
 │   ├── marketdata/      # Market data SQL queries
-│   └── polymarket/      # Direct Polymarket API with LLM scoring
+│   └── polymarket/      # Direct Polymarket API tools
 ├── agents/       # Agents (market_data_agent, consumer_agent, polymarket_agent)
 │   ├── market_data_agent/       # SQL query producer
 │   ├── consumer_agent/          # Statistics consumer
-│   └── polymarket_agent/        # Direct Polymarket search with LLM scoring
+│   └── polymarket_agent/        # Simple Polymarket search (API-only, volume-sorted)
 └── core/         # Utilities (logging_config)
 ```
 
@@ -26,9 +26,8 @@ src/
 ```
 scripts/
 ├── test_queries.py          # Pre-configured market data queries
-├── test_polymarket.py       # Polymarket search queries
+├── test_polymarket_simple.py# Simple Polymarket search queries
 ├── test_orchestrator.py     # Multi-agent orchestration queries
-├── test_reasoning.py        # AI-powered reasoning queries
 ├── show_logs.py             # View logs & artifacts
 ├── run_agent.py             # CLI for custom queries
 └── setup_polymarket_db.py   # Database setup utility
@@ -82,24 +81,17 @@ User → MarketDataAgent → MCP Client → run_query Tool → SQLite
                    ConsumerAgent → Statistics
 ```
 
-**Pipeline 2: Polymarket Intelligence**
+**Pipeline 2: Polymarket Intelligence (Unified, Simple)**
 ```
-User → ReasoningAgent → GPT-4 Parse (intent, date, topic)
+User → PolymarketAgent → Polymarket Gamma `/markets` (orderBy=volume)
                       ↓
-             search_polymarket_markets → Polymarket API
+            Keyword + Volume Filtering
                       ↓
-              Validation (URL, date, token ID)
-                      ↓
-           get_market_price_history → Historical Prices
+          High-Volume Relevant Markets
                       ↓
                 File Bus (000001.json)
                       ↓
-              Structured Results + Insights
-```
-
-**Alternative: Direct Polymarket Search**
-```
-User → PolymarketAgent → search_polymarket_markets → Results
+              Structured Results (title, prices, volume)
 ```
 
 **Pipeline 3: Multi-Agent Orchestration (Two-Stage Planner)** ⭐ **NEW**
@@ -162,7 +154,7 @@ User → OrchestratorAgent (Two-Stage Planner)
 ✅ Manifest system (deterministic IDs)
 ✅ Run logs (SQL + metadata per execution)
 ✅ Multi-agent (producer → consumer)
-✅ Predictive markets integration (Direct Polymarket API with LLM scoring)
+✅ Predictive markets integration (Direct Polymarket API with local filtering)
 ✅ Multi-user support (auto-generated session IDs)
 ✅ Query history (SQLite-based storage and retrieval)
 
@@ -180,10 +172,8 @@ python scripts/test_orchestrator.py --custom "What were Bitcoin predictions and 
 python scripts/test_queries.py --list
 python scripts/test_queries.py --query 1
 
-# Polymarket Queries (Direct API + LLM Scoring)
-python scripts/test_polymarket.py --list
-python scripts/test_polymarket.py --query 1
-python scripts/test_polymarket.py --custom "Will Bitcoin reach $100k?"
+# Polymarket Queries (Simple API + keyword filtering)
+python scripts/test_polymarket_simple.py --custom "super bowl champion 2026" --max-results 10
 
 # View results
 python scripts/show_logs.py
@@ -223,16 +213,15 @@ docs/
 └── tools/                     # Tool docs (reserved)
 ```
 
-### Agents (5 Core Agents)
+### Agents (4 Core Agents)
 1. **OrchestratorAgent** - ⭐ **NEW** - Meta-agent that coordinates multiple workers for complex multi-agent queries
 2. **MarketDataAgent** - SQL query producer for market data (database pipeline)
 3. **ConsumerAgent** - Statistics consumer for market data (processes SQL results)
-4. **PolymarketAgent** - Direct Polymarket API search with validation (direct search)
-5. **ReasoningAgent** - GPT-4-powered natural language query processor (AI pipeline)
+4. **PolymarketAgent** - Simple API-only Polymarket market search (volume-sorted + keyword-filtered)
 
 ### Tools (5 MCP Tools + AI Task Planning)
 1. **run_query** - Execute SQL queries on market_data table
-2. **search_polymarket_markets** - Search Polymarket with LLM-powered relevance scoring (hybrid: keyword filter + GPT-4 re-ranking)
+2. **search_polymarket_markets** - Search Polymarket markets via Gamma API (supports optional LLM scoring but not used in the simple agent)
 3. **get_polymarket_history** - Retrieve historical Polymarket queries
 4. **get_market_price_history** - Fetch historical price at specific date (Polymarket CLOB API)
 5. **get_market_price_range** - Fetch price trends over date range (Polymarket CLOB API)

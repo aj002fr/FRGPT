@@ -218,44 +218,71 @@ def get_market_price_history(
                 start_ts=start_timestamp,
                 end_ts=end_timestamp,
                 interval="1h",
-                fidelity=60  # 60 minutes = 1 hour resolution
+                fidelity=60,  # 60 minutes = 1 hour resolution
             )
-            
+
             if history:
                 # Find price at target time
                 yes_price = find_price_at_target_time(history, target_timestamp)
-                
+
+                # Fallback: if we have history but couldn't compute a weighted price,
+                # use the last available price point from the API response.
+                if yes_price is None:
+                    try:
+                        last_point = history[-1]
+                        # Polymarket history uses "p" for price; keep flexible just in case.
+                        raw_price = (
+                            last_point.get("p")
+                            if isinstance(last_point, dict)
+                            else None
+                        )
+                        if raw_price is not None:
+                            yes_price = float(raw_price)
+                            logger.info(
+                                "Fallback to last available price for %s on %s: %s",
+                                market_id,
+                                date,
+                                yes_price,
+                            )
+                    except Exception as fallback_exc:  # pragma: no cover - defensive
+                        logger.warning(
+                            "Failed fallback price extraction for %s on %s: %s",
+                            market_id,
+                            date,
+                            fallback_exc,
+                        )
+
                 if yes_price is not None:
                     # For binary markets, no_price = 1 - yes_price
                     no_price = 1.0 - yes_price
-                    
+
                     return {
                         "market_id": market_id,
                         "date": date,
                         "price": {
                             "yes": round(yes_price, 4),
-                            "no": round(no_price, 4)
+                            "no": round(no_price, 4),
                         },
                         "data_points": len(history),
                         "data_source": "polymarket_clob_api",
-                        "note": f"Historical price from {len(history)} data points (Polymarket CLOB API)"
+                        "note": f"Historical price from {len(history)} data points (Polymarket CLOB API)",
                     }
-        
+
         except Exception as e:
             logger.warning(f"Failed to fetch price history from Polymarket API: {e}")
-        
-        # No data available
+
+        # No data available (either API returned no history or we couldn't derive a price)
         logger.warning(f"No historical data found for {market_id} on {date}")
         return {
             "market_id": market_id,
             "date": date,
             "price": {
                 "yes": None,
-                "no": None
+                "no": None,
             },
-            "data_points": 0,
-            "data_source": "unavailable",
-            "note": "Historical price data not available. Market may not have trading history for this date, or the market ID may be incorrect."
+            "data_points": len(history) if "history" in locals() else 0,
+            "data_source": "polymarket_clob_api" if "history" in locals() and history else "unavailable",
+            "note": "Historical price data not available or could not be derived from API response.",
         }
         
     except Exception as e:

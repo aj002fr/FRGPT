@@ -105,8 +105,8 @@ class ResultConsolidator:
             if agent == "market_data_agent":
                 self._extract_market_data_summary(data, merged["summary"])
             elif agent == "polymarket_agent":
+                # Unified polymarket agent provides both market and reasoning-style outputs
                 self._extract_polymarket_summary(data, merged["summary"])
-            elif agent == "reasoning_agent":
                 self._extract_reasoning_summary(data, merged["summary"])
         
         return merged
@@ -236,12 +236,14 @@ class ResultConsolidator:
                 if volume > 0:
                     answer_parts.append(f"  - Total volume: ${volume:,.0f}")
             
-            elif agent == "reasoning_agent":
-                count = summary.get("reasoning", {}).get("analyses", 0)
-                topics = summary.get("reasoning", {}).get("topics", [])
-                dates = summary.get("reasoning", {}).get("dates_analyzed", [])
-                
-                answer_parts.append(f"  - Performed {count} analysis/analyses")
+            # Reasoning-style details (now produced by polymarket_agent)
+            if agent == "polymarket_agent" and "reasoning" in summary:
+                count = summary["reasoning"].get("analyses", 0)
+                topics = summary["reasoning"].get("topics", [])
+                dates = summary["reasoning"].get("dates_analyzed", [])
+
+                if count:
+                    answer_parts.append(f"  - Performed {count} analysis/analyses")
                 if topics:
                     answer_parts.append(f"  - Topics: {', '.join(topics)}")
                 if dates:

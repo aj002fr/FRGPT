@@ -340,29 +340,6 @@ CREATE INDEX idx_session_id ON polymarket_queries(session_id);
 CREATE INDEX idx_timestamp ON polymarket_queries(timestamp);
 ```
 
----
-
-## Security
-
-### SQL Injection Prevention
-- Parameterized queries only
-- Template-based SQL
-- Column whitelist
-
-### File Safety
-- Atomic writes prevent corruption
-- Temp + rename pattern
-- Directory validation
-
-### API Security
-- Domain filtering (whitelist only)
-- API keys in config file
-- Rate limiting (external to system)
-
-### Multi-User Isolation
-- Session-based tracking
-- No cross-session data leakage
-- Unique identifiers per query
 
 ---
 

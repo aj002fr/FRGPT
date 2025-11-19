@@ -373,7 +373,7 @@ Be strict: valid should be true only if the answer fully addresses ALL parts of 
             subtasks.append({
                 "id": task_id,
                 "description": f"Analyze historical market data for: {query}",
-                "agent": "reasoning_agent",
+                "agent": "polymarket_agent",
                 "dependencies": []
             })
             task_id += 1

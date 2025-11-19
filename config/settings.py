@@ -1,5 +1,3 @@
-"""Configuration settings for code-mode MCP system."""
-
 from pathlib import Path
 
 # Project paths
@@ -64,22 +62,20 @@ LOG_TO_CONSOLE = True
 
 AGENT_CAPABILITIES = {
     "polymarket_agent": {
-        "description": "The Polymarket Agent is a specialized agent that can search for and analyze market data from the Polymarket platform.",
+        "description": "The Polymarket Agent is a specialized agent that can search for markets related to the user query from the Polymarket platform.",
         "capabilities": [
             "search for market data from the Polymarket platform",
-            "analyze market data from the Polymarket platform",
-            "provide insights and analysis of market data from the Polymarket platform"
+            "get public opinion from the Polymarket platform"
         ]
     },
     "market_data_agent": {
         "description": "The Market Data Agent is a specialized agent that can search for and analyze market data from the market data database.",
         "capabilities": [
             "search for market data from the market data database",
-            "analyze market data from the market data database",
-            "provide insights and analysis of market data from the market data database"
+            "analyze market data from the market data database"
         ]
     }
-}
+,
     "orchestrator_agent": {
         "description": "The Orchestrator Agent is a specialized agent that can orchestrate the other agents to perform the tasks.",
         "capabilities": [
@@ -88,3 +84,6 @@ AGENT_CAPABILITIES = {
             "provide insights and analysis of the other agents"
         ]
     }
+        
+    }
+    

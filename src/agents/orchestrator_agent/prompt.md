@@ -7,7 +7,7 @@ The Orchestrator Agent coordinates multiple worker agents to answer complex quer
 ## Workflow
 
 1. **Task Planning**: Uses taskmaster MCP server to decompose natural language queries into subtasks
-2. **Task Mapping**: Maps each subtask to the appropriate worker agent (market_data_agent, polymarket_agent, reasoning_agent)
+2. **Task Mapping**: Maps each subtask to the appropriate worker agent (market_data_agent, polymarket_agent)
 3. **Code Generation**: Generates executable Python script with async task execution
 4. **Parallel Execution**: Executes independent tasks in parallel using asyncio
 5. **Result Consolidation**: Merges outputs from all worker agents
@@ -23,16 +23,10 @@ The Orchestrator Agent coordinates multiple worker agents to answer complex quer
 - **Outputs**: Market data records from database
 
 ### polymarket_agent
-- **Purpose**: Search Polymarket prediction markets
-- **Keywords**: polymarket, prediction, forecast, probability, odds
+- **Purpose**: AI-powered Polymarket analysis (current state + historical comparison)
+- **Keywords**: polymarket, prediction, forecast, probability, odds, historical, opinion, comparison, trend, analysis
 - **Inputs**: query, session_id, limit
-- **Outputs**: Prediction market data with prices and volumes
-
-### reasoning_agent
-- **Purpose**: AI-powered market analysis with historical comparison
-- **Keywords**: historical, opinion, comparison, trend, analysis
-- **Inputs**: query, session_id
-- **Outputs**: Market analysis with current vs historical comparison
+- **Outputs**: Prediction market data with prices, volumes, and reasoning-style historical comparison
 
 ## Input
 
@@ -105,7 +99,7 @@ result = agent.run(
 
 # This will:
 # 1. Decompose into 2 tasks:
-#    - Get historical Bitcoin predictions (reasoning_agent)
+#    - Get historical Bitcoin predictions (polymarket_agent)
 #    - Get SQL market data for Bitcoin (market_data_agent)
 # 2. Execute both in parallel
 # 3. Consolidate results

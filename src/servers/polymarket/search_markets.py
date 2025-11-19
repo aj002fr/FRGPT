@@ -22,7 +22,7 @@ from .schema import (
     MARKET_STATUS_ACTIVE,
     format_market_result,
     calculate_avg_probability,
-    calculate_total_volume
+    calculate_total_volume,
 )
 from .llm_relevance_scorer import hybrid_search, score_market_relevance_batch
 
@@ -111,7 +111,7 @@ def call_polymarket_api(limit: int = 200, order_by: str = 'createdAt') -> Dict[s
     req.add_header('Accept-Language', 'en-US,en;q=0.9')
     req.add_header('Accept-Encoding', 'gzip, deflate, br')
     req.add_header('Connection', 'keep-alive')
-    req.add_header('Referer', 'https://polymarket.com/')
+    req.add_header('Referer', 'https://polymarket.com/') 
     req.add_header('Origin', 'https://polymarket.com')
     
     try:
@@ -153,6 +153,80 @@ def call_polymarket_api(limit: int = 200, order_by: str = 'createdAt') -> Dict[s
         raise
     except urllib.error.URLError as e:
         logger.error(f"Polymarket API connection error: {e.reason}")
+        raise
+
+
+def call_polymarket_search_api(query: str, limit_per_type: int = DEFAULT_POLYMARKET_RESULTS) -> Dict[str, Any]:
+    """
+    Call Polymarket Gamma /public-search API to search markets by text query.
+
+    This endpoint lets the API pre-filter markets by the user's query string.
+    We still apply strong local validation afterwards.
+
+    Docs: https://docs.polymarket.com/api-reference/search/search-markets-events-and-profiles
+
+    Args:
+        query: Natural language search query
+        limit_per_type: Maximum results per type (events/markets/profiles)
+
+    Returns:
+        Raw API response dictionary.
+
+    Raises:
+        urllib.error.URLError: If API call fails.
+    """
+    base_url = POLYMARKET_GAMMA_BASE_URL
+    endpoint = "/public-search"
+
+    params = {
+        "q": query,
+        "events_status": "active",  # Only active events/markets
+        "keep_closed_markets": 0,
+        "limit_per_type": min(limit_per_type, MAX_POLYMARKET_RESULTS),
+        "search_profiles": False,
+        "search_tags": False
+    }
+
+    query_string = urllib.parse.urlencode(params)
+    url = f"{base_url}{endpoint}?{query_string}"
+
+    logger.info(f"Calling Polymarket public-search API: GET {url}")
+
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("Accept", "application/json")
+    req.add_header(
+        "User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    )
+    req.add_header("Accept-Language", "en-US,en;q=0.9")
+    req.add_header("Accept-Encoding", "gzip, deflate, br")
+    req.add_header("Connection", "keep-alive")
+    req.add_header("Referer", "https://polymarket.com/")
+    req.add_header("Origin", "https://polymarket.com")
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            raw_data = response.read()
+
+            if raw_data[:2] == b"\x1f\x8b":  # Gzip magic number
+                raw_data = gzip.decompress(raw_data)
+
+            result = json.loads(raw_data.decode("utf-8"))
+
+            # Expected structure: {"events": [...], "tags": [...], "profiles": [...], "pagination": {...}}
+            logger.info(
+                "Polymarket public-search returned %d events",
+                len(result.get("events", [])),
+            )
+            return result
+
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8") if e.fp else "No error details"
+        logger.error(f"Polymarket public-search HTTP error: {e.code} - {error_body}")
+        raise
+    except urllib.error.URLError as e:
+        logger.error(f"Polymarket public-search connection error: {e.reason}")
         raise
 
 
@@ -278,31 +352,20 @@ def validate_market_data(market: Dict[str, Any]) -> bool:
     Returns:
         True if valid, False otherwise
     """
-    # Check required fields
-    required_fields = ["title", "url", "prices", "volume", "slug"]
+    # Check required fields (minimal for robustness)
+    # We intentionally do NOT require URL, volume, or liquidity.
+    required_fields = ["title", "prices"]
     for field in required_fields:
         if field not in market or not market[field]:
             logger.debug(f"Market missing required field: {field}")
             return False
-    
-    # Validate URL format
-    url = market.get("url", "")
-    if not url.startswith("https://polymarket.com/event/"):
-        logger.debug(f"Invalid URL format: {url}")
-        return False
     
     # Validate prices
     prices = market.get("prices", {})
     if not prices or (not isinstance(prices, dict)):
         logger.debug(f"Invalid prices format: {prices}")
         return False
-    
-    # Validate volume is a number
-    volume = market.get("volume", 0)
-    if not isinstance(volume, (int, float)) or volume < 0:
-        logger.debug(f"Invalid volume: {volume}")
-        return False
-    
+
     return True
 
 
@@ -360,6 +423,61 @@ def parse_polymarket_response(response: Dict[str, Any], original_query: str) -> 
     
     logger.info(f"Parsed {len(results)} active markets from Polymarket response")
     
+    return results
+
+
+def parse_public_search_response(response: Dict[str, Any], original_query: str) -> List[Dict[str, Any]]:
+    """
+    Parse Polymarket /public-search API response to extract market data.
+
+    The response groups markets under events. We extract all markets from
+    active events, format them, and apply the same validation as the generic
+    /markets parser.
+
+    Args:
+        response: Raw /public-search API response.
+        original_query: Original user query (for logging/debug).
+
+    Returns:
+        List of formatted market dictionaries.
+    """
+    results: List[Dict[str, Any]] = []
+
+    events = response.get("events") or []
+
+    for event in events:
+        markets = event.get("markets") or []
+        for market in markets:
+            try:
+                formatted = format_market_result(market)
+
+                status = formatted.get("status", "active").lower()
+                if status in ["closed", "resolved"]:
+                    logger.debug(
+                        "Skipping closed/resolved search market: %s",
+                        formatted.get("title", "N/A")[:50],
+                    )
+                    continue
+
+                if not validate_market_data(formatted):
+                    logger.debug(
+                        "Skipping invalid search market: %s",
+                        formatted.get("title", "N/A")[:50],
+                    )
+                    continue
+
+                results.append(formatted)
+            except Exception as exc:  # pragma: no cover - defensive
+                market_title = market.get("question", market.get("title", "Unknown"))[:50]
+                logger.warning(
+                    "Failed to parse search market '%s': %s", market_title, exc
+                )
+                continue
+
+    logger.info(
+        "Parsed %d active markets from Polymarket public-search response", len(results)
+    )
+
     return results
 
 

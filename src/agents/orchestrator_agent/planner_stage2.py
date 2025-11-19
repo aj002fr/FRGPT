@@ -215,49 +215,39 @@ class PlannerStage2:
         if agent_name == "market_data_agent" and tool_name == "run_query":
             # Extract SQL query parameters
             return {
-                'template': agent_params.get('template', 'by_symbol'),
-                'params': agent_params.get('params', {}),
-                'columns': agent_params.get('columns'),
-                'limit': agent_params.get('limit', 1000),
-                'order_by_column': agent_params.get('order_by_column'),
-                'order_by_direction': agent_params.get('order_by_direction', 'ASC')
+                "template": agent_params.get("template", "by_symbol"),
+                "params": agent_params.get("params", {}),
+                "columns": agent_params.get("columns"),
+                "limit": agent_params.get("limit", 1000),
+                "order_by_column": agent_params.get("order_by_column"),
+                "order_by_direction": agent_params.get("order_by_direction", "ASC"),
             }
-        
-        elif agent_name == "polymarket_agent" and tool_name == "search_polymarket_markets":
-            # Extract search parameters
-            return {
-                'query': agent_params.get('query', ''),
-                'session_id': agent_params.get('session_id'),
-                'limit': agent_params.get('limit', 10)
-            }
-        
-        elif agent_name == "polymarket_agent" and tool_name == "get_polymarket_history":
-            # Extract history parameters
-            return {
-                'session_id': agent_params.get('session_id'),
-                'limit': agent_params.get('limit', 10)
-            }
-        
-        elif agent_name == "reasoning_agent":
-            # Reasoning agent uses multiple tools
+
+        elif agent_name == "polymarket_agent":
+            # Unified polymarket agent uses multiple tools
             if tool_name == "search_polymarket_markets":
                 return {
-                    'query': agent_params.get('query', ''),
-                    'session_id': agent_params.get('session_id'),
-                    'limit': 10
+                    "query": agent_params.get("query", ""),
+                    "session_id": agent_params.get("session_id"),
+                    "limit": agent_params.get("limit", 10),
                 }
-            elif tool_name == "get_market_price_history":
+            if tool_name == "get_polymarket_history":
                 return {
-                    'market_id': agent_params.get('market_id'),
-                    'date': agent_params.get('date'),
-                    'date_range_hours': agent_params.get('date_range_hours', 12)
+                    "session_id": agent_params.get("session_id"),
+                    "limit": agent_params.get("limit", 10),
                 }
-            elif tool_name == "get_market_price_range":
+            if tool_name == "get_market_price_history":
                 return {
-                    'market_id': agent_params.get('market_id'),
-                    'start_date': agent_params.get('start_date'),
-                    'end_date': agent_params.get('end_date'),
-                    'interval_days': agent_params.get('interval_days', 1)
+                    "market_id": agent_params.get("market_id"),
+                    "date": agent_params.get("date"),
+                    "date_range_hours": agent_params.get("date_range_hours", 12),
+                }
+            if tool_name == "get_market_price_range":
+                return {
+                    "market_id": agent_params.get("market_id"),
+                    "start_date": agent_params.get("start_date"),
+                    "end_date": agent_params.get("end_date"),
+                    "interval_days": agent_params.get("interval_days", 1),
                 }
         
         # Default: return agent_params as-is

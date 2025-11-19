@@ -2,45 +2,27 @@
 
 ## Overview
 
-The Polymarket Agent is a producer agent that searches Polymarket prediction markets using natural language queries with intelligent local keyword filtering. It directly queries the Polymarket API to fetch popular markets, then applies smart keyword matching with phrase detection, punctuation handling, and word boundary matching to find the most relevant markets.
+The Polymarket Agent is a producer agent that searches Polymarket prediction markets using natural language queries with **no LLM reasoning**. It calls the Polymarket Gamma `/markets` API to fetch active markets sorted by volume, then applies local keyword filtering and strong validation to return only high-volume markets that are textually relevant to the query. This keeps the agent fast, deterministic, and free of API token requirements.
 
 ## Architecture
 
 ```
-User Query → PolymarketAgent → Polymarket API (fetch popular) → File Bus
-                    ↓                      ↓
-              Session ID Gen        Local Filtering
-                    ↓                (phrase + keyword matching)
-              MCP Client                   ↓
-                    ↓              Validation + Scoring
-         search_polymarket_markets         ↓
-                    ↓              polymarket_markets.db
-              Atomic File Write (out/000001.json)
+User Query → PolymarketAgent → Polymarket `/markets` API (volume-sorted)
+                    ↓                     ↓
+              Session ID Gen        Active Markets
+                    ↓                     ↓
+              MCP Client         Keyword + Volume Filter
+                    ↓                     ↓
+         call_polymarket_api   High-Volume Relevant Markets
+                    ↓                     ↓
+       polymarket_markets.db   File Bus (out/*.json)
                     ↓
-              Run Log (logs/{run_id}.json)
+        Run Log (logs/{run_id}.json)
 ```
 
 ## Key Features
 
-### 1. Smart Keyword Processing
-
-Handles complex queries with intelligent preprocessing:
-
-**Input**: "Russia-Ukraine war?"
-
-**Processing**:
-1. Strip punctuation: `"Russia-Ukraine war?" → "Russia-Ukraine war"`
-2. Split on hyphens: `"Russia-Ukraine" → ["Russia", "Ukraine"]`
-3. Extract individual words: `["russia", "ukraine", "war"]`
-4. Word boundary matching: Only match complete words (e.g., "Fed" won't match "Federal")
-
-**Benefits**:
-- Handles hyphenated terms (e.g., "COVID-19", "Russia-Ukraine")
-- Removes punctuation automatically (?, !, ., etc.)
-- Prevents partial word matches with regex word boundaries
-- Zero API costs (no LLM calls)
-
-### 2. Direct Polymarket API Integration
+### 1. Direct Polymarket API Integration
 
 - **Gamma API**: Primary endpoint for market discovery
 - **No authentication required** for read operations
@@ -53,31 +35,17 @@ Handles complex queries with intelligent preprocessing:
   - Status and close time
   - Slug for correct URL generation
 
-### 3. Relevance-Based Market Scoring
+### 2. Local Keyword + Volume Filtering
 
-Markets are scored and ranked using multiple signals:
-- **Exact phrase match** (+100 points): Query appears verbatim in market text
-- **Individual keyword match** (+10 points each): Each word found in market
-- **Question field bonus** (+5 points each): Keywords in the market question
-- **Minimum threshold**: At least 40% of keywords must match (or minimum 1)
+Markets are scored and filtered locally using:
+- **Keyword matching** in question/title/description (case-insensitive, word-level)
+- **High-volume filter**: require volume above a configurable threshold
+- **Active-only**: ignore closed/resolved or zero-activity markets
 
-**Example**:
-- Query: "Bitcoin price prediction"
-- Market: "Will Bitcoin reach $100,000 by 2025?"
-  - "bitcoin" found in question: +15 points
-  - "price" implied (valuation): 0 points
-  - "prediction" (market nature): 0 points
-  - Total: 15 points (33% match) → May not qualify
-
-### 4. Comprehensive Data Validation
-
-All markets validated before returning:
-- ✅ Required fields present (title, URL, prices, volume, slug)
-- ✅ URL format correct (`https://polymarket.com/event/{slug}`)
-- ✅ Prices are valid dictionaries or numbers
-- ✅ Volume is non-negative number
-- ✅ Market is active (not closed/resolved)
-- ✅ Market has non-zero activity (volume or liquidity > 0)
+### 3. Data Validation
+- ✅ Required fields present (title, prices)
+- ✅ Prices are valid dictionaries with values in \[0, 1]
+- ✅ Volume is non-negative number (when present)
 
 ### 5. Database Storage
 
@@ -89,58 +57,9 @@ All queries stored in `polymarket_markets.db`:
 - Session tracking
 - Timestamp
 
-### 6. Multi-User Support
 
-Unique session IDs enable:
-- Query tracking across multiple users
-- Historical query retrieval per session
-- Session isolation for concurrent users
 
-## Usage
 
-### Basic Usage
-
-```python
-from src.agents.polymarket_agent.run import PolymarketAgent
-
-# Initialize agent
-agent = PolymarketAgent()
-
-# Run query
-output_path = agent.run(
-    query="Will Bitcoin reach $100,000 by end of 2025?",
-    limit=10
-)
-
-# Returns: Path to output file
-```
-
-### With Custom Session
-
-```python
-# Run with existing session
-output_path = agent.run(
-    query="Ethereum price predictions",
-    session_id="20251113143022_a3f2e9",
-    limit=5
-)
-```
-
-### CLI Usage
-
-```bash
-# List sample queries
-python scripts/test_polymarket.py --list
-
-# Run sample query
-python scripts/test_polymarket.py --query 1
-
-# Run custom query
-python scripts/test_polymarket.py --custom "Will AI reach AGI in 2025?"
-
-# Limit results
-python scripts/test_polymarket.py --query 3 --max-results 5
-```
 
 ## Input Parameters
 
@@ -222,7 +141,7 @@ Main tool for searching Polymarket markets:
 6. **Database Storage**: Stores query and results in `polymarket_markets.db`
 7. **Returns**: Top N markets sorted by relevance score
 
-**No LLM calls** - fully local processing for zero API costs.
+**GPT-4 powered** - intelligent reasoning and analysis with structured output.
 
 ### get_polymarket_history
 
@@ -299,7 +218,7 @@ Markets automatically filtered if they fail validation:
 - **Database write**: ~5-10ms (SQLite)
 - **Total duration**: ~600-1200ms per query
 
-**No LLM calls** - fully deterministic and fast.
+**GPT-4 analysis** - adds ~2-4s for intelligent reasoning and relevance scoring.
 
 ## Integration
 

@@ -105,11 +105,10 @@ class TestTaskMapping:
         
         mapper = TaskMapper()
         agents = mapper.list_agents()
-        
-        assert len(agents) >= 3
-        assert 'market_data_agent' in agents
-        assert 'polymarket_agent' in agents
-        assert 'reasoning_agent' in agents
+
+        assert len(agents) >= 2
+        assert "market_data_agent" in agents
+        assert "polymarket_agent" in agents
     
     def test_polymarket_keyword_mapping(self):
         """Test polymarket keywords are mapped correctly."""
