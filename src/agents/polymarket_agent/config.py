@@ -2,9 +2,7 @@
 
 from pathlib import Path
 
-# Agent Identification
 AGENT_NAME = "polymarket-agent"
-# Unified polymarket agent now uses the reasoning pipeline (v2.0)
 AGENT_VERSION = "2.0"
 
 
@@ -22,7 +20,6 @@ OUT_DIR = "out"
 LOGS_DIR = "logs"
 
 
-# Reasoning / analysis configuration
 # Threshold below which markets are flagged as low volume
 LOW_VOLUME_THRESHOLD = 1000  # USD
 

@@ -1,0 +1,1 @@
+"[\n  {\n    \"task_id\": \"task_1\",\n    \"agent\": \"message_puller_agent\",\n    \"description\": \"Retrieve chat messages referencing 'term premium' or 'curve'.\",\n    \"dependencies\": [],\n    \"params\": {\n      \"channels\": [],\n      \"keywords\": [\"term premium\", \"curve\"],\n      \"time_window\": null\n    }\n  }\n]"

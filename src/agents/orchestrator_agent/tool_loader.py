@@ -20,7 +20,7 @@ class ToolLoader:
     # Agent to tool mapping
     AGENT_TOOL_MAP = {
         "market_data_agent": ["run_query"],
-        # Unified polymarket agent has access to all polymarket tools, including price history
+        # polymarket agent has access to all polymarket tools, including price history
         "polymarket_agent": [
             "search_polymarket_markets",
             "get_polymarket_history",

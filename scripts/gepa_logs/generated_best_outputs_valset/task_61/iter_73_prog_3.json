@@ -1,0 +1,1 @@
+"[\n  {\n    \"task_id\": \"t1\",\n    \"agent\": \"web_search_agent\",\n    \"description\": \"Search the web for news and articles related to foreign topics including opinions or commentary\",\n    \"dependencies\": [],\n    \"params\": {\n      \"query\": \"foreign imo opinion\",\n      \"time_window\": \"past month\"\n    }\n  }\n]"

@@ -1,0 +1,1 @@
+"[\n  {\n    \"id\": \"task_1\",\n    \"description\": \"Search the web for macroeconomic and financial news related to 'foreign' topics in the past month.\",\n    \"agent\": \"web_search_agent\",\n    \"params\": {\n      \"query\": \"foreign\",\n      \"time_window\": \"past month\"\n    },\n    \"dependencies\": []\n  }\n]"

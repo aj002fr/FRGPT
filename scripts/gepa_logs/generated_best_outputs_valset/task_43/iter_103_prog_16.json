@@ -1,0 +1,1 @@
+"[\n  {\n    \"id\": \"task_1\",\n    \"description\": \"Retrieve chat messages from user channels today containing the keyword 'stop'.\",\n    \"agent\": \"message_puller_agent\",\n    \"params\": {\n      \"channels\": \"user_default_channels\",\n      \"keywords\": [\"stop\"],\n      \"time_window\": \"today\"\n    },\n    \"dependencies\": []\n  }\n]"

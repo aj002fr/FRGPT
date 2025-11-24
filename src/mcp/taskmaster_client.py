@@ -94,34 +94,61 @@ class TaskPlannerClient:
         if available_agents:
             agent_info = f"\n\nAvailable agents: {', '.join(available_agents)}"
         
-        planning_prompt = f"""Decompose this query into {num_subtasks} or fewer subtasks that can be delegated to worker agents.
+        planning_prompt = f"""Decompose this query into tasks <= {num_subtasks} or fewer subtasks that can be delegated to worker agents.
 
 Query: {query}
 {agent_info}
 
-IMPORTANT GUIDELINES:
-1. market_data_agent can handle complex SQL operations in ONE task:
-   - Filtering by symbol, date, price ranges (e.g., "between X and Y")
-   - Sorting by any column (ascending/descending)
-   - Limiting results (e.g., "most recent", "top N")
-   - Example: "most recent date when ZN price was between 112.5 and 112.9" → 1 task, NOT 4
-   
-2. Prefer FEWER tasks over MORE tasks when:
-   - All data comes from the same source (database or API)
-   - Operations are SQL-expressible (filter + sort + limit)
-   - No cross-agent data dependency exists
-   
-3. Use MULTIPLE tasks only when:
-   - Data sources are truly different (e.g., SQL database + prediction markets)
-   - Analysis requires reasoning/comparison between different datasets
-   - Tasks can run in parallel with independent results
+You are tasked with generating a series of structured tasks in JSON format to answer user queries related to financial markets, focusing on macroeconomic events, market data, trader sentiment, and predictive markets.
 
-For each subtask, provide:
-1. A clear description
-2. Which agent should handle it (if known)
-3. Any dependencies on other subtasks
+1. Query types and domain context:
+   - Queries may involve macroeconomic event data (for example CPI, NFP, FOMC), treasury futures and options (for example TY, 2Y, 10Y futures), trader sentiment from chat messages, predictive market probabilities (for example Polymarket), and related news.
+   - Users can request historical and current data, comparative analyses, surprises versus expectations, event-driven price moves, sentiment summaries, distributions, and probability estimations.
+   - Events such as CPI, NFP, and FOMC are critical anchors for data retrieval and analysis.
+   - Instruments like treasury futures (TY), treasury notes (2Y, 10Y), options skew, and swaptions are common data subjects.
 
-Return a structured task plan with MINIMAL task count."""
+2. Agent capabilities and usage:
+   - `event_data_puller_agent`: Retrieves structured macro event data including event dates, expected versus actual values, and surprise labels (positive or negative). Often used to get event dates and metrics spanning user-specified historical ranges.
+   - `market_data_agent`: Executes parameterized SQL queries on market data tables. Used to retrieve prices, volumes, bid or ask, and related fields for specified instruments and date windows. Supports filtering by symbol, date ranges, and sampling frequency (tick, intraday, daily).
+   - `message_puller_agent`: Retrieves trader chat messages filtered by keyword patterns, channels or groups, and time windows (which can be anchored around events). Used for sentiment and qualitative analysis.
+   - `polymarket_agent`: Queries Polymarket prediction markets by natural language, returning probabilities, volumes, liquidity, and historical price series. Useful for fetching current prediction market states and trends.
+   - `web_search_agent`: Searches macro-relevant news and articles, filtered by time windows, to provide contextual or recent analysis affecting markets.
+   - `calender_checker_agent`: Specialized for finding historical prices and event-related data tied to scheduled macro events.
+   - `distribution_wizard_agent`: Performs statistical analysis and plotting of historical data distributions, especially event-driven return distributions.
+
+3. Task decomposition and dependencies:
+   - Break down the user query into discrete, actionable subtasks aligned with specific agent capabilities.
+   - When the query involves event-driven analysis, use `event_data_puller_agent` first to identify relevant macro event dates and metrics.
+   - Use event dates as anchors for querying market data or chat messages within relative windows (for example 3 days before and after each CPI event).
+   - Retrieve market data for specified instruments and time windows relevant to those events.
+   - For sentiment analysis, query message streams filtered by keywords and time windows anchored around events or recent periods.
+   - For predictive market queries, use `polymarket_agent` directly with the natural language query and optionally request historical data for trend analysis.
+   - Use `distribution_wizard_agent` after obtaining raw price data when the query asks for distributions, histograms, or event-conditioned statistics.
+
+4. Task output format:
+   - Represent each task as a JSON object with at least these keys:
+     - `id`: A unique identifier for the task (string, for example "task_1", "task_2").
+     - `description`: A clear description of what the task is supposed to accomplish (string).
+     - `dependencies`: An array (list) of task IDs (strings) that this task depends on to execute (empty list if no dependencies).
+   - You should also include, when relevant:
+     - `agent`: The agent to execute the task (string, must be one of the agents implied by the catalog or available_agents list).
+     - `params`: The parameters needed for the agent to execute the task, formatted according to that agent's input requirements.
+
+5. Best practices:
+   - When relative date ranges are needed (for example three days before each CPI event), express these as structured parameters, not informal prose.
+   - If no explicit channels are specified for `message_puller_agent`, you may leave the channels list empty to indicate a broad search.
+   - Summaries or derived analytics (for example surprise in standard deviations, yield moves) should be implied as downstream analysis of earlier data-collection tasks, not folded into raw data retrieval tasks.
+   - Respect dependencies explicitly: later tasks should reference the outputs or IDs of earlier tasks through their `dependencies` field.
+
+6. Domain-specific mappings:
+   - "NFP" means Nonfarm Payroll releases.
+   - "CPI" means Consumer Price Index releases.
+   - "FOMC" means Federal Open Market Committee meetings.
+   - Treasury instruments: TY (10-year treasury futures), 2Y and 10Y Treasury Notes.
+   - "Surprise" usually means the deviation of the actual macroeconomic release from consensus expectations, sometimes expressed in standard deviations.
+   - "Yield moves" refer to price or yield changes in treasury securities around event dates.
+
+You must always ensure that the final plan can be expressed as a JSON array of task objects following the schema above, suitable for execution by the available agents."""
         
         try:
 

@@ -1,0 +1,1 @@
+"[\n  {\n    \"task_id\": \"task_1_web_search_foreign_news\",\n    \"agent\": \"web_search_agent\",\n    \"description\": \"Search for recent macro-relevant news and articles containing the keyword 'foreign'.\",\n    \"dependencies\": [],\n    \"params\": {\n      \"query\": \"foreign\",\n      \"time_window\": \"past week\"\n    }\n  }\n]"

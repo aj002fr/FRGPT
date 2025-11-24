@@ -1,0 +1,1 @@
+"[\n  {\n    \"id\": \"task_1\",\n    \"description\": \"Search the web for major headlines in the last 24 hours about U.S. fiscal policy and debt ceiling/pls debates\",\n    \"agent\": \"web_search_agent\",\n    \"params\": {\n      \"query\": \"U.S. fiscal policy debt ceiling pls debates\",\n      \"time_window\": \"past day\"\n    },\n    \"dependencies\": []\n  }\n]"

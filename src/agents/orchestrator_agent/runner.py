@@ -128,7 +128,6 @@ class Runner:
         merged = {
             "market_data": [],
             "polymarket_markets": [],
-            # Reasoning-style insights now come from the unified polymarket agent
             "reasoning_insights": [],
             "summary_statistics": {},
         }

@@ -1,9 +1,11 @@
 from pathlib import Path
 
-# Project paths
 PROJECT_ROOT = Path(__file__).parent.parent
 DATABASE_PATH = PROJECT_ROOT / "market_data.db"
 WORKSPACE_PATH = PROJECT_ROOT / "workspace"
+
+# Path to JSON trading lexicon built from exported Telegram messages
+TRADING_LEXICON_PATH = WORKSPACE_PATH / "trading_lexicon.json"
 
 # Database Configuration
 DB_TABLE = "market_data"

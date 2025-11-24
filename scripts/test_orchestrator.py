@@ -14,14 +14,20 @@ from src.agents.orchestrator_agent import OrchestratorAgent
 from src.core.logging_config import setup_logging
 
 
+# Default query and parameters for IDE run/debug without CLI
+DEFAULT_QUERY = "when was the last time zn was below 112 and what was the chance of nuclear war in 2025 at that point"
+DEFAULT_SKIP_VALIDATION = False
+DEFAULT_NUM_SUBTASKS = None  # Uses orchestrator's default (typically 5)
+
+
 # Sample queries for testing
-# SAMPLE_QUERIES = [
-#     {
-#         "id": 8,
-#         "query": "Show me all US bond treasuries market data from 2025-07-21",
-#         "description": "Date-filtered SQL query"
-#     }
-# ]
+SAMPLE_QUERIES = [
+    # {
+    #     "id": 8,
+    #     "query": "Show me all US bond treasuries market data from 2025-07-21",
+    #     "description": "Date-filtered SQL query"
+    # }
+]
 
 
 def list_queries():
@@ -280,11 +286,19 @@ def main():
     elif args.custom:
         run_custom_query(args.custom, args.skip_validation, args.num_subtasks)
     else:
-        parser.print_help()
-        print("\nExamples:")
-        print("  python scripts/test_orchestrator.py --list")
-        print("  python scripts/test_orchestrator.py --query 4")
-        print('  python scripts/test_orchestrator.py --custom "What are Bitcoin predictions?"')
+        # No arguments provided - use defaults for IDE run/debug
+        print("\n" + "="*70)
+        print("RUNNING WITH DEFAULT QUERY (no CLI arguments provided)")
+        print("="*70)
+        print(f"Query: {DEFAULT_QUERY}")
+        print(f"Skip Validation: {DEFAULT_SKIP_VALIDATION}")
+        print(f"Num Subtasks: {DEFAULT_NUM_SUBTASKS}")
+        print("="*70 + "\n")
+        run_custom_query(
+            DEFAULT_QUERY,
+            skip_validation=DEFAULT_SKIP_VALIDATION,
+            num_subtasks=DEFAULT_NUM_SUBTASKS
+        )
 
 
 if __name__ == "__main__":

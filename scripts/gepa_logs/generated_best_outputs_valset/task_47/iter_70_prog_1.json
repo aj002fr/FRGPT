@@ -1,0 +1,1 @@
+"[\n  {\n    \"task_id\": \"task_polymarket_inflation_fed\",\n    \"agent\": \"polymarket_agent\",\n    \"description\": \"Search Polymarket for all contracts related to U.S. inflation and Federal Reserve policy\",\n    \"dependencies\": [],\n    \"params\": {\n      \"query\": \"U.S. inflation and Federal Reserve policy\",\n      \"limit\": 50\n    }\n  }\n]"

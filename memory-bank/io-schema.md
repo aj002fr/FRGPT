@@ -306,7 +306,14 @@ output_path = agent_workspace / "out" / filename
 
 ## Environment Variables
 
-None required. All configuration in `config/settings.py`.
+None required for core agents. API keys (e.g. Telegram bot token) are loaded
+from `config/keys.env` via `config.settings.get_api_key`.
+
+Additional optional variables used by offline tooling:
+
+- `OPENAI_API_KEY`: LLM API key for orchestrator task planning and GEPA-based planner optimisation.
+- `WANDB_PROJECT`: Optional Weights & Biases project name for GEPA optimisation runs in `scripts/planner_gepa_opt.py`.
+- `WANDB_RUN_NAME`: Optional Weights & Biases run name for GEPA optimisation runs in `scripts/planner_gepa_opt.py`.
 
 ---
 
@@ -639,47 +646,50 @@ Stores task output data and metadata.
 
 ---
 
-## Constants
+## Trading Lexicon JSON
 
-| Name | Value | Description |
-|------|-------|-------------|
-| MAX_ROWS_PER_QUERY | 10000 | Maximum rows per query (market data) |
-| MAX_SEARCH_RESULTS | 20 | Maximum search results (predictions) |
-| DEFAULT_SEARCH_RESULTS | 10 | Default search results |
-| AGENT_VERSION | "1.0" | Agent version |
-| OUTPUT_VERSION | "1.0" | Output schema version |
+**File**: `workspace/trading_lexicon.json`
 
-### Prediction Markets Constants
+The trading lexicon is a JSON list of entries derived from Telegram trading
+chats via the Bot API.
 
-| Name | Value | Description |
-|------|-------|-------------|
-| ALLOWED_PREDICTION_DOMAINS | ["polymarket.com"] | Allowed prediction market domains (deprecated, kept for compatibility) |
-| SESSION_ID_FORMAT | "{timestamp}_{hash}" | Session ID format |
-| SESSION_ID_HASH_LENGTH | 3 | Hex bytes for session ID hash |
-
-### Polymarket Constants
-
-| Name | Value | Description |
-|------|-------|-------------|
-| POLYMARKET_API_BASE_URL | "https://clob.polymarket.com" | Polymarket CLOB API base URL |
-| POLYMARKET_GAMMA_BASE_URL | "https://gamma-api.polymarket.com" | Polymarket Gamma API base URL |
-| MAX_POLYMARKET_RESULTS | 50 | Maximum results per query |
-| DEFAULT_POLYMARKET_RESULTS | 10 | Default results per query |
-| MARKET_STATUS_ACTIVE | "active" | Active market status |
-| MARKET_STATUS_CLOSED | "closed" | Closed market status |
-| MARKET_STATUS_RESOLVED | "resolved" | Resolved market status |
-
----
-
-## Error Handling
-
-All agents write run logs on both success and failure. Failed runs include `error` field:
+Each entry has the following shape:
 
 ```json
 {
-  "run_id": "20251111_120000",
-  "status": "failed",
-  "error": "Invalid template: xyz",
-  ...
+  "term": "ZNZ5",
+  "kind": "ticker",
+  "is_ambiguous": false,
+  "meaning_shift": false,
+  "stats": {
+    "frequency": 12,
+    "first_seen": "2025-11-01T10:00:00+00:00",
+    "last_seen": "2025-11-20T16:30:00+00:00"
+  },
+  "example_sentences": [
+    "Short 5s30s fly in ZNZ5, DV01 neutral"
+  ],
+  "notes": null
 }
 ```
+
+Fields:
+
+- `term` (str): Canonical token as it appears in chat (e.g. futures ticker,
+  shorthand, or acronym).
+- `kind` (str): One of `"acronym"`, `"ticker"`, `"syntax"`, `"shorthand"`,
+  or `"other"`, based on simple heuristics.
+- `is_ambiguous` (bool): True if the term is known to be ambiguous in general
+  English but has a specific trading meaning (e.g. `short`, `long`, `curve`,
+  `fly`).
+- `meaning_shift` (bool): Heuristic flag indicating that the trading sense
+  of the term is likely to differ significantly from the generic meaning.
+- `stats` (object): Aggregated statistics for the term:
+  - `frequency` (int): Total occurrences across analyzed messages.
+  - `first_seen` (str | null): ISO-8601 timestamp when first observed.
+  - `last_seen` (str | null): ISO-8601 timestamp when most recently observed.
+- `example_sentences` (list[str]): Representative cleaned message snippets
+  showing how the term is used in trading context.
+- `notes` (str | null): Reserved for optional human-authored notes.
+
+---

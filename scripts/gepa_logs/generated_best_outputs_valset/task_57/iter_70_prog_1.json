@@ -1,0 +1,1 @@
+"[\n  {\n    \"task_id\": \"task_1\",\n    \"agent\": \"web_search_agent\",\n    \"description\": \"Search today\u2019s news for anything about foreign central banks\",\n    \"dependencies\": [],\n    \"params\": {\n      \"query\": \"foreign central bank\",\n      \"time_window\": \"past day\"\n    }\n  }\n]"

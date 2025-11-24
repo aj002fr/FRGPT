@@ -131,7 +131,6 @@ class TaskMapper:
         if agent_name == "market_data_agent":
             params = self._extract_market_data_params(task_desc)
         elif agent_name == "polymarket_agent":
-            # Unified polymarket agent handles both direct search and reasoning-style analysis
             params = self._extract_polymarket_params(task_desc)
         
         return params

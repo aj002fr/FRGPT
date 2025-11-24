@@ -1,0 +1,1 @@
+"[\n  {\n    \"id\": \"task_1\",\n    \"description\": \"Retrieve all chat messages from the last month without keyword filtering for clustering\",\n    \"agent\": \"message_puller_agent\",\n    \"params\": {\n      \"channels\": null,\n      \"keywords\": null,\n      \"time_window\": \"last 30 days\"\n    },\n    \"dependencies\": []\n  }\n]"

@@ -1,0 +1,1 @@
+"[\n  {\n    \"id\": \"task_1\",\n    \"description\": \"Search Polymarket markets for 'U.S. CPI > 3% at year-end' and retrieve current prices, probabilities, and 24h/7d volumes.\",\n    \"agent\": \"polymarket_agent\",\n    \"params\": {\n      \"query\": \"U.S. CPI > 3% at year-end\",\n      \"limit\": 5\n    },\n    \"dependencies\": []\n  }\n]"
