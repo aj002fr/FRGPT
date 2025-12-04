@@ -14,10 +14,10 @@ from src.agents.orchestrator_agent import OrchestratorAgent
 from src.core.logging_config import setup_logging
 
 
-# Default query and parameters for IDE run/debug without CLI
-DEFAULT_QUERY = "when was the last time zn was below 112 and what was the chance of nuclear war in 2025 at that point"
+
+DEFAULT_QUERY = "get the percentile surprise for today's jolt job openings data release"
 DEFAULT_SKIP_VALIDATION = False
-DEFAULT_NUM_SUBTASKS = None  # Uses orchestrator's default (typically 5)
+DEFAULT_NUM_SUBTASKS = None  
 
 
 # Sample queries for testing
@@ -192,6 +192,7 @@ def run_custom_query(query: str, skip_validation: bool = False, num_subtasks: in
         print(f"Successful: {metadata.get('successful_tasks', 0)}")
         print(f"Failed: {metadata.get('failed_tasks', 0)}")
         print(f"Agents Used: {', '.join(metadata.get('agents_used', []))}")
+        print(f"Unmappable Tasks: {metadata.get('unmappable_tasks', 0)}")
         print()
         
         # Display validation

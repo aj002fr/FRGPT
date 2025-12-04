@@ -4,13 +4,15 @@
 
 Producer agent that searches Polymarket prediction markets using natural language queries.
 
+- Polymarket path: simple API-only search over Polymarket Gamma `/public-search`.
+
 ## Inputs
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | query | str | Yes | Natural language search query |
-| session_id | str | No | Session identifier (auto-generated if not provided) |
-| limit | int | No | Maximum results (default: 10, max: 50) |
+| session_id | str | No | Session identifier (Polymarket mode, optional) |
+| limit | int | No | Maximum results (default: 10, max: 50 for Polymarket) |
 
 ## Outputs
 
@@ -74,17 +76,20 @@ Location: `workspace/agents/polymarket-agent/logs/{run_id}.json`
 
 ## Process Flow
 
-1. **Validate Input**: Check query is non-empty, limit is within bounds
-2. **Generate Session ID**: Create unique session identifier if not provided
-3. **Call MCP Tool**: Invoke `search_polymarket_markets` tool
-   - Tool queries Polymarket API (hybrid: recent + popular markets)
-   - Tool performs fast keyword filtering (~50 candidates)
-   - Tool uses GPT-4 to re-rank by semantic relevance (if API key available)
-   - Tool stores results in database
-4. **Get Results**: Receive market data with relevance scores/reasons
-5. **Write to File Bus**: Atomic write to `out/{id}.json`
-6. **Write Run Log**: Log execution details to `logs/{run_id}.json`
-7. **Return**: Output file path
+### Polymarket (run / run_simple)
+
+1. **Validate Input**: Check query is non-empty, limit is within bounds.
+2. **Generate Session ID**: Create unique session identifier if not provided.
+3. **Call MCP Tool**: Invoke `search_polymarket_with_history` unified tool.
+   - Tool searches Polymarket API for current market data (recent + popular markets, hybrid search).
+   - Tool performs fast keyword filtering (~50 candidates).
+   - Tool optionally uses GPT-4 to re-rank by semantic relevance (if API key available).
+   - Tool automatically retrieves historical data for the same session.
+   - Tool stores results in `polymarket_markets.db` with `platform="polymarket"`.
+4. **Get Results**: Receive both current market data and historical trends in one response.
+5. **Write to File Bus**: Atomic write to `out/{id}.json`.
+6. **Write Run Log**: Log execution details to `logs/{run_id}.json`.
+7. **Return**: Output file path.
 
 ## Session ID Format
 
@@ -118,13 +123,11 @@ output_path = agent.run(
 
 ## Key Features
 
-- **LLM-Powered Relevance**: Uses GPT-4 to score semantic relevance (0-1 scale with explanations)
-- **Hybrid Search**: Fast keyword filter + accurate LLM re-ranking
-- **Graceful Fallback**: Falls back to keyword-only if no OpenAI API key
-- **Multi-User Support**: Session IDs enable query tracking across users
-- **Historical Data**: All queries stored in `polymarket_markets.db`
-- **Atomic Operations**: Crash-safe file writes
-- **Full Audit Trail**: Every run logged with metadata
+- **LLM-Powered Relevance (Polymarket)**: Uses GPT-4 to score semantic relevance (0-1 scale with explanations) when available, with keyword-only fallback.
+- **Shared History Storage**: All Polymarket queries stored in `polymarket_markets.db` table `prediction_queries` with `platform` differentiating source.
+- **Multi-User Support**: Session IDs enable query tracking across users.
+- **Atomic Operations**: Crash-safe file writes.
+- **Full Audit Trail**: Every run logged with metadata.
 
 ## Database Storage
 
@@ -142,8 +145,9 @@ All queries and results are stored in `polymarket_markets.db` table `prediction_
 
 ## Integration
 
-- **File Bus**: Compatible with existing consumer agents
-- **MCP Tools**: Uses `search_polymarket_markets` tool
-- **Schema Validation**: Follows standard output schema
-- **Manifest System**: Incremental file IDs (000001.json, 000002.json, ...)
+- **File Bus**: Compatible with existing consumer agents.
+- **MCP Tools**: Uses unified `search_polymarket_with_history` tool that combines current search and historical data retrieval in one call.
+  - Legacy tools `search_polymarket_markets` and `get_polymarket_history` are still available for backward compatibility.
+- **Schema Validation**: Follows standard output schema.
+- **Manifest System**: Incremental file IDs (000001.json, 000002.json, ...).
 

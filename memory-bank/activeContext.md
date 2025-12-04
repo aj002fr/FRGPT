@@ -2,6 +2,7 @@
 
 ## Current Status
 ✅ **Code-Mode MCP System - Complete & Optimized**
+✅ **Live Surprise Tracker - Implemented & Simplified**
 
 ---
 
@@ -12,9 +13,10 @@
 src/
 ├── bus/          # File-based bus (file_bus, manifest, schema)
 ├── mcp/          # MCP infrastructure (client, discovery)
-├── servers/      # Tools (marketdata, polymarket)
+├── servers/      # Tools (marketdata, polymarket, tradingeconomics)
 │   ├── marketdata/      # Market data SQL queries
-│   └── polymarket/      # Direct Polymarket API tools
+│   ├── polymarket/      # Direct Polymarket API tools
+│   └── tradingeconomics/ # Trading Economics API & WebSocket tools
 ├── agents/       # Agents (market_data_agent, consumer_agent, polymarket_agent)
 │   ├── market_data_agent/       # SQL query producer
 │   ├── consumer_agent/          # Statistics consumer
@@ -28,6 +30,8 @@ scripts/
 ├── test_queries.py          # Pre-configured market data queries
 ├── test_polymarket_simple.py# Simple Polymarket search queries
 ├── test_orchestrator.py     # Multi-agent orchestration queries
+├── test_te_websocket.py     # Trading Economics WebSocket Test
+├── live_surprise_tracker.py # Live Surprise Tracker (Real-time Analytics)
 ├── show_logs.py             # View logs & artifacts
 ├── run_agent.py             # CLI for custom queries
 └── setup_polymarket_db.py   # Database setup utility
@@ -94,7 +98,7 @@ User → PolymarketAgent → Polymarket Gamma `/markets` (orderBy=volume)
               Structured Results (title, prices, volume)
 ```
 
-**Pipeline 3: Multi-Agent Orchestration (Two-Stage Planner)** ⭐ **NEW**
+**Pipeline 3: Multi-Agent Orchestration (Two-Stage Planner)**
 ```
 User → OrchestratorAgent (Two-Stage Planner)
                 ↓
@@ -157,16 +161,20 @@ User → OrchestratorAgent (Two-Stage Planner)
 ✅ Predictive markets integration (Direct Polymarket API with local filtering)
 ✅ Multi-user support (auto-generated session IDs)
 ✅ Query history (SQLite-based storage and retrieval)
+✅ **Live Surprise Tracker** (Real-time economic data analytics)
 
 ---
 
 ## Quick Commands
 
 ```bash
-# ⭐ Multi-Agent Orchestration (NEW!)
+# ⭐ Live Surprise Tracker (Real-Time)
+python scripts/live_surprise_tracker.py --country US
+python scripts/live_surprise_tracker.py --country US --importance high --update-history
+
+# ⭐ Multi-Agent Orchestration
 python scripts/test_orchestrator.py --list
 python scripts/test_orchestrator.py --query 4    # Complex multi-agent query
-python scripts/test_orchestrator.py --custom "What were Bitcoin predictions and market data?"
 
 # Market Data Queries
 python scripts/test_queries.py --list
@@ -175,22 +183,19 @@ python scripts/test_queries.py --query 1
 # Polymarket Queries (Simple API + keyword filtering)
 python scripts/test_polymarket_simple.py --custom "super bowl champion 2026" --max-results 10
 
+# Trading Economics WebSocket Test (Raw)
+python scripts/test_te_websocket.py --duration 30
+
 # View results
 python scripts/show_logs.py
-
-# Full demo
-python main.py
-
-# Database setup
-python scripts/setup_polymarket_db.py
 ```
 
 ---
 
-## File Count: 38 Essential Files
+## File Count: 40 Essential Files
 
 - 23 source code files
-- 6 script files
+- 8 script files
 - 3 test files
 - 13 documentation files (organized)
 - 1 configuration file
@@ -214,7 +219,7 @@ docs/
 ```
 
 ### Agents (4 Core Agents)
-1. **OrchestratorAgent** - ⭐ **NEW** - Meta-agent that coordinates multiple workers for complex multi-agent queries
+1. **OrchestratorAgent** - Meta-agent that coordinates multiple workers for complex multi-agent queries
 2. **MarketDataAgent** - SQL query producer for market data (database pipeline)
 3. **ConsumerAgent** - Statistics consumer for market data (processes SQL results)
 4. **PolymarketAgent** - Simple API-only Polymarket market search (volume-sorted + keyword-filtered)
@@ -237,6 +242,7 @@ docs/
 - Python 3.11+ stdlib only (core system)
 - openai>=2.0.0 (optional, for LLM-powered relevance scoring and orchestrator task planning)
 - anthropic (optional, alternative for orchestrator task planning)
+- websockets (optional, for Trading Economics streaming)
 
 **Testing**: pytest>=7.4.0
 

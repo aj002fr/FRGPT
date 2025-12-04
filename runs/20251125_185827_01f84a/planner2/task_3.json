@@ -1,0 +1,52 @@
+{
+  "run_id": "20251125_185827_01f84a",
+  "path_id": "path_2",
+  "task": {
+    "task_id": "task_3",
+    "agent": "market_data_agent",
+    "description": "Fetch historical price series for Bitcoin",
+    "tools": [
+      "run_query"
+    ],
+    "tool_params": {
+      "run_query": {
+        "template": "by_symbol",
+        "params": {
+          "symbol_pattern": "%BTC%"
+        },
+        "columns": null,
+        "limit": 1000,
+        "order_by_column": "price",
+        "order_by_direction": "ASC"
+      }
+    },
+    "dependencies": [],
+    "agent_params": {
+      "template": "by_symbol",
+      "params": {
+        "symbol_pattern": "%BTC%"
+      },
+      "columns": null,
+      "limit": 1000,
+      "order_by_column": "price",
+      "order_by_direction": "ASC"
+    }
+  },
+  "tools_loaded": [
+    "get_market_price_range",
+    "run_query",
+    "search_polymarket_markets",
+    "get_polymarket_history",
+    "get_market_price_history"
+  ],
+  "agents_in_path": [
+    "polymarket_agent",
+    "market_data_agent"
+  ],
+  "metadata": {
+    "total_tasks": 2,
+    "mappable_tasks": 2,
+    "num_agents": 2,
+    "num_tools": 5
+  }
+}

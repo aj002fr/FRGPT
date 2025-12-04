@@ -1,0 +1,109 @@
+{
+  "query": "bitcoin prediction 2025",
+  "subtasks": [
+    {
+      "id": "task_1",
+      "description": "Search for relevant Polymarket markets matching the topic of Bitcoin",
+      "assigned_agent": "polymarket_agent",
+      "dependencies": [],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "query": "search for relevant polymarket markets matching the topic of bitcoin",
+        "session_id": null,
+        "limit": 10
+      }
+    },
+    {
+      "id": "task_2",
+      "description": "Retrieve current market data (prices, volumes, liquidity) for the discovered Bitcoin markets",
+      "assigned_agent": "polymarket_agent",
+      "dependencies": [
+        "task_1"
+      ],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "query": "retrieve current market data (prices, volumes, liquidity) for the discovered bitcoin markets",
+        "session_id": null,
+        "limit": 10
+      }
+    },
+    {
+      "id": "task_3",
+      "description": "Fetch historical price series for Bitcoin",
+      "assigned_agent": "market_data_agent",
+      "dependencies": [],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "template": "by_symbol",
+        "params": {
+          "symbol_pattern": "%BTC%"
+        },
+        "columns": null,
+        "limit": 1000,
+        "order_by_column": "price",
+        "order_by_direction": "ASC"
+      }
+    },
+    {
+      "id": "task_4",
+      "description": "Analyze repricing or trend evolution to detect consensus shifts or repricing patterns",
+      "assigned_agent": "polymarket_agent",
+      "dependencies": [
+        "task_2",
+        "task_3"
+      ],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "query": "analyze repricing or trend evolution to detect consensus shifts or repricing patterns",
+        "session_id": null,
+        "limit": 10
+      }
+    }
+  ],
+  "dependency_paths": [
+    [
+      "task_1",
+      "task_2",
+      "task_4"
+    ],
+    [
+      "task_3",
+      "task_4"
+    ]
+  ],
+  "metadata": {
+    "total_tasks": 4,
+    "mappable_tasks": 4,
+    "unmappable_tasks": 0,
+    "has_cycles": false,
+    "max_depth": 2,
+    "parallel_groups": [
+      [
+        "task_3",
+        "task_1"
+      ],
+      [
+        "task_2"
+      ],
+      [
+        "task_4"
+      ]
+    ],
+    "independent_tasks": 2,
+    "available_agents": [
+      "market_data_agent",
+      "polymarket_agent"
+    ],
+    "task_dependency_paths": {
+      "task_4": [
+        "task_1",
+        "task_2",
+        "task_4"
+      ]
+    }
+  }
+}

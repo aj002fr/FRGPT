@@ -1,0 +1,47 @@
+{
+  "run_id": "20251202_192833_0737e5",
+  "path_id": "path_1",
+  "task": {
+    "task_id": "task_2",
+    "agent": "analytics_agent",
+    "description": "Calculate the percentile surprise for today's JOLT job openings data release",
+    "tools": [
+      "compute_percentile_rank"
+    ],
+    "tool_params": {
+      "compute_percentile_rank": {
+        "event": "JOLT job openings",
+        "date": "today",
+        "anchor_task": "task_1",
+        "anchor_field": "surprise"
+      }
+    },
+    "dependencies": [
+      "task_1"
+    ],
+    "agent_params": {
+      "event": "JOLT job openings",
+      "date": "today",
+      "anchor_task": "task_1",
+      "anchor_field": "surprise"
+    },
+    "ai_reasoning": "Task requires calculating the percentile surprise for today's JOLT job openings data release. The 'compute_percentile_rank' tool is selected as it can compute the percentile rank of a specific field ('surprise') from the data pulled in 'task_1'."
+  },
+  "tools_loaded": [
+    "fetch_economic_calendar",
+    "build_runner_answer",
+    "compute_percentile_rank"
+  ],
+  "agents_in_path": [
+    "analytics_agent",
+    "eventdata_puller_agent",
+    "runner_agent"
+  ],
+  "metadata": {
+    "total_tasks": 3,
+    "mappable_tasks": 3,
+    "num_agents": 3,
+    "num_tools": 3,
+    "ai_powered": true
+  }
+}

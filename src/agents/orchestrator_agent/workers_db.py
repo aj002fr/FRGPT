@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
+from src.core.run_store import write_run_artifact, log_agent_output
+
 logger = logging.getLogger(__name__)
 
 
@@ -389,8 +391,39 @@ class WorkersDB:
         
         self.conn.commit()
         output_id = cursor.lastrowid
-        
-        logger.debug(f"Stored output for task {task_id} (ID: {output_id})")
+
+        # Persist worker output under runs/{run_id}/workers/{agent_name}/{task_id}.json
+        artifact_payload: Dict[str, Any] = {
+            "run_id": run_id,
+            "task_id": task_id,
+            "agent_name": agent_name,
+            "output_data": output_data,
+            "metadata": metadata,
+        }
+        relative_path = Path("workers") / agent_name / f"{task_id}.json"
+        artifact_path = write_run_artifact(
+            run_id=run_id,
+            relative_path=relative_path,
+            payload=artifact_payload,
+        )
+
+        # Log high-level agent output metadata in central DB
+        summary = f"Worker output for {agent_name} task {task_id}"
+        log_agent_output(
+            run_id=run_id,
+            agent=f"worker_{agent_name}",
+            step=4,
+            task_id=task_id,
+            summary=summary,
+            data_pointer=artifact_path,
+        )
+
+        logger.debug(
+            "Stored output for task %s (ID: %s, artifact=%s)",
+            task_id,
+            output_id,
+            artifact_path,
+        )
         return output_id
     
     def get_task_output(

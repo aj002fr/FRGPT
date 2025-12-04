@@ -1,0 +1,43 @@
+{
+  "run_id": "20251126_162039_84b18a",
+  "path_id": "path_1",
+  "task": {
+    "task_id": "task_2",
+    "agent": "runner_agent",
+    "description": "Consolidate and summarize the prediction for Bitcoin price in 2025",
+    "tools": [
+      "build_runner_answer"
+    ],
+    "tool_params": {
+      "build_runner_answer": {
+        "context": null,
+        "style": "analytical",
+        "focus": "summary",
+        "query": "What is the bitcoin price prediction for 2025?"
+      }
+    },
+    "dependencies": [
+      "task_1"
+    ],
+    "agent_params": {
+      "focus": "summary",
+      "style": "analytical"
+    },
+    "ai_reasoning": "Task requires consolidation and summarization of the prediction for Bitcoin price in 2025"
+  },
+  "tools_loaded": [
+    "build_runner_answer",
+    "search_polymarket_markets"
+  ],
+  "agents_in_path": [
+    "polymarket_agent",
+    "runner_agent"
+  ],
+  "metadata": {
+    "total_tasks": 2,
+    "mappable_tasks": 2,
+    "num_agents": 2,
+    "num_tools": 2,
+    "ai_powered": true
+  }
+}

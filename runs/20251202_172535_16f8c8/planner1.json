@@ -1,0 +1,97 @@
+{
+  "query": "on the days when data related to jolts job openings was released, was there a possibility of nuclear wat",
+  "subtasks": [
+    {
+      "id": "task_1",
+      "description": "Retrieve JOLTS Job Openings release dates",
+      "assigned_agent": "eventdata_puller_agent",
+      "dependencies": [],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "event": "JOLTS Job Openings"
+      }
+    },
+    {
+      "id": "task_2",
+      "description": "Search Polymarket for nuclear war predictions on JOLTS Job Openings release dates",
+      "assigned_agent": "polymarket_agent",
+      "dependencies": [
+        "task_1"
+      ],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "query": "nuclear war",
+        "date": {
+          "anchor_task": "task_1",
+          "anchor_field": "date"
+        }
+      }
+    },
+    {
+      "id": "task_3",
+      "description": "Consolidate and analyze the data",
+      "assigned_agent": "runner_agent",
+      "dependencies": [
+        "task_2"
+      ],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "focus": "general",
+        "style": "analytical"
+      }
+    }
+  ],
+  "dependency_paths": [
+    [
+      "task_1",
+      "task_2",
+      "task_3"
+    ]
+  ],
+  "metadata": {
+    "total_tasks": 3,
+    "mappable_tasks": 3,
+    "unmappable_tasks": 0,
+    "has_cycles": false,
+    "max_depth": 2,
+    "parallel_groups": [
+      [
+        "task_1"
+      ],
+      [
+        "task_2"
+      ],
+      [
+        "task_3"
+      ]
+    ],
+    "independent_tasks": 1,
+    "available_agents": [
+      "market_data_agent",
+      "polymarket_agent",
+      "runner_agent",
+      "eventdata_puller_agent",
+      "analytics_agent"
+    ],
+    "task_dependency_paths": {
+      "task_1": [
+        "task_1",
+        "task_2",
+        "task_3"
+      ],
+      "task_2": [
+        "task_1",
+        "task_2",
+        "task_3"
+      ],
+      "task_3": [
+        "task_1",
+        "task_2",
+        "task_3"
+      ]
+    }
+  }
+}

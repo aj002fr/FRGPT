@@ -237,6 +237,9 @@ file (e.g. `user_messages.json`), aggregates terms with
 `trading_lexicon.build_lexicon_from_messages`, and writes
 `workspace/trading_lexicon.json`.
 
+### live_surprise_tracker.py
+Real-time economic event surprise tracker. Combines historical analysis with live WebSocket streaming. Queries historical events from `economic_events.db`, calculates surprise (actual - consensus) for each event, ranks them by magnitude, computes statistics (mean, std dev, percentiles). When live streaming is enabled, opens a WebSocket connection via the `start_event_stream` MCP tool, listens for incoming events matching the filter criteria (event name, country, importance), and immediately calculates the percentile rank of the current surprise within the historical distribution. Supports `--no-stream` for historical analysis only, `--event`, `--country`, `--importance`, `--lookback`, and `--duration` CLI options.
+
 ## Entry Point
 
 ### main.py

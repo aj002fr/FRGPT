@@ -2,19 +2,18 @@
 
 ## Purpose
 
-The Orchestrator Agent coordinates multiple worker agents to answer complex queries that require data from different sources or agents.
+The Orchestrator Agent coordinates multiple worker agents to answer complex queries that require data from different sources or agents, and then calls a dedicated GPT-5-powered `runner_agent` to produce the final answer.
 
 ## Workflow
 
 1. **Task Planning**: Uses taskmaster MCP server to decompose natural language queries into subtasks
-2. **Task Mapping**: Maps each subtask to the appropriate worker agent (market_data_agent, polymarket_agent)
-3. **Code Generation**: Generates executable Python script with async task execution
-4. **Parallel Execution**: Executes independent tasks in parallel using asyncio
-5. **Result Consolidation**: Merges outputs from all worker agents
-6. **Answer Validation**: Uses taskmaster to validate completeness and correctness
-7. **Output**: Writes to file bus and returns consolidated result
+2. **Task Mapping**: Maps each subtask to the appropriate worker agent (market_data_agent, polymarket_agent, runner_agent)
+3. **Code Generation**: Generates executable Python script with async task execution for worker agents
+4. **Parallel Execution**: Executes independent worker tasks in parallel using asyncio and persists outputs to SQLite + file bus
+5. **Final Reasoning**: Calls the `runner_agent` once with worker outputs and planning context to generate the final answer
+6. **Output**: Writes the runner agent's final answer to the file bus and returns it
 
-## Available Worker Agents
+## Available Agents
 
 ### market_data_agent
 - **Purpose**: Execute SQL queries on market_data table
@@ -27,6 +26,12 @@ The Orchestrator Agent coordinates multiple worker agents to answer complex quer
 - **Keywords**: polymarket, prediction, forecast, probability, odds, historical, opinion, comparison, trend, analysis
 - **Inputs**: query, session_id, limit
 - **Outputs**: Prediction market data with prices, volumes, and reasoning-style historical comparison
+
+### runner_agent
+- **Purpose**: Final consolidation and answer generation using GPT-5-class models
+- **Keywords**: explain, summarize, compare, interpret, overall answer, narrative
+- **Inputs**: query, worker_outputs, planning_table, run_id
+- **Outputs**: Final natural-language answer plus structured reasoning metadata
 
 ## Input
 

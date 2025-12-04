@@ -1,0 +1,94 @@
+{
+  "query": "bitcoin prediction 2025",
+  "subtasks": [
+    {
+      "id": "task_1",
+      "description": "Retrieve Bitcoin market data",
+      "assigned_agent": "market_data_agent",
+      "dependencies": [],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "ticker": "BTC",
+        "fields": [
+          "close_price"
+        ],
+        "start_date": "2022-01-01",
+        "end_date": "2025-12-31"
+      }
+    },
+    {
+      "id": "task_2",
+      "description": "Retrieve Bitcoin prediction from Polymarket",
+      "assigned_agent": "polymarket_agent",
+      "dependencies": [],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "query": "Bitcoin price 2025"
+      }
+    },
+    {
+      "id": "task_3",
+      "description": "Consolidate and analyze Bitcoin market data and Polymarket prediction",
+      "assigned_agent": "runner_agent",
+      "dependencies": [
+        "task_1",
+        "task_2"
+      ],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "focus": "general",
+        "style": "analytical"
+      }
+    }
+  ],
+  "dependency_paths": [
+    [
+      "task_1",
+      "task_3"
+    ],
+    [
+      "task_2",
+      "task_3"
+    ]
+  ],
+  "metadata": {
+    "total_tasks": 3,
+    "mappable_tasks": 3,
+    "unmappable_tasks": 0,
+    "has_cycles": false,
+    "max_depth": 1,
+    "parallel_groups": [
+      [
+        "task_2",
+        "task_1"
+      ],
+      [
+        "task_3"
+      ]
+    ],
+    "independent_tasks": 2,
+    "available_agents": [
+      "market_data_agent",
+      "polymarket_agent",
+      "runner_agent"
+    ],
+    "task_dependency_paths": {
+      "task_1": [
+        "task_1",
+        "task_3"
+      ],
+      "task_3": [
+        "task_1",
+        "task_2",
+        "task_3"
+      ],
+      "task_2": [
+        "task_2",
+        "task_3"
+      ]
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "run_id": "20251127_135606_a795c5",
+  "path_id": "path_1",
+  "task": {
+    "task_id": "task_1",
+    "agent": "market_data_agent",
+    "description": "Retrieve Bitcoin market data",
+    "tools": [
+      "run_query"
+    ],
+    "tool_params": {
+      "run_query": {
+        "template": "by_symbol_and_date",
+        "params": {
+          "symbol_pattern": "%BTC%",
+          "start_date": "2022-01-01",
+          "end_date": "2022-12-31"
+        },
+        "columns": [
+          "close"
+        ],
+        "limit": 1000,
+        "order_by_column": "file_date",
+        "order_by_direction": "DESC"
+      }
+    },
+    "dependencies": [],
+    "agent_params": {
+      "ticker": "BTC",
+      "fields": [
+        "close"
+      ],
+      "start_date": "2022-01-01",
+      "end_date": "2022-12-31"
+    },
+    "ai_reasoning": "Task requires querying market database for Bitcoin prices within a specific date range"
+  },
+  "tools_loaded": [
+    "build_runner_answer",
+    "run_query",
+    "generate_structured_output"
+  ],
+  "agents_in_path": [
+    "market_data_agent",
+    "runner_agent"
+  ],
+  "metadata": {
+    "total_tasks": 2,
+    "mappable_tasks": 2,
+    "num_agents": 2,
+    "num_tools": 3,
+    "ai_powered": true
+  }
+}

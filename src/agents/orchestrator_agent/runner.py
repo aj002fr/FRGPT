@@ -1,4 +1,9 @@
-"""Runner - Final Result Consolidation with AI Validation."""
+"""Runner - Final Result Consolidation with AI Validation (deprecated).
+
+This component is kept for backward compatibility and potential reuse of its
+utility methods, but the orchestrator now uses the standalone `runner_agent`
+for final consolidation and answer generation.
+"""
 
 import logging
 from pathlib import Path

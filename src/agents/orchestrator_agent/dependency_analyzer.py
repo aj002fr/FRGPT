@@ -175,26 +175,68 @@ class DependencyAnalyzer:
         dependency_paths: List[List[str]]
     ) -> Dict[str, List[str]]:
         """
-        Build mapping from task_id to one canonical dependency path.
+        Build mapping from task_id to its dependency path.
         
-        For tasks that appear in multiple paths (due to DAG fan-in),
-        the first encountered path is used.
+        Strategy:
+        - For tasks in a single path: use that path
+        - For tasks with fan-in (multiple incoming paths): merge all predecessor tasks
+        
+        This ensures tasks with multiple dependencies get the full context of ALL
+        their predecessors, not just one arbitrary path.
         
         Args:
             dependency_paths: List of paths (root → leaf)
             
         Returns:
-            Dict mapping task_id -> dependency path (list of task IDs)
+            Dict mapping task_id -> dependency path (list of task IDs in execution order)
+            
+        Example:
+            Input: [['task_1', 'task_3'], ['task_2', 'task_3']]
+            
+            Output: {
+                'task_1': ['task_1', 'task_3'],           # Single path
+                'task_2': ['task_2', 'task_3'],           # Single path
+                'task_3': ['task_1', 'task_2', 'task_3'] # Merged: all predecessors
+            }
         """
-        task_paths: Dict[str, List[str]] = {}
+        # First pass: collect all paths each task appears in
+        task_to_paths: Dict[str, List[List[str]]] = {}
         
         for path in dependency_paths:
             if not path:
                 continue
-            leaf_task_id = path[-1]
-            # Only set the first time we see this task as a leaf
-            if leaf_task_id not in task_paths:
-                task_paths[leaf_task_id] = path
+            
+            for task_id in path:
+                if task_id not in task_to_paths:
+                    task_to_paths[task_id] = []
+                task_to_paths[task_id].append(path)
+        
+        # Second pass: build canonical path for each task
+        task_paths: Dict[str, List[str]] = {}
+        
+        for task_id, paths in task_to_paths.items():
+            if len(paths) == 1:
+                # Single path: use it as-is
+                task_paths[task_id] = paths[0]
+            else:
+                # Multiple paths (fan-in): merge all unique predecessors
+                all_predecessors = set()
+                for path in paths:
+                    # Get all tasks before this task in the path
+                    task_index = path.index(task_id)
+                    all_predecessors.update(path[:task_index])
+                
+                # Build merged path: predecessors (topologically sorted) + this task
+                # Use the order from the first path as a reasonable topological sort
+                merged_path = []
+                for path in paths:
+                    for tid in path:
+                        if tid in all_predecessors and tid not in merged_path:
+                            merged_path.append(tid)
+                
+                # Add the task itself at the end
+                merged_path.append(task_id)
+                task_paths[task_id] = merged_path
         
         return task_paths
     

@@ -1,0 +1,592 @@
+{
+  "run_id": "20251126_195316_cb9e69",
+  "task_id": "task_2",
+  "agent_name": "polymarket_agent",
+  "output_data": {
+    "search_polymarket_with_history": {
+      "current": {
+        "markets": [
+          {
+            "market_id": "0xd7a6eebc3e8f20d4605554e1748ef1e0a28fc5207a1e83f8be7bd456afc518b3",
+            "clob_token_ids": [
+              "89547138889008034646678451655155346217928964573534058109595491957510613762453",
+              "87828143513355086612857663203853208804513287565207452723102759049151285458825"
+            ],
+            "title": "Will Bitcoin reach $150,000 in November?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0015,
+              "No": 0.9985
+            },
+            "volume": 2714045.202233,
+            "liquidity": 410071.37195,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-150k-in-november-2025",
+            "slug": "will-bitcoin-reach-150k-in-november-2025",
+            "created_at": "2025-11-01T01:10:01.409565Z",
+            "close_time": "2025-12-01T05:00:00Z",
+            "relevance_score": 1.0,
+            "relevance_reason": "Directly related to Bitcoin's future price"
+          },
+          {
+            "market_id": "0x3e348ea492ffdceb505d1b51828c2a9e5e9f90f31692dc2c59c2ff75cdf32b54",
+            "clob_token_ids": [
+              "27552120954856463326460606808573275580558185382229292475373324804137540385586",
+              "107430092050791073250531756109263460666979993725594521813794669883038912493756"
+            ],
+            "title": "Will Bitcoin reach $140,000 in November?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0015,
+              "No": 0.9985
+            },
+            "volume": 1152927.515713,
+            "liquidity": 401641.40818,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-140k-in-november-2025",
+            "slug": "will-bitcoin-reach-140k-in-november-2025",
+            "created_at": "2025-11-01T01:10:02.068018Z",
+            "close_time": "2025-12-01T05:00:00Z",
+            "relevance_score": 1.0,
+            "relevance_reason": "Directly related to Bitcoin's future price"
+          },
+          {
+            "market_id": "0x84f6cfe7dcbc9433460702a3597a581ba93113ef4ddbe8af51f8106e4650c011",
+            "clob_token_ids": [
+              "103441982063038573030050648379567308735533907048617147367531127421127711082507",
+              "45489713216126823950343111006534936052568333362176307600964573390724080046939"
+            ],
+            "title": "Will Bitcoin reach $130,000 in November?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0015,
+              "No": 0.9985
+            },
+            "volume": 1797463.811549,
+            "liquidity": 457059.62482,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-130k-in-november-2025",
+            "slug": "will-bitcoin-reach-130k-in-november-2025",
+            "created_at": "2025-11-01T01:10:02.776513Z",
+            "close_time": "2025-12-01T05:00:00Z",
+            "relevance_score": 1.0,
+            "relevance_reason": "Directly related to Bitcoin's future price"
+          },
+          {
+            "market_id": "0xb4318f8d1bf6ae35386b0614dc1528731d3f5ea27ecdc54fa53ff8e4f94c291b",
+            "clob_token_ids": [
+              "26660501371976217926895911905318245685503235154212268525284346447809706374880",
+              "42277309992365160824309185131381153181339585772663900063973385208436211424"
+            ],
+            "title": "Will Bitcoin reach $120,000 in November?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0015,
+              "No": 0.9985
+            },
+            "volume": 2267645.089385,
+            "liquidity": 215771.29845,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-120k-in-november-2025",
+            "slug": "will-bitcoin-reach-120k-in-november-2025",
+            "created_at": "2025-11-01T01:10:03.501225Z",
+            "close_time": "2025-12-01T05:00:00Z",
+            "relevance_score": 1.0,
+            "relevance_reason": "Directly related to Bitcoin's future price"
+          },
+          {
+            "market_id": "0xd31956675172dc796c5f458425b9a11eb8179c6ce128e393535c0485871fea45",
+            "clob_token_ids": [
+              "93455006475081907108315746918317517373733912138143094076782992361190649169417",
+              "48293328646388224413043358201484112139630046472193483909351769450765877900950"
+            ],
+            "title": "Will Bitcoin dip to $80,000 in November?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final Low price equal to or lower than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT Low prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.037,
+              "No": 0.963
+            },
+            "volume": 2717382.198129,
+            "liquidity": 104514.86883,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-dip-to-80k-in-november-2025-899",
+            "slug": "will-bitcoin-dip-to-80k-in-november-2025-899",
+            "created_at": "2025-11-01T01:10:07.558453Z",
+            "close_time": "2025-12-01T05:00:00Z",
+            "relevance_score": 1.0,
+            "relevance_reason": "Directly related to Bitcoin's future price"
+          },
+          {
+            "market_id": "0x0248bcacfbef172a6ebe7ab8428b5de9ab1d8a8527c85e1126fcf9ccfff0195e",
+            "clob_token_ids": [
+              "95887269853025738973099858849169942072065410607374584681996914636118163255960",
+              "13248679885329779317132321964340232283970213596266829106391887114346048828273"
+            ],
+            "title": "Will Bitcoin dip to $70,000 in November?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final Low price equal to or lower than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT Low prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.007,
+              "No": 0.993
+            },
+            "volume": 1429975.743319,
+            "liquidity": 117505.8278,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-dip-to-70k-in-november-2025-132",
+            "slug": "will-bitcoin-dip-to-70k-in-november-2025-132",
+            "created_at": "2025-11-01T01:10:08.750503Z",
+            "close_time": "2025-12-01T05:00:00Z",
+            "relevance_score": 1.0,
+            "relevance_reason": "Directly related to Bitcoin's future price"
+          },
+          {
+            "market_id": "0x2a2d5924e502f9ebe8cfe64c39f01124980f27c17509c62e775855e78d4a40a9",
+            "clob_token_ids": [
+              "12087192618500971809708758962350607568018037900376346276751142303665180612738",
+              "17264144676217866450834834580158808200139982873016604171926484641712861987973"
+            ],
+            "title": "Will Bitcoin dip to $60,000 in November?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final Low price equal to or lower than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT Low prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0015,
+              "No": 0.9985
+            },
+            "volume": 1173099.329882,
+            "liquidity": 167348.12994,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-dip-to-60k-in-november-2025-496",
+            "slug": "will-bitcoin-dip-to-60k-in-november-2025-496",
+            "created_at": "2025-11-01T01:10:09.853586Z",
+            "close_time": "2025-12-01T05:00:00Z",
+            "relevance_score": 1.0,
+            "relevance_reason": "Directly related to Bitcoin's future price"
+          },
+          {
+            "market_id": "0xdc58d566cbbe1514a13d07692463a16ae0024fa20811a1bb8f48228884895355",
+            "clob_token_ids": [
+              "38294895519413927088355469115656141108867406062135002528725170063610435926164",
+              "70163233609644821170202098600566865581563283724883163020103912006298109779958"
+            ],
+            "title": "Will Bitcoin reach $200,000 in November?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0015,
+              "No": 0.9985
+            },
+            "volume": 12839583.140782,
+            "liquidity": 866628.90975,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-200k-in-november-2025",
+            "slug": "will-bitcoin-reach-200k-in-november-2025",
+            "created_at": "2025-11-01T01:10:01.076086Z",
+            "close_time": "2025-12-01T05:00:00Z",
+            "relevance_score": 1.0,
+            "relevance_reason": "Directly related to Bitcoin's future price"
+          },
+          {
+            "market_id": "0xbc19b7dee8883e27c2e617cfa9a8875c5f014643f760f72121f4a769b19536c6",
+            "clob_token_ids": [
+              "57902424515148471151926843390884909575963799810238623196340727343697861128079",
+              "3372635485594728503913245802938160583095428660888122671264229243836902427750"
+            ],
+            "title": "Will Bitcoin reach $145,000 in November?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0015,
+              "No": 0.9985
+            },
+            "volume": 842455.64158,
+            "liquidity": 422851.92395,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-145k-in-november-2025",
+            "slug": "will-bitcoin-reach-145k-in-november-2025",
+            "created_at": "2025-11-01T01:10:01.733351Z",
+            "close_time": "2025-12-01T05:00:00Z",
+            "relevance_score": 1.0,
+            "relevance_reason": "Directly related to Bitcoin's future price"
+          },
+          {
+            "market_id": "0x5b81240bc028d9b189df4569b1b85aabc086e8a936596490eca41fd2cc705bf8",
+            "clob_token_ids": [
+              "57218359314884926669062201801968976329099047407476830697744953527785015541408",
+              "102395055472629187435985995494894802153603508686537478490478784247918589792674"
+            ],
+            "title": "Will Bitcoin reach $135,000 in November?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0015,
+              "No": 0.9985
+            },
+            "volume": 1598377.853124,
+            "liquidity": 447450.71627,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-135k-in-november-2025",
+            "slug": "will-bitcoin-reach-135k-in-november-2025",
+            "created_at": "2025-11-01T01:10:02.448127Z",
+            "close_time": "2025-12-01T05:00:00Z",
+            "relevance_score": 1.0,
+            "relevance_reason": "Directly related to Bitcoin's future price"
+          }
+        ],
+        "metadata": {
+          "query": "Bitcoin",
+          "search_method": "query_search_llm",
+          "search_api": "polymarket_public_search",
+          "llm_scoring_enabled": true,
+          "session_id": "20251126_195340_311a51",
+          "result_count": 10,
+          "platform": "polymarket",
+          "timestamp": "2025-11-26T19:54:21.743672+00:00"
+        }
+      },
+      "historical": {
+        "history": [
+          {
+            "id": 128,
+            "session_id": "20251126_195340_311a51",
+            "user_query": "Bitcoin",
+            "expanded_keywords": [],
+            "timestamp": "2025-11-26T19:54:21.707085+00:00",
+            "results": [
+              {
+                "market_id": "0xd7a6eebc3e8f20d4605554e1748ef1e0a28fc5207a1e83f8be7bd456afc518b3",
+                "clob_token_ids": [
+                  "89547138889008034646678451655155346217928964573534058109595491957510613762453",
+                  "87828143513355086612857663203853208804513287565207452723102759049151285458825"
+                ],
+                "title": "Will Bitcoin reach $150,000 in November?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0015,
+                  "No": 0.9985
+                },
+                "volume": 2714045.202233,
+                "liquidity": 410071.37195,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-reach-150k-in-november-2025",
+                "slug": "will-bitcoin-reach-150k-in-november-2025",
+                "created_at": "2025-11-01T01:10:01.409565Z",
+                "close_time": "2025-12-01T05:00:00Z",
+                "relevance_score": 1.0,
+                "relevance_reason": "Directly related to Bitcoin's future price"
+              },
+              {
+                "market_id": "0x3e348ea492ffdceb505d1b51828c2a9e5e9f90f31692dc2c59c2ff75cdf32b54",
+                "clob_token_ids": [
+                  "27552120954856463326460606808573275580558185382229292475373324804137540385586",
+                  "107430092050791073250531756109263460666979993725594521813794669883038912493756"
+                ],
+                "title": "Will Bitcoin reach $140,000 in November?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0015,
+                  "No": 0.9985
+                },
+                "volume": 1152927.515713,
+                "liquidity": 401641.40818,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-reach-140k-in-november-2025",
+                "slug": "will-bitcoin-reach-140k-in-november-2025",
+                "created_at": "2025-11-01T01:10:02.068018Z",
+                "close_time": "2025-12-01T05:00:00Z",
+                "relevance_score": 1.0,
+                "relevance_reason": "Directly related to Bitcoin's future price"
+              },
+              {
+                "market_id": "0x84f6cfe7dcbc9433460702a3597a581ba93113ef4ddbe8af51f8106e4650c011",
+                "clob_token_ids": [
+                  "103441982063038573030050648379567308735533907048617147367531127421127711082507",
+                  "45489713216126823950343111006534936052568333362176307600964573390724080046939"
+                ],
+                "title": "Will Bitcoin reach $130,000 in November?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0015,
+                  "No": 0.9985
+                },
+                "volume": 1797463.811549,
+                "liquidity": 457059.62482,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-reach-130k-in-november-2025",
+                "slug": "will-bitcoin-reach-130k-in-november-2025",
+                "created_at": "2025-11-01T01:10:02.776513Z",
+                "close_time": "2025-12-01T05:00:00Z",
+                "relevance_score": 1.0,
+                "relevance_reason": "Directly related to Bitcoin's future price"
+              },
+              {
+                "market_id": "0xb4318f8d1bf6ae35386b0614dc1528731d3f5ea27ecdc54fa53ff8e4f94c291b",
+                "clob_token_ids": [
+                  "26660501371976217926895911905318245685503235154212268525284346447809706374880",
+                  "42277309992365160824309185131381153181339585772663900063973385208436211424"
+                ],
+                "title": "Will Bitcoin reach $120,000 in November?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0015,
+                  "No": 0.9985
+                },
+                "volume": 2267645.089385,
+                "liquidity": 215771.29845,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-reach-120k-in-november-2025",
+                "slug": "will-bitcoin-reach-120k-in-november-2025",
+                "created_at": "2025-11-01T01:10:03.501225Z",
+                "close_time": "2025-12-01T05:00:00Z",
+                "relevance_score": 1.0,
+                "relevance_reason": "Directly related to Bitcoin's future price"
+              },
+              {
+                "market_id": "0xd31956675172dc796c5f458425b9a11eb8179c6ce128e393535c0485871fea45",
+                "clob_token_ids": [
+                  "93455006475081907108315746918317517373733912138143094076782992361190649169417",
+                  "48293328646388224413043358201484112139630046472193483909351769450765877900950"
+                ],
+                "title": "Will Bitcoin dip to $80,000 in November?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final Low price equal to or lower than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT Low prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.037,
+                  "No": 0.963
+                },
+                "volume": 2717382.198129,
+                "liquidity": 104514.86883,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-dip-to-80k-in-november-2025-899",
+                "slug": "will-bitcoin-dip-to-80k-in-november-2025-899",
+                "created_at": "2025-11-01T01:10:07.558453Z",
+                "close_time": "2025-12-01T05:00:00Z",
+                "relevance_score": 1.0,
+                "relevance_reason": "Directly related to Bitcoin's future price"
+              },
+              {
+                "market_id": "0x0248bcacfbef172a6ebe7ab8428b5de9ab1d8a8527c85e1126fcf9ccfff0195e",
+                "clob_token_ids": [
+                  "95887269853025738973099858849169942072065410607374584681996914636118163255960",
+                  "13248679885329779317132321964340232283970213596266829106391887114346048828273"
+                ],
+                "title": "Will Bitcoin dip to $70,000 in November?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final Low price equal to or lower than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT Low prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.007,
+                  "No": 0.993
+                },
+                "volume": 1429975.743319,
+                "liquidity": 117505.8278,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-dip-to-70k-in-november-2025-132",
+                "slug": "will-bitcoin-dip-to-70k-in-november-2025-132",
+                "created_at": "2025-11-01T01:10:08.750503Z",
+                "close_time": "2025-12-01T05:00:00Z",
+                "relevance_score": 1.0,
+                "relevance_reason": "Directly related to Bitcoin's future price"
+              },
+              {
+                "market_id": "0x2a2d5924e502f9ebe8cfe64c39f01124980f27c17509c62e775855e78d4a40a9",
+                "clob_token_ids": [
+                  "12087192618500971809708758962350607568018037900376346276751142303665180612738",
+                  "17264144676217866450834834580158808200139982873016604171926484641712861987973"
+                ],
+                "title": "Will Bitcoin dip to $60,000 in November?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final Low price equal to or lower than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT Low prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0015,
+                  "No": 0.9985
+                },
+                "volume": 1173099.329882,
+                "liquidity": 167348.12994,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-dip-to-60k-in-november-2025-496",
+                "slug": "will-bitcoin-dip-to-60k-in-november-2025-496",
+                "created_at": "2025-11-01T01:10:09.853586Z",
+                "close_time": "2025-12-01T05:00:00Z",
+                "relevance_score": 1.0,
+                "relevance_reason": "Directly related to Bitcoin's future price"
+              },
+              {
+                "market_id": "0xdc58d566cbbe1514a13d07692463a16ae0024fa20811a1bb8f48228884895355",
+                "clob_token_ids": [
+                  "38294895519413927088355469115656141108867406062135002528725170063610435926164",
+                  "70163233609644821170202098600566865581563283724883163020103912006298109779958"
+                ],
+                "title": "Will Bitcoin reach $200,000 in November?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0015,
+                  "No": 0.9985
+                },
+                "volume": 12839583.140782,
+                "liquidity": 866628.90975,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-reach-200k-in-november-2025",
+                "slug": "will-bitcoin-reach-200k-in-november-2025",
+                "created_at": "2025-11-01T01:10:01.076086Z",
+                "close_time": "2025-12-01T05:00:00Z",
+                "relevance_score": 1.0,
+                "relevance_reason": "Directly related to Bitcoin's future price"
+              },
+              {
+                "market_id": "0xbc19b7dee8883e27c2e617cfa9a8875c5f014643f760f72121f4a769b19536c6",
+                "clob_token_ids": [
+                  "57902424515148471151926843390884909575963799810238623196340727343697861128079",
+                  "3372635485594728503913245802938160583095428660888122671264229243836902427750"
+                ],
+                "title": "Will Bitcoin reach $145,000 in November?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0015,
+                  "No": 0.9985
+                },
+                "volume": 842455.64158,
+                "liquidity": 422851.92395,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-reach-145k-in-november-2025",
+                "slug": "will-bitcoin-reach-145k-in-november-2025",
+                "created_at": "2025-11-01T01:10:01.733351Z",
+                "close_time": "2025-12-01T05:00:00Z",
+                "relevance_score": 1.0,
+                "relevance_reason": "Directly related to Bitcoin's future price"
+              },
+              {
+                "market_id": "0x5b81240bc028d9b189df4569b1b85aabc086e8a936596490eca41fd2cc705bf8",
+                "clob_token_ids": [
+                  "57218359314884926669062201801968976329099047407476830697744953527785015541408",
+                  "102395055472629187435985995494894802153603508686537478490478784247918589792674"
+                ],
+                "title": "Will Bitcoin reach $135,000 in November?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for BTC/USDT during the month specified in the title (from 00:00 AM ET on the first day to 11:59 PM ET on the last), has a final High price equal to or greater than the price specified in the title. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTC/USDT High prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTC/USDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0015,
+                  "No": 0.9985
+                },
+                "volume": 1598377.853124,
+                "liquidity": 447450.71627,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-reach-135k-in-november-2025",
+                "slug": "will-bitcoin-reach-135k-in-november-2025",
+                "created_at": "2025-11-01T01:10:02.448127Z",
+                "close_time": "2025-12-01T05:00:00Z",
+                "relevance_score": 1.0,
+                "relevance_reason": "Directly related to Bitcoin's future price"
+              }
+            ],
+            "platform": "polymarket",
+            "market_ids": [
+              "0xd7a6eebc3e8f20d4605554e1748ef1e0a28fc5207a1e83f8be7bd456afc518b3",
+              "0x3e348ea492ffdceb505d1b51828c2a9e5e9f90f31692dc2c59c2ff75cdf32b54",
+              "0x84f6cfe7dcbc9433460702a3597a581ba93113ef4ddbe8af51f8106e4650c011",
+              "0xb4318f8d1bf6ae35386b0614dc1528731d3f5ea27ecdc54fa53ff8e4f94c291b",
+              "0xd31956675172dc796c5f458425b9a11eb8179c6ce128e393535c0485871fea45",
+              "0x0248bcacfbef172a6ebe7ab8428b5de9ab1d8a8527c85e1126fcf9ccfff0195e",
+              "0x2a2d5924e502f9ebe8cfe64c39f01124980f27c17509c62e775855e78d4a40a9",
+              "0xdc58d566cbbe1514a13d07692463a16ae0024fa20811a1bb8f48228884895355",
+              "0xbc19b7dee8883e27c2e617cfa9a8875c5f014643f760f72121f4a769b19536c6",
+              "0x5b81240bc028d9b189df4569b1b85aabc086e8a936596490eca41fd2cc705bf8"
+            ],
+            "avg_probability": 0.0056,
+            "total_volume": 28532951,
+            "result_count": 10,
+            "created_at": "2025-11-26T19:54:21.707085+00:00"
+          }
+        ],
+        "metadata": {
+          "count": 1,
+          "filters": {
+            "session_id": "20251126_195340_311a51",
+            "start_date": null,
+            "end_date": null,
+            "limit": 10,
+            "platform": "polymarket"
+          },
+          "timestamp": "2025-11-26T19:54:21.780552+00:00"
+        }
+      },
+      "session_id": "20251126_195340_311a51",
+      "timestamp": "2025-11-26T19:54:21.780695+00:00",
+      "query": "Bitcoin",
+      "tool": "search_polymarket_with_history"
+    }
+  },
+  "metadata": {
+    "duration_ms": 40936.17343902588,
+    "num_tools": 1
+  }
+}

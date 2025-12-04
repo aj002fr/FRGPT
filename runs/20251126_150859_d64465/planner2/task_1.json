@@ -1,0 +1,46 @@
+{
+  "run_id": "20251126_150859_d64465",
+  "path_id": "path_1",
+  "task": {
+    "task_id": "task_1",
+    "agent": "market_data_agent",
+    "description": "Retrieve Bitcoin market data",
+    "tools": [
+      "run_query"
+    ],
+    "tool_params": {
+      "run_query": {
+        "template": "by_symbol",
+        "params": {},
+        "columns": null,
+        "limit": 1000,
+        "order_by_column": null,
+        "order_by_direction": "ASC"
+      }
+    },
+    "dependencies": [],
+    "agent_params": {
+      "ticker": "BTC",
+      "fields": [
+        "close"
+      ],
+      "start_date": "2021-01-01",
+      "end_date": "2025-12-31"
+    }
+  },
+  "tools_loaded": [
+    "build_runner_answer",
+    "generate_structured_output",
+    "run_query"
+  ],
+  "agents_in_path": [
+    "runner_agent",
+    "market_data_agent"
+  ],
+  "metadata": {
+    "total_tasks": 2,
+    "mappable_tasks": 2,
+    "num_agents": 2,
+    "num_tools": 3
+  }
+}

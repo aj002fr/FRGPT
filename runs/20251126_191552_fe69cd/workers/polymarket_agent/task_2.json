@@ -1,0 +1,321 @@
+{
+  "run_id": "20251126_191552_fe69cd",
+  "task_id": "task_2",
+  "agent_name": "polymarket_agent",
+  "output_data": {
+    "search_polymarket_markets": {
+      "markets": [
+        {
+          "market_id": "0x859157d8634e746b1dffb4ad6fd34db2d28fdf998d7686357e7d959fe8781389",
+          "clob_token_ids": [
+            "54379123217537413278112653174969200306957957631159180907576383903896161360556",
+            "111388270494344136419443136138753158240275009894424178900535639833711249399817"
+          ],
+          "title": "Will the price of Bitcoin be above $82,000 on November 26?",
+          "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other sources or spot markets.\n\nPrice precision is determined by the number of decimal places in the source.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.9995,
+            "No": 0.0005
+          },
+          "volume": 320502.067745,
+          "liquidity": 113348.49868,
+          "status": "active",
+          "url": "https://polymarket.com/market/bitcoin-above-82k-on-november-26",
+          "slug": "bitcoin-above-82k-on-november-26",
+          "created_at": "2025-11-19T17:00:11.192502Z",
+          "close_time": "2025-11-26T17:00:00Z",
+          "relevance_score": 1.0,
+          "relevance_reason": "Directly related to Bitcoin's price prediction"
+        },
+        {
+          "market_id": "0xd95a7e58aab0e0f83b92c8b4acf409483a57a800a8e1c4271b03fdf47e518689",
+          "clob_token_ids": [
+            "84101488024776710325854824653122173508184399396647541070927811546965235278940",
+            "39095330281707913776772323289264957661197179851373882458709075633032325194570"
+          ],
+          "title": "Will the price of Bitcoin be above $84,000 on November 26?",
+          "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other sources or spot markets.\n\nPrice precision is determined by the number of decimal places in the source.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.9995,
+            "No": 0.0005
+          },
+          "volume": 318933.953685,
+          "liquidity": 122565.26252,
+          "status": "active",
+          "url": "https://polymarket.com/market/bitcoin-above-84k-on-november-26",
+          "slug": "bitcoin-above-84k-on-november-26",
+          "created_at": "2025-11-19T17:00:11.445374Z",
+          "close_time": "2025-11-26T17:00:00Z",
+          "relevance_score": 1.0,
+          "relevance_reason": "Directly related to Bitcoin's price prediction"
+        },
+        {
+          "market_id": "0x46e09afe728fce01a7b99497c21e4ff752bc81ee40facde5fffc27b66e5f9bed",
+          "clob_token_ids": [
+            "110207891597956351959497116780438903845932813281106413032428139755129139294923",
+            "68830606640304599145996194490126171961703195801918181413862506352811588780152"
+          ],
+          "title": "Will the price of Bitcoin be above $88,000 on November 26?",
+          "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other sources or spot markets.\n\nPrice precision is determined by the number of decimal places in the source.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0005,
+            "No": 0.9995
+          },
+          "volume": 724178.141056,
+          "liquidity": 174126.53272,
+          "status": "active",
+          "url": "https://polymarket.com/market/bitcoin-above-88k-on-november-26",
+          "slug": "bitcoin-above-88k-on-november-26",
+          "created_at": "2025-11-19T17:00:11.784346Z",
+          "close_time": "2025-11-26T17:00:00Z",
+          "relevance_score": 1.0,
+          "relevance_reason": "Directly related to Bitcoin's price prediction"
+        },
+        {
+          "market_id": "0x842d7f63f7d6d8586b0194ae702058fe227b14ec5ddc02c5eea4692d0ab094a9",
+          "clob_token_ids": [
+            "79540020584805528990698785171173092951140994184764899881574572566306285754401",
+            "98865843904383275300181716886298092428802482748559657181503980963778473737858"
+          ],
+          "title": "Will the price of Bitcoin be above $90,000 on November 26?",
+          "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other sources or spot markets.\n\nPrice precision is determined by the number of decimal places in the source.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0005,
+            "No": 0.9995
+          },
+          "volume": 391985.176874,
+          "liquidity": 111092.5886,
+          "status": "active",
+          "url": "https://polymarket.com/market/bitcoin-above-90k-on-november-26",
+          "slug": "bitcoin-above-90k-on-november-26",
+          "created_at": "2025-11-19T17:00:11.932815Z",
+          "close_time": "2025-11-26T17:00:00Z",
+          "relevance_score": 1.0,
+          "relevance_reason": "Directly related to Bitcoin's price prediction"
+        },
+        {
+          "market_id": "0x6e4b61635dd44a4e531d0df875973b9f2deb3683bfc1130f000b89de3c7d2aa2",
+          "clob_token_ids": [
+            "15831243886380128969395126997119908325057494858278654880759883904244867890966",
+            "53615894819091229344165744213516480687195528217557637706711224089749191958302"
+          ],
+          "title": "Will the price of Bitcoin be above $80,000 on November 26?",
+          "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other sources or spot markets.\n\nPrice precision is determined by the number of decimal places in the source.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.9995,
+            "No": 0.0005
+          },
+          "volume": 455870.359044,
+          "liquidity": 113988.65804,
+          "status": "active",
+          "url": "https://polymarket.com/market/bitcoin-above-80k-on-november-26",
+          "slug": "bitcoin-above-80k-on-november-26",
+          "created_at": "2025-11-19T17:00:11.034256Z",
+          "close_time": "2025-11-26T17:00:00Z",
+          "relevance_score": 1.0,
+          "relevance_reason": "Directly related to Bitcoin's price prediction"
+        }
+      ],
+      "metadata": {
+        "query": "Bitcoin",
+        "search_method": "query_search_llm",
+        "search_api": "polymarket_public_search",
+        "llm_scoring_enabled": true,
+        "session_id": "20221231_120000_abc123",
+        "result_count": 5,
+        "platform": "polymarket",
+        "timestamp": "2025-11-26T19:17:10.533574+00:00"
+      }
+    },
+    "get_polymarket_history": {
+      "history": [
+        {
+          "id": 126,
+          "session_id": "20221231_120000_abc123",
+          "user_query": "Bitcoin",
+          "expanded_keywords": [],
+          "timestamp": "2025-11-26T19:17:10.500859+00:00",
+          "results": [
+            {
+              "market_id": "0x859157d8634e746b1dffb4ad6fd34db2d28fdf998d7686357e7d959fe8781389",
+              "clob_token_ids": [
+                "54379123217537413278112653174969200306957957631159180907576383903896161360556",
+                "111388270494344136419443136138753158240275009894424178900535639833711249399817"
+              ],
+              "title": "Will the price of Bitcoin be above $82,000 on November 26?",
+              "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other sources or spot markets.\n\nPrice precision is determined by the number of decimal places in the source.",
+              "outcomes": [
+                "Yes",
+                "No"
+              ],
+              "prices": {
+                "Yes": 0.9995,
+                "No": 0.0005
+              },
+              "volume": 320502.067745,
+              "liquidity": 113348.49868,
+              "status": "active",
+              "url": "https://polymarket.com/market/bitcoin-above-82k-on-november-26",
+              "slug": "bitcoin-above-82k-on-november-26",
+              "created_at": "2025-11-19T17:00:11.192502Z",
+              "close_time": "2025-11-26T17:00:00Z",
+              "relevance_score": 1.0,
+              "relevance_reason": "Directly related to Bitcoin's price prediction"
+            },
+            {
+              "market_id": "0xd95a7e58aab0e0f83b92c8b4acf409483a57a800a8e1c4271b03fdf47e518689",
+              "clob_token_ids": [
+                "84101488024776710325854824653122173508184399396647541070927811546965235278940",
+                "39095330281707913776772323289264957661197179851373882458709075633032325194570"
+              ],
+              "title": "Will the price of Bitcoin be above $84,000 on November 26?",
+              "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other sources or spot markets.\n\nPrice precision is determined by the number of decimal places in the source.",
+              "outcomes": [
+                "Yes",
+                "No"
+              ],
+              "prices": {
+                "Yes": 0.9995,
+                "No": 0.0005
+              },
+              "volume": 318933.953685,
+              "liquidity": 122565.26252,
+              "status": "active",
+              "url": "https://polymarket.com/market/bitcoin-above-84k-on-november-26",
+              "slug": "bitcoin-above-84k-on-november-26",
+              "created_at": "2025-11-19T17:00:11.445374Z",
+              "close_time": "2025-11-26T17:00:00Z",
+              "relevance_score": 1.0,
+              "relevance_reason": "Directly related to Bitcoin's price prediction"
+            },
+            {
+              "market_id": "0x46e09afe728fce01a7b99497c21e4ff752bc81ee40facde5fffc27b66e5f9bed",
+              "clob_token_ids": [
+                "110207891597956351959497116780438903845932813281106413032428139755129139294923",
+                "68830606640304599145996194490126171961703195801918181413862506352811588780152"
+              ],
+              "title": "Will the price of Bitcoin be above $88,000 on November 26?",
+              "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other sources or spot markets.\n\nPrice precision is determined by the number of decimal places in the source.",
+              "outcomes": [
+                "Yes",
+                "No"
+              ],
+              "prices": {
+                "Yes": 0.0005,
+                "No": 0.9995
+              },
+              "volume": 724178.141056,
+              "liquidity": 174126.53272,
+              "status": "active",
+              "url": "https://polymarket.com/market/bitcoin-above-88k-on-november-26",
+              "slug": "bitcoin-above-88k-on-november-26",
+              "created_at": "2025-11-19T17:00:11.784346Z",
+              "close_time": "2025-11-26T17:00:00Z",
+              "relevance_score": 1.0,
+              "relevance_reason": "Directly related to Bitcoin's price prediction"
+            },
+            {
+              "market_id": "0x842d7f63f7d6d8586b0194ae702058fe227b14ec5ddc02c5eea4692d0ab094a9",
+              "clob_token_ids": [
+                "79540020584805528990698785171173092951140994184764899881574572566306285754401",
+                "98865843904383275300181716886298092428802482748559657181503980963778473737858"
+              ],
+              "title": "Will the price of Bitcoin be above $90,000 on November 26?",
+              "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other sources or spot markets.\n\nPrice precision is determined by the number of decimal places in the source.",
+              "outcomes": [
+                "Yes",
+                "No"
+              ],
+              "prices": {
+                "Yes": 0.0005,
+                "No": 0.9995
+              },
+              "volume": 391985.176874,
+              "liquidity": 111092.5886,
+              "status": "active",
+              "url": "https://polymarket.com/market/bitcoin-above-90k-on-november-26",
+              "slug": "bitcoin-above-90k-on-november-26",
+              "created_at": "2025-11-19T17:00:11.932815Z",
+              "close_time": "2025-11-26T17:00:00Z",
+              "relevance_score": 1.0,
+              "relevance_reason": "Directly related to Bitcoin's price prediction"
+            },
+            {
+              "market_id": "0x6e4b61635dd44a4e531d0df875973b9f2deb3683bfc1130f000b89de3c7d2aa2",
+              "clob_token_ids": [
+                "15831243886380128969395126997119908325057494858278654880759883904244867890966",
+                "53615894819091229344165744213516480687195528217557637706711224089749191958302"
+              ],
+              "title": "Will the price of Bitcoin be above $80,000 on November 26?",
+              "description": "This market will resolve to \"Yes\" if the Binance 1 minute candle for BTC/USDT 12:00 in the ET timezone (noon) on the date specified in the title has a final \"Close\" price higher than the price specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market is Binance, specifically the BTC/USDT \"Close\" prices currently available at https://www.binance.com/en/trade/BTC_USDT with \"1m\" and \"Candles\" selected on the top bar.\n\nPlease note that this market is about the price according to Binance BTC/USDT, not according to other sources or spot markets.\n\nPrice precision is determined by the number of decimal places in the source.",
+              "outcomes": [
+                "Yes",
+                "No"
+              ],
+              "prices": {
+                "Yes": 0.9995,
+                "No": 0.0005
+              },
+              "volume": 455870.359044,
+              "liquidity": 113988.65804,
+              "status": "active",
+              "url": "https://polymarket.com/market/bitcoin-above-80k-on-november-26",
+              "slug": "bitcoin-above-80k-on-november-26",
+              "created_at": "2025-11-19T17:00:11.034256Z",
+              "close_time": "2025-11-26T17:00:00Z",
+              "relevance_score": 1.0,
+              "relevance_reason": "Directly related to Bitcoin's price prediction"
+            }
+          ],
+          "platform": "polymarket",
+          "market_ids": [
+            "0x859157d8634e746b1dffb4ad6fd34db2d28fdf998d7686357e7d959fe8781389",
+            "0xd95a7e58aab0e0f83b92c8b4acf409483a57a800a8e1c4271b03fdf47e518689",
+            "0x46e09afe728fce01a7b99497c21e4ff752bc81ee40facde5fffc27b66e5f9bed",
+            "0x842d7f63f7d6d8586b0194ae702058fe227b14ec5ddc02c5eea4692d0ab094a9",
+            "0x6e4b61635dd44a4e531d0df875973b9f2deb3683bfc1130f000b89de3c7d2aa2"
+          ],
+          "avg_probability": 0.5999,
+          "total_volume": 2211468,
+          "result_count": 5,
+          "created_at": "2025-11-26T19:17:10.500859+00:00"
+        }
+      ],
+      "metadata": {
+        "count": 1,
+        "filters": {
+          "session_id": "20221231_120000_abc123",
+          "start_date": null,
+          "end_date": null,
+          "limit": 5,
+          "platform": "polymarket"
+        },
+        "timestamp": "2025-11-26T19:17:10.578178+00:00"
+      }
+    }
+  },
+  "metadata": {
+    "duration_ms": 43524.74856376648,
+    "num_tools": 2
+  }
+}

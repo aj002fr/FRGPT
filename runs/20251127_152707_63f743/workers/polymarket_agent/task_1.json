@@ -1,0 +1,235 @@
+{
+  "run_id": "20251127_152707_63f743",
+  "task_id": "task_1",
+  "agent_name": "polymarket_agent",
+  "output_data": {
+    "search_polymarket_with_history": {
+      "markets": [
+        {
+          "market_id": "0x80026f98f9de40aea8dba02798c4f0067942bba401fa3715209ee7c27482640b",
+          "clob_token_ids": [
+            "83894672511259544049673946661753374355328822374216474995072428966535091173758",
+            "8707914811120105663689518186628328408870345063260656427346718386572494163989"
+          ],
+          "title": "US national Bitcoin reserve in 2025?",
+          "description": "This market will resolve to \"Yes\" if the US government holds any amount of Bitcoin in its reserves at any point between January 1, 2025, ET and December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nNote that the US government confiscating Bitcoin does not count as holding Bitcoin reserves.\n\nThe primary resolution source for this market will be official information from the US government and/or the US federal reserve, however a consensus of credible reporting will also be used.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0345,
+            "No": 0.9655
+          },
+          "volume": 4871483.462536,
+          "liquidity": 28611.24702,
+          "status": "active",
+          "url": "https://polymarket.com/market/us-national-bitcoin-reserve-in-2025",
+          "slug": "us-national-bitcoin-reserve-in-2025",
+          "created_at": "2024-12-31T16:52:52.674002Z",
+          "close_time": "2025-12-31T12:00:00Z",
+          "current_price": {
+            "Yes": 0.0345,
+            "No": 0.9655
+          },
+          "historical_price": {
+            "yes": 0.04945954930904338,
+            "no": 0.9505404506909566
+          },
+          "price_change": {
+            "yes": -0.015,
+            "no": 0.015,
+            "yes_percent": -30.25,
+            "no_percent": 1.57,
+            "direction": "down"
+          },
+          "current_date": "2025-11-27",
+          "historical_date": "2025-11-20",
+          "data_points": 49
+        },
+        {
+          "market_id": "0x19ee98e348c0ccb341d1b9566fa14521566e9b2ea7aed34dc407a0ec56be36a2",
+          "clob_token_ids": [
+            "93592949212798121127213117304912625505836768562433217537850469496310204567695",
+            "3074539347152748632858978545166555332546941892131779352477699494423276162345"
+          ],
+          "title": "MicroStrategy sells any Bitcoin in 2025?",
+          "description": "This market will resolve to \"Yes\" if MicroStrategy sells any of its Bitcoin by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from MSTR and on-chain data, however a consensus of credible reporting will also be used.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.027,
+            "No": 0.973
+          },
+          "volume": 1212233.618531,
+          "liquidity": 53824.06616,
+          "status": "active",
+          "url": "https://polymarket.com/market/microstrategy-sell-any-bitcoin-in-2025",
+          "slug": "microstrategy-sell-any-bitcoin-in-2025",
+          "created_at": "2024-12-31T16:02:33.362936Z",
+          "close_time": "2025-12-31T12:00:00Z",
+          "current_price": {
+            "Yes": 0.027,
+            "No": 0.973
+          },
+          "historical_price": {
+            "yes": 0.02636464948332006,
+            "no": 0.9736353505166799
+          },
+          "price_change": {
+            "yes": 0.0006,
+            "no": -0.0006,
+            "yes_percent": 2.41,
+            "no_percent": -0.07,
+            "direction": "stable"
+          },
+          "current_date": "2025-11-27",
+          "historical_date": "2025-11-20",
+          "data_points": 49
+        },
+        {
+          "market_id": "0x9a4db724246b51cbfbc8000dbbd6b54d72b057767c3690e63d940b26d78c6cb0",
+          "clob_token_ids": [
+            "108547978327958467449318042977006580876058560639743186491243488736783119648127",
+            "61476326573463890939120700176570456436619008823217970387484180237661307640203"
+          ],
+          "title": "MicroStrategy sells any Bitcoin by March 31, 2026?",
+          "description": "This market will resolve to \"Yes\" if MicroStrategy sells any of its Bitcoin by 11:59 PM ET on the date specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from MSTR and on-chain data, however a consensus of credible reporting will also be used.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.115,
+            "No": 0.885
+          },
+          "volume": 4641.253664,
+          "liquidity": 11038.1568,
+          "status": "active",
+          "url": "https://polymarket.com/market/microstrategy-sells-any-bitcoin-by-march-31-2026",
+          "slug": "microstrategy-sells-any-bitcoin-by-march-31-2026",
+          "created_at": "2025-11-19T22:49:38.387602Z",
+          "close_time": "",
+          "current_price": {
+            "Yes": 0.115,
+            "No": 0.885
+          },
+          "historical_price": {
+            "yes": 0.3417022987761211,
+            "no": 0.6582977012238789
+          },
+          "price_change": {
+            "yes": -0.2267,
+            "no": 0.2267,
+            "yes_percent": -66.34,
+            "no_percent": 34.44,
+            "direction": "down"
+          },
+          "current_date": "2025-11-27",
+          "historical_date": "2025-11-20",
+          "data_points": 40
+        },
+        {
+          "market_id": "0x8e7a03cb1970e2ad6533b01892403516b6b3f5b5fa90ed7d104c28b27e40ba00",
+          "clob_token_ids": [
+            "110251828161543119357013227499774714771527179764174739487025581227481937033858",
+            "65176388692130651396848427090788038285140833850265294793449655516920659740141"
+          ],
+          "title": "MicroStrategy sells any Bitcoin by June 30, 2026?",
+          "description": "This market will resolve to \"Yes\" if MicroStrategy sells any of its Bitcoin by 11:59 PM ET on the date specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from MSTR and on-chain data, however a consensus of credible reporting will also be used.",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.17,
+            "No": 0.83
+          },
+          "volume": 2697.682693,
+          "liquidity": 9540.9823,
+          "status": "active",
+          "url": "https://polymarket.com/market/microstrategy-sells-any-bitcoin-by-june-30-2026",
+          "slug": "microstrategy-sells-any-bitcoin-by-june-30-2026",
+          "created_at": "2025-11-19T22:50:03.261894Z",
+          "close_time": "2026-07-01T04:00:00Z",
+          "current_price": {
+            "Yes": 0.17,
+            "No": 0.83
+          },
+          "historical_price": {
+            "yes": 0.40589516463420694,
+            "no": 0.5941048353657931
+          },
+          "price_change": {
+            "yes": -0.2359,
+            "no": 0.2359,
+            "yes_percent": -58.12,
+            "no_percent": 39.71,
+            "direction": "down"
+          },
+          "current_date": "2025-11-27",
+          "historical_date": "2025-11-20",
+          "data_points": 41
+        },
+        {
+          "market_id": "0x629991508180f4ee4ba17c62fc19fbfbd95563b8a7e9d28b096f11418dbb1f07",
+          "clob_token_ids": [
+            "108694680056826771513727361737568313266027710115630595991317876664602548455545",
+            "84126567916205527036104814483892267894842436660821047371729320640514438121042"
+          ],
+          "title": "Texas Strategic Bitcoin Reserve Act (H.B. 1598) signed in 2025?",
+          "description": "On November 18, Texas Representative Giovanni Capriglione introduced H.B. 1598, a bill to establish a strategic bitcoin reserve within the state treasury (see: https://www.cnbc.com/2024/12/12/texas-house-introduces-bill-to-establish-a-strategic-bitcoin-reserve.html).\n\nThis market will resolve to \"Yes\" if H.B. 1598, the Texas Strategic Bitcoin Reserve Act, is signed into law by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to “No.”\n\nThe resolution source will be official information from the Texas Legislature or a consensus of credible reporting. ",
+          "outcomes": [
+            "Yes",
+            "No"
+          ],
+          "prices": {
+            "Yes": 0.0055,
+            "No": 0.9945
+          },
+          "volume": 179746.902569,
+          "liquidity": 11346.01383,
+          "status": "active",
+          "url": "https://polymarket.com/market/texas-strategic-bitcoin-reserve-act-signed-in-2025",
+          "slug": "texas-strategic-bitcoin-reserve-act-signed-in-2025",
+          "created_at": "2025-01-16T20:34:05.484328Z",
+          "close_time": "2025-12-31T12:00:00Z",
+          "current_price": {
+            "Yes": 0.0055,
+            "No": 0.9945
+          },
+          "historical_price": {
+            "yes": 0.024,
+            "no": 0.976
+          },
+          "price_change": {
+            "yes": -0.0185,
+            "no": 0.0185,
+            "yes_percent": -77.08,
+            "no_percent": 1.9,
+            "direction": "down"
+          },
+          "current_date": "2025-11-27",
+          "historical_date": "2025-11-20",
+          "data_points": 49
+        }
+      ],
+      "metadata": {
+        "query": "bitcoin prediction 2025",
+        "session_id": "20251127_153019_67009f",
+        "result_count": 5,
+        "current_date": "2025-11-27",
+        "historical_date": "2025-11-20",
+        "days_back": 7,
+        "platform": "polymarket",
+        "timestamp": "2025-11-27T15:40:14.435868+00:00"
+      }
+    }
+  },
+  "metadata": {
+    "duration_ms": 672243.8154220581,
+    "num_tools": 1
+  }
+}

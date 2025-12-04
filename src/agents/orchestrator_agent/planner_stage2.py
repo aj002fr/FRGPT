@@ -3,6 +3,7 @@
 import logging
 from typing import Dict, Any, List, Optional
 
+from src.mcp.taskmaster_client import TaskPlannerClient
 from .tool_loader import ToolLoader
 from .task_mapper import TaskMapper
 
@@ -34,18 +35,21 @@ class PlannerStage2:
         
         self.tool_loader = ToolLoader()
         self.task_mapper = TaskMapper()
+        self.ai_planner = TaskPlannerClient()
         
         logger.info(f"PlannerStage2 initialized for path '{path_id}' with {len(task_ids)} tasks")
     
     def discover_tools_and_params(
         self,
-        all_subtasks: List[Dict[str, Any]]
+        all_subtasks: List[Dict[str, Any]],
+        user_query: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Discover tools and parameters for this path.
+        Discover tools and parameters for this path using AI reasoning.
         
         Args:
             all_subtasks: All subtasks from Stage 1 plan
+            user_query: Original user query (required for runner_agent tasks)
             
         Returns:
             Path execution plan with tools and parameters
@@ -71,20 +75,95 @@ class PlannerStage2:
         
         logger.info(f"Path agents: {agent_names}")
         
-        # Step 3: Load tools for these agents (lazy loading)
-        tools_loaded = self.tool_loader.load_tools_for_agents(agent_names)
+        # Step 3: Get available tools per agent
+        available_tools = {
+            agent: self.tool_loader.get_tools_for_agent(agent)
+            for agent in agent_names
+        }
+        
+        logger.info(f"Available tools per agent: {available_tools}")
+        
+        # Step 4: Prepare tasks for AI tool selection
+        ai_input_tasks = []
+        for task in path_tasks:
+            ai_input_tasks.append({
+                'task_id': task['id'],
+                'description': task.get('description', ''),
+                'agent': task.get('assigned_agent'),
+                'agent_params': task.get('agent_params', {}),
+                'dependencies': task.get('dependencies', [])
+            })
+        
+        # Step 5: AI-powered tool selection and parameter mapping
+        try:
+            ai_selection = self.ai_planner.select_tools_for_path(
+                self.path_id,
+                ai_input_tasks,
+                available_tools
+            )
+            logger.info(f"AI tool selection complete: {ai_selection.get('method', 'unknown')}")
+        except Exception as e:
+            logger.error(f"AI tool selection failed, using fallback: {e}")
+            # Fallback: use all available tools
+            ai_selection = self.ai_planner._fallback_tool_selection(
+                self.path_id,
+                ai_input_tasks,
+                available_tools
+            )
+        
+        # Step 6: Extract selected tools and load them
+        all_selected_tools = set()
+        for task_selection in ai_selection.get('tool_selections', {}).values():
+            all_selected_tools.update(task_selection.get('selected_tools', []))
+        
+        # Load only the selected tools
+        tools_loaded = {}
+        for tool_name in all_selected_tools:
+            tool_info = self.tool_loader.load_tool(tool_name)
+            if tool_info:
+                tools_loaded[tool_name] = tool_info
+        
         tool_names = list(tools_loaded.keys())
+        logger.info(f"Loaded {len(tool_names)} AI-selected tools: {tool_names}")
         
-        logger.info(f"Loaded {len(tool_names)} tools: {tool_names}")
-        
-        # Step 4: Build execution plan for each task
+        # Step 7: Build execution plan using AI selections
         execution_plan = []
+        tool_selections = ai_selection.get('tool_selections', {})
         
         for task in path_tasks:
-            task_plan = self._build_task_plan(task, tools_loaded)
+            task_id = task['id']
+            task_selection = tool_selections.get(task_id, {})
+            agent_name = task.get('assigned_agent')
+            
+            # Get tool params from AI selection
+            tool_params = task_selection.get('tool_params', {})
+            
+            # IMPORTANT: For runner_agent tasks, always inject the user query
+            if agent_name == 'runner_agent' and user_query:
+                # Ensure all runner_agent tools get the query parameter
+                for tool_name in task_selection.get('selected_tools', []):
+                    if tool_name in tool_params:
+                        # Add query to existing params
+                        tool_params[tool_name]['query'] = user_query
+                    else:
+                        # Create params with query
+                        tool_params[tool_name] = {'query': user_query}
+                
+                logger.debug(f"Injected user query into runner_agent task {task_id}")
+            
+            task_plan = {
+                'task_id': task_id,
+                'agent': agent_name,
+                'description': task.get('description', ''),
+                'tools': task_selection.get('selected_tools', []),
+                'tool_params': tool_params,
+                'dependencies': task.get('dependencies', []),
+                'agent_params': task.get('agent_params', {}),
+                'ai_reasoning': task_selection.get('reasoning', '')
+            }
             execution_plan.append(task_plan)
         
-        # Step 5: Build path plan
+        # Step 8: Build path plan
         path_plan = {
             'path_id': self.path_id,
             'tasks': self.task_ids,
@@ -92,16 +171,18 @@ class PlannerStage2:
             'agents': agent_names,
             'tools_loaded': tool_names,
             'execution_plan': execution_plan,
+            'ai_method': ai_selection.get('method', 'unknown'),
             'metadata': {
                 'total_tasks': len(self.task_ids),
                 'mappable_tasks': len(path_tasks),
                 'num_agents': len(agent_names),
-                'num_tools': len(tool_names)
+                'num_tools': len(tool_names),
+                'ai_powered': True
             }
         }
         
         logger.info(f"Path plan created for '{self.path_id}': "
-                   f"{len(execution_plan)} tasks, {len(tool_names)} tools")
+                   f"{len(execution_plan)} tasks, {len(tool_names)} tools (AI-selected)")
         
         return path_plan
     
@@ -111,7 +192,10 @@ class PlannerStage2:
         available_tools: Dict[str, Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
-        Build execution plan for a single task.
+        DEPRECATED: Build execution plan for a single task (fallback only).
+        
+        This method is kept for backward compatibility but is no longer used
+        in the main flow. AI-powered tool selection is now used instead.
         
         Args:
             task: Task dictionary
@@ -150,7 +234,7 @@ class PlannerStage2:
             'agent_params': task.get('agent_params', {})
         }
         
-        logger.debug(f"Task plan for {task_id}: {len(task_tools)} tools")
+        logger.debug(f"Task plan for {task_id}: {len(task_tools)} tools (fallback)")
         
         return task_plan
     
@@ -161,7 +245,10 @@ class PlannerStage2:
         available_tools: Dict[str, Dict[str, Any]]
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Extract parameters for each tool from task description.
+        DEPRECATED: Extract parameters for each tool from task description (fallback only).
+        
+        This method is kept for backward compatibility but is no longer used
+        in the main flow. AI-powered parameter mapping is now used instead.
         
         Args:
             task: Task dictionary
@@ -198,7 +285,10 @@ class PlannerStage2:
         tool_info: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Extract parameters for a specific tool.
+        DEPRECATED: Extract parameters for a specific tool (fallback only).
+        
+        This method is kept for backward compatibility but is no longer used
+        in the main flow. AI-powered parameter mapping is now used instead.
         
         Args:
             tool_name: Tool name
@@ -226,23 +316,27 @@ class PlannerStage2:
         elif agent_name == "polymarket_agent":
             # Unified polymarket agent uses multiple tools
             if tool_name == "search_polymarket_markets":
+                # Polymarket search (Gamma /public-search + history)
                 return {
                     "query": agent_params.get("query", ""),
                     "session_id": agent_params.get("session_id"),
                     "limit": agent_params.get("limit", 10),
                 }
             if tool_name == "get_polymarket_history":
+                # Polymarket query history
                 return {
                     "session_id": agent_params.get("session_id"),
                     "limit": agent_params.get("limit", 10),
                 }
             if tool_name == "get_market_price_history":
+                # Single-date price history (Polymarket CLOB)
                 return {
                     "market_id": agent_params.get("market_id"),
                     "date": agent_params.get("date"),
                     "date_range_hours": agent_params.get("date_range_hours", 12),
                 }
             if tool_name == "get_market_price_range":
+                # Price range / trend over dates
                 return {
                     "market_id": agent_params.get("market_id"),
                     "start_date": agent_params.get("start_date"),
@@ -250,6 +344,38 @@ class PlannerStage2:
                     "interval_days": agent_params.get("interval_days", 1),
                 }
         
+        elif agent_name == "eventdata_puller_agent":
+            # EventData Puller tools
+            if tool_name == "query_event_history":
+                return {
+                    "event_name": agent_params.get("event_name"),
+                    "country": agent_params.get("country"),
+                    "lookback_days": agent_params.get("lookback_days"),
+                    "limit": agent_params.get("limit", 100)
+                }
+            elif tool_name == "find_correlated_events":
+                return {
+                    "target_event_name": agent_params.get("event_name"),
+                    "window_hours": agent_params.get("window_hours", 12.0),
+                    "min_importance": agent_params.get("importance"),
+                    "country": agent_params.get("country"),
+                    "limit": agent_params.get("limit", 50)
+                }
+            elif tool_name == "search_events":
+                return {
+                    "keyword": agent_params.get("event_name"),
+                    "country": agent_params.get("country"),
+                    "importance": agent_params.get("importance"),
+                    "limit": agent_params.get("limit", 50)
+                }
+            elif tool_name == "fetch_economic_calendar":
+                return {
+                    "country": agent_params.get("country"),
+                    "event_name": agent_params.get("event_name"),
+                    "importance": agent_params.get("importance"),
+                    "full_refresh": False
+                }
+
         # Default: return agent_params as-is
         return agent_params
     
@@ -269,6 +395,32 @@ class PlannerStage2:
                 'num_tools': 0
             }
         }
+
+    def _is_reasoning_only_agent(self, agent_name: Optional[str]) -> bool:
+        """
+        DEPRECATED: Use _is_orchestrator_direct() instead.
+        
+        Return True if the given agent is called directly by orchestrator.
+        """
+        if not agent_name:
+            return False
+        from .config import AGENT_CAPABILITIES
+
+        capabilities = AGENT_CAPABILITIES.get(agent_name, {})
+        # Check new execution_mode field, fallback to old reasoning_only for compatibility
+        return (
+            capabilities.get("execution_mode") == "orchestrator_direct" or
+            bool(capabilities.get("reasoning_only"))
+        )
+    
+    def _is_orchestrator_direct(self, agent_name: Optional[str]) -> bool:
+        """Return True if the given agent is called directly by orchestrator."""
+        if not agent_name:
+            return False
+        from .config import AGENT_CAPABILITIES
+
+        capabilities = AGENT_CAPABILITIES.get(agent_name, {})
+        return capabilities.get("execution_mode") == "orchestrator_direct"
     
     def get_tool_metadata(
         self,

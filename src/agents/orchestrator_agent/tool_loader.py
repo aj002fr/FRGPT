@@ -15,17 +15,60 @@ class ToolLoader:
     
     Loads only the tools needed for specific agents rather than
     all tools upfront, reducing context size for each dependency path.
+    
+    Architecture:
+    - AGENT_TOOL_MAP defines the universe of available tools per agent
+    - AI reasoning in Planner Stage 2 intelligently selects a subset based on task needs
+    - This class handles the actual loading of selected tools from the registry
+    
+    The AI-powered selection ensures:
+    - Only necessary tools are loaded per dependency path
+    - Tool parameters are intelligently mapped from agent params
+    - Context size is minimized for efficient execution
     """
     
-    # Agent to tool mapping
+    # Agent to tool mapping - defines available tools per agent
+    # AI in Planner 2 selects from these based on task requirements
     AGENT_TOOL_MAP = {
         "market_data_agent": ["run_query"],
-        # polymarket agent has access to all polymarket tools, including price history
+        # polymarket agent uses unified search tool that combines current + historical data
         "polymarket_agent": [
-            "search_polymarket_markets",
-            "get_polymarket_history",
-            "get_market_price_history",
-            "get_market_price_range",
+            "search_polymarket_with_history",  # Unified tool (replaces search + get_history)
+            # Legacy tools (kept for backward compatibility):
+            # "search_polymarket_markets",
+            # "get_polymarket_history",
+            # "get_market_price_history",
+            # "get_market_price_range",
+        ],
+        # Runner / reasoning agent tools exposed via MCP:
+        # - generate_structured_output: non-reasoning consolidation
+        # - build_runner_answer: reasoning-enabled final answer builder
+        "runner_agent": [
+            "generate_structured_output",
+            "build_runner_answer",
+        ],
+        # EventData Puller agent - Trading Economics API tools
+        "eventdata_puller_agent": [
+            "fetch_economic_calendar",
+            "query_event_history",
+            "search_events",
+            "find_correlated_events",
+            "find_events_for_all_instances",
+            "start_event_stream",
+            "stop_event_stream",
+            "get_live_events",
+            "get_stream_status",
+        ],
+        # Analytics agent - Statistics and visualization tools
+        "analytics_agent": [
+            "compute_statistics",
+            "compute_percentile_rank",
+            "compare_distributions",
+            "compute_correlation",
+            "generate_histogram",
+            "generate_line_chart",
+            "generate_scatter_plot",
+            "generate_bar_chart",
         ],
     }
     
@@ -41,6 +84,10 @@ class ToolLoader:
     ) -> Dict[str, Dict[str, Any]]:
         """
         Load tools for specific agents.
+        
+        Note: This method loads ALL tools for the given agents. In the AI-powered
+        workflow, Planner 2 uses AI reasoning to select a subset of these tools
+        based on actual task requirements, then calls load_tool() for each selected tool.
         
         Args:
             agent_names: List of agent names
@@ -76,6 +123,9 @@ class ToolLoader:
     ) -> Optional[Dict[str, Any]]:
         """
         Load a specific tool.
+        
+        This is the primary method used by AI-powered Planner 2 to load
+        only the tools that were intelligently selected based on task requirements.
         
         Args:
             tool_name: Tool name

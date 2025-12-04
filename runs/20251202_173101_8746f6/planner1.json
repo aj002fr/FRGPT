@@ -1,0 +1,94 @@
+{
+  "query": "get the percentile surprise for today's jolt job openings data release",
+  "subtasks": [
+    {
+      "id": "task_1",
+      "description": "Retrieve today's JOLT job openings data release",
+      "assigned_agent": "eventdata_puller_agent",
+      "dependencies": [],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "event": "JOLT job openings",
+        "date": "today"
+      }
+    },
+    {
+      "id": "task_2",
+      "description": "Calculate the percentile surprise for today's JOLT job openings data release",
+      "assigned_agent": "analytics_agent",
+      "dependencies": [
+        "task_1"
+      ],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "event_data_task": "task_1",
+        "calculation": "percentile_surprise"
+      }
+    },
+    {
+      "id": "task_3",
+      "description": "Consolidate and summarize the percentile surprise for today's JOLT job openings data release",
+      "assigned_agent": "runner_agent",
+      "dependencies": [
+        "task_2"
+      ],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "percentile_surprise_task": "task_2"
+      }
+    }
+  ],
+  "dependency_paths": [
+    [
+      "task_1",
+      "task_2",
+      "task_3"
+    ]
+  ],
+  "metadata": {
+    "total_tasks": 3,
+    "mappable_tasks": 3,
+    "unmappable_tasks": 0,
+    "has_cycles": false,
+    "max_depth": 2,
+    "parallel_groups": [
+      [
+        "task_1"
+      ],
+      [
+        "task_2"
+      ],
+      [
+        "task_3"
+      ]
+    ],
+    "independent_tasks": 1,
+    "available_agents": [
+      "market_data_agent",
+      "polymarket_agent",
+      "runner_agent",
+      "eventdata_puller_agent",
+      "analytics_agent"
+    ],
+    "task_dependency_paths": {
+      "task_1": [
+        "task_1",
+        "task_2",
+        "task_3"
+      ],
+      "task_2": [
+        "task_1",
+        "task_2",
+        "task_3"
+      ],
+      "task_3": [
+        "task_1",
+        "task_2",
+        "task_3"
+      ]
+    }
+  }
+}

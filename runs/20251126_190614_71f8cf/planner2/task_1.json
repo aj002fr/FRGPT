@@ -1,0 +1,39 @@
+{
+  "run_id": "20251126_190614_71f8cf",
+  "path_id": "path_1",
+  "task": {
+    "task_id": "task_1",
+    "agent": "polymarket_agent",
+    "description": "Retrieve Bitcoin prediction market data from Polymarket",
+    "tools": [
+      "search_polymarket_markets"
+    ],
+    "tool_params": {
+      "search_polymarket_markets": {
+        "query": "Bitcoin",
+        "session_id": null,
+        "limit": null
+      }
+    },
+    "dependencies": [],
+    "agent_params": {
+      "query": "Bitcoin"
+    },
+    "ai_reasoning": "Task requires retrieving Bitcoin prediction market data from Polymarket"
+  },
+  "tools_loaded": [
+    "build_runner_answer",
+    "search_polymarket_markets"
+  ],
+  "agents_in_path": [
+    "runner_agent",
+    "polymarket_agent"
+  ],
+  "metadata": {
+    "total_tasks": 2,
+    "mappable_tasks": 2,
+    "num_agents": 2,
+    "num_tools": 2,
+    "ai_powered": true
+  }
+}

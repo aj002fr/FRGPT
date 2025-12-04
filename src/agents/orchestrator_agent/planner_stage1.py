@@ -185,7 +185,8 @@ class PlannerStage1:
                 'description': task.get('description', ''),
                 'dependencies': normalized_deps,
                 'priority': priority,
-                'agent': task.get('agent', '')  # Suggested agent (may be empty)
+                'agent': task.get('agent', ''),
+                'params': task.get('params', {}) 
             }
             
             normalized.append(normalized_task)

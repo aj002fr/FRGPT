@@ -1,0 +1,50 @@
+{
+  "run_id": "20251202_173101_8746f6",
+  "path_id": "path_1",
+  "task": {
+    "task_id": "task_3",
+    "agent": "runner_agent",
+    "description": "Consolidate and summarize the percentile surprise for today's JOLT job openings data release",
+    "tools": [
+      "generate_structured_output",
+      "build_runner_answer"
+    ],
+    "tool_params": {
+      "generate_structured_output": {
+        "percentile_surprise_task": "task_2",
+        "query": "get the percentile surprise for today's jolt job openings data release"
+      },
+      "build_runner_answer": {
+        "context": "percentile_surprise_task",
+        "style": "summary",
+        "focus": "JOLT job openings",
+        "query": "get the percentile surprise for today's jolt job openings data release"
+      }
+    },
+    "dependencies": [
+      "task_2"
+    ],
+    "agent_params": {
+      "percentile_surprise_task": "task_2"
+    },
+    "ai_reasoning": "Task requires consolidating and summarizing the percentile surprise for today's JOLT job openings data release. The generate_structured_output tool is used for non-reasoning consolidation of data, and the build_runner_answer tool is used for reasoning-enabled final answer generation."
+  },
+  "tools_loaded": [
+    "build_runner_answer",
+    "fetch_economic_calendar",
+    "generate_structured_output",
+    "compute_percentile_rank"
+  ],
+  "agents_in_path": [
+    "eventdata_puller_agent",
+    "runner_agent",
+    "analytics_agent"
+  ],
+  "metadata": {
+    "total_tasks": 3,
+    "mappable_tasks": 3,
+    "num_agents": 3,
+    "num_tools": 4,
+    "ai_powered": true
+  }
+}

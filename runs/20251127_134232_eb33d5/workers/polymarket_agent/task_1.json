@@ -1,0 +1,551 @@
+{
+  "run_id": "20251127_134232_eb33d5",
+  "task_id": "task_1",
+  "agent_name": "polymarket_agent",
+  "output_data": {
+    "search_polymarket_with_history": {
+      "current": {
+        "markets": [
+          {
+            "market_id": "0x293fb49f43b12631ec4ad0617d9c0efc0eacce33416ef16f68521427daca1678",
+            "clob_token_ids": [
+              "57338714801830110409291906331043415122319095430948035858069240523339447935973",
+              "20490903838795271872508839925457310042688796049257211138642443340719901864083"
+            ],
+            "title": "Will Satoshi move any Bitcoin in 2025?",
+            "description": "This market will resolve to “Yes” if any wallet labeled as belonging to Satoshi Nakamoto on Arkham’s Intel Explorer shows an “Outflow” or “Swaps” transaction before December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to “No.”\n\nThe resolution source for this market is Arkham’s Intel Explorer, specifically the entity page for Satoshi Nakamoto available at https://intel.arkm.com/explorer/entity/satoshi-nakamoto\n\nIf Arkham becomes permanently unavailable, this market will resolve based on a consensus of credible sources.\n\n\n",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0155,
+              "No": 0.9845
+            },
+            "volume": 13211712.754763,
+            "liquidity": 341753.39566,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-satoshi-move-any-bitcoin-in-2025",
+            "slug": "will-satoshi-move-any-bitcoin-in-2025",
+            "created_at": "2025-07-14T15:33:12.339647Z",
+            "close_time": "2025-12-31T00:00:00Z"
+          },
+          {
+            "market_id": "0xfc4453f83b30fdad8ac707b7bd11309aa4c4c90d0c17ad0c4680d4142d4471f7",
+            "clob_token_ids": [
+              "113725578228350368514309301524942744434163841203212062342988045199278956063756",
+              "69997555614698545101689493648239688486292261658797186637923226280629318473162"
+            ],
+            "title": "Will China unban Bitcoin in 2025?",
+            "description": "This market will resolve to \"Yes\" if the government of the People's Republic of China (PRC) explicitly announces that Chinese citizens will be allowed to legally buy Bitcoin with yuan (renminbi) from inside China between July 1, 2025, and December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nFor this market to resolve to \"Yes\" it is only necessary that the PRC announces this change will take place. Whether it actually does will have no bearing on the resolution of this market.\n\nThe primary resolution source for this market will be official information from the PRC, however a consensus of credible reporting will also be used.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0085,
+              "No": 0.9915
+            },
+            "volume": 1399379.297188,
+            "liquidity": 33579.78726,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-china-unban-bitcoin-in-2025",
+            "slug": "will-china-unban-bitcoin-in-2025",
+            "created_at": "2025-07-02T15:38:44.920444Z",
+            "close_time": "2025-12-31T00:00:00Z"
+          },
+          {
+            "market_id": "0x6e3ddb2cef36454e993c583432015a15d6d4f0e810bbc6754cccc3792cdbe421",
+            "clob_token_ids": [
+              "2058776031385161366909783058347791620201059470479459472911368721095066087606",
+              "1788302617451368492279873756596307949940227301804290823085817251207064256533"
+            ],
+            "title": "Senate passes bill to purchase 1m Bitcoin in 2025?",
+            "description": "On March 11, Senator Lummis reintroduced the BITCOIN Act, which aims to purchase 1,000,000 Bitcoin. You can read more about that here: https://x.com/BitcoinMagazine/status/1899447562790211883\n\nThis market will resolve to \"Yes\" if this act passes the Senate by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from the US government, however a consensus of credible reporting will also be used.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0255,
+              "No": 0.9745
+            },
+            "volume": 57148.587573,
+            "liquidity": 6247.67145,
+            "status": "active",
+            "url": "https://polymarket.com/market/senate-passes-bill-to-purchase-1m-bitcoin-in-2025",
+            "slug": "senate-passes-bill-to-purchase-1m-bitcoin-in-2025",
+            "created_at": "2025-03-19T21:29:58.388315Z",
+            "close_time": "2025-12-31T12:00:00Z"
+          },
+          {
+            "market_id": "0xc607fa86d41d0439359936dda8fa37fa0441acfe8d8dfeac7722657a989e9de6",
+            "clob_token_ids": [
+              "5323796094783360984032170082063311527711380033707214576152344498363170746750",
+              "15023754393998281560179825751784236889073305203143629476591559611037961712971"
+            ],
+            "title": "Will Trump Media buy more Bitcoin in 2025?",
+            "description": "This market will resolve to \"Yes\" if Trump Media & Technology Group (TMTG) announces that it has acquired more Bitcoin between July 24 11:00 ET, 2025, and December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market will be official information from TMTG, however a consensus of credible reporting may also be used.\n",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.385,
+              "No": 0.615
+            },
+            "volume": 47505.223311,
+            "liquidity": 163.67,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-trump-media-buy-more-bitcoin-in-2025",
+            "slug": "will-trump-media-buy-more-bitcoin-in-2025",
+            "created_at": "2025-07-24T14:22:04.07516Z",
+            "close_time": "2025-12-31T00:00:00Z"
+          },
+          {
+            "market_id": "0x19ee98e348c0ccb341d1b9566fa14521566e9b2ea7aed34dc407a0ec56be36a2",
+            "clob_token_ids": [
+              "93592949212798121127213117304912625505836768562433217537850469496310204567695",
+              "3074539347152748632858978545166555332546941892131779352477699494423276162345"
+            ],
+            "title": "MicroStrategy sells any Bitcoin in 2025?",
+            "description": "This market will resolve to \"Yes\" if MicroStrategy sells any of its Bitcoin by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from MSTR and on-chain data, however a consensus of credible reporting will also be used.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.027,
+              "No": 0.973
+            },
+            "volume": 1211777.149128,
+            "liquidity": 53480.13394,
+            "status": "active",
+            "url": "https://polymarket.com/market/microstrategy-sell-any-bitcoin-in-2025",
+            "slug": "microstrategy-sell-any-bitcoin-in-2025",
+            "created_at": "2024-12-31T16:02:33.362936Z",
+            "close_time": "2025-12-31T12:00:00Z"
+          },
+          {
+            "market_id": "0x9a4db724246b51cbfbc8000dbbd6b54d72b057767c3690e63d940b26d78c6cb0",
+            "clob_token_ids": [
+              "108547978327958467449318042977006580876058560639743186491243488736783119648127",
+              "61476326573463890939120700176570456436619008823217970387484180237661307640203"
+            ],
+            "title": "MicroStrategy sells any Bitcoin by March 31, 2026?",
+            "description": "This market will resolve to \"Yes\" if MicroStrategy sells any of its Bitcoin by 11:59 PM ET on the date specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from MSTR and on-chain data, however a consensus of credible reporting will also be used.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.115,
+              "No": 0.885
+            },
+            "volume": 4641.253664,
+            "liquidity": 11270.874,
+            "status": "active",
+            "url": "https://polymarket.com/market/microstrategy-sells-any-bitcoin-by-march-31-2026",
+            "slug": "microstrategy-sells-any-bitcoin-by-march-31-2026",
+            "created_at": "2025-11-19T22:49:38.387602Z",
+            "close_time": ""
+          },
+          {
+            "market_id": "0x8e7a03cb1970e2ad6533b01892403516b6b3f5b5fa90ed7d104c28b27e40ba00",
+            "clob_token_ids": [
+              "110251828161543119357013227499774714771527179764174739487025581227481937033858",
+              "65176388692130651396848427090788038285140833850265294793449655516920659740141"
+            ],
+            "title": "MicroStrategy sells any Bitcoin by June 30, 2026?",
+            "description": "This market will resolve to \"Yes\" if MicroStrategy sells any of its Bitcoin by 11:59 PM ET on the date specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from MSTR and on-chain data, however a consensus of credible reporting will also be used.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.17,
+              "No": 0.83
+            },
+            "volume": 2697.682693,
+            "liquidity": 9450.4993,
+            "status": "active",
+            "url": "https://polymarket.com/market/microstrategy-sells-any-bitcoin-by-june-30-2026",
+            "slug": "microstrategy-sells-any-bitcoin-by-june-30-2026",
+            "created_at": "2025-11-19T22:50:03.261894Z",
+            "close_time": "2026-07-01T04:00:00Z"
+          },
+          {
+            "market_id": "0xd8b9ff369452daebce1ac8cb6a29d6817903e85168356c72812317f38e317613",
+            "clob_token_ids": [
+              "112540911653160777059655478391259433595972605218365763034134019729862917878641",
+              "72957845969259179114974336105989648762775384471357386872640167050913336248574"
+            ],
+            "title": "Will Bitcoin reach $1,000,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $1,000,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.004,
+              "No": 0.996
+            },
+            "volume": 5565532.701174,
+            "liquidity": 141041.30045,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-1000000-by-december-31-2025",
+            "slug": "will-bitcoin-reach-1000000-by-december-31-2025",
+            "created_at": "2024-12-30T20:41:14.977618Z",
+            "close_time": "2025-12-31T12:00:00Z"
+          },
+          {
+            "market_id": "0xac2be3a5471b343d43b9f0d3f141611b91feb8c66aed8e286cd3d2540714aaba",
+            "clob_token_ids": [
+              "15600657178409553723631854347165934450743544837722869853285023214749561849304",
+              "95832722052369159414941134432483791330342476703761512967217344447414576372729"
+            ],
+            "title": "Will Bitcoin reach $250,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $250,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0055,
+              "No": 0.9945
+            },
+            "volume": 5254772.129993,
+            "liquidity": 210845.53057,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-250000-by-december-31-2025",
+            "slug": "will-bitcoin-reach-250000-by-december-31-2025",
+            "created_at": "2024-12-30T20:43:17.940226Z",
+            "close_time": "2025-12-31T12:00:00Z"
+          },
+          {
+            "market_id": "0x4e2887e913cd6e091c9b07b5e4013b24f372453efa6f11a0b0c5f65371729cf4",
+            "clob_token_ids": [
+              "85949163243245471221790979452091560100141884930227668573477517865165344048388",
+              "36921569939440488689507126893181296483417102090221899052515362361275875175227"
+            ],
+            "title": "Will Bitcoin reach $200,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $200,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0075,
+              "No": 0.9925
+            },
+            "volume": 9283595.444883,
+            "liquidity": 389134.32376,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-200000-by-december-31-2025",
+            "slug": "will-bitcoin-reach-200000-by-december-31-2025",
+            "created_at": "2024-12-30T20:43:40.292689Z",
+            "close_time": "2025-12-31T12:00:00Z"
+          }
+        ],
+        "metadata": {
+          "query": "bitcoin 2025",
+          "session_id": "20251127_135429_ad368a",
+          "result_count": 10,
+          "platform": "polymarket",
+          "timestamp": "2025-11-27T13:54:29.545159+00:00"
+        }
+      },
+      "historical": {
+        "history": [
+          {
+            "id": 130,
+            "session_id": "20251127_135429_ad368a",
+            "user_query": "bitcoin 2025",
+            "expanded_keywords": [
+              "bitcoin 2025"
+            ],
+            "timestamp": "2025-11-27T13:54:29.509821+00:00",
+            "results": [
+              {
+                "market_id": "0x293fb49f43b12631ec4ad0617d9c0efc0eacce33416ef16f68521427daca1678",
+                "clob_token_ids": [
+                  "57338714801830110409291906331043415122319095430948035858069240523339447935973",
+                  "20490903838795271872508839925457310042688796049257211138642443340719901864083"
+                ],
+                "title": "Will Satoshi move any Bitcoin in 2025?",
+                "description": "This market will resolve to “Yes” if any wallet labeled as belonging to Satoshi Nakamoto on Arkham’s Intel Explorer shows an “Outflow” or “Swaps” transaction before December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to “No.”\n\nThe resolution source for this market is Arkham’s Intel Explorer, specifically the entity page for Satoshi Nakamoto available at https://intel.arkm.com/explorer/entity/satoshi-nakamoto\n\nIf Arkham becomes permanently unavailable, this market will resolve based on a consensus of credible sources.\n\n\n",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0155,
+                  "No": 0.9845
+                },
+                "volume": 13211712.754763,
+                "liquidity": 341753.39566,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-satoshi-move-any-bitcoin-in-2025",
+                "slug": "will-satoshi-move-any-bitcoin-in-2025",
+                "created_at": "2025-07-14T15:33:12.339647Z",
+                "close_time": "2025-12-31T00:00:00Z"
+              },
+              {
+                "market_id": "0xfc4453f83b30fdad8ac707b7bd11309aa4c4c90d0c17ad0c4680d4142d4471f7",
+                "clob_token_ids": [
+                  "113725578228350368514309301524942744434163841203212062342988045199278956063756",
+                  "69997555614698545101689493648239688486292261658797186637923226280629318473162"
+                ],
+                "title": "Will China unban Bitcoin in 2025?",
+                "description": "This market will resolve to \"Yes\" if the government of the People's Republic of China (PRC) explicitly announces that Chinese citizens will be allowed to legally buy Bitcoin with yuan (renminbi) from inside China between July 1, 2025, and December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nFor this market to resolve to \"Yes\" it is only necessary that the PRC announces this change will take place. Whether it actually does will have no bearing on the resolution of this market.\n\nThe primary resolution source for this market will be official information from the PRC, however a consensus of credible reporting will also be used.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0085,
+                  "No": 0.9915
+                },
+                "volume": 1399379.297188,
+                "liquidity": 33579.78726,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-china-unban-bitcoin-in-2025",
+                "slug": "will-china-unban-bitcoin-in-2025",
+                "created_at": "2025-07-02T15:38:44.920444Z",
+                "close_time": "2025-12-31T00:00:00Z"
+              },
+              {
+                "market_id": "0x6e3ddb2cef36454e993c583432015a15d6d4f0e810bbc6754cccc3792cdbe421",
+                "clob_token_ids": [
+                  "2058776031385161366909783058347791620201059470479459472911368721095066087606",
+                  "1788302617451368492279873756596307949940227301804290823085817251207064256533"
+                ],
+                "title": "Senate passes bill to purchase 1m Bitcoin in 2025?",
+                "description": "On March 11, Senator Lummis reintroduced the BITCOIN Act, which aims to purchase 1,000,000 Bitcoin. You can read more about that here: https://x.com/BitcoinMagazine/status/1899447562790211883\n\nThis market will resolve to \"Yes\" if this act passes the Senate by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from the US government, however a consensus of credible reporting will also be used.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0255,
+                  "No": 0.9745
+                },
+                "volume": 57148.587573,
+                "liquidity": 6247.67145,
+                "status": "active",
+                "url": "https://polymarket.com/market/senate-passes-bill-to-purchase-1m-bitcoin-in-2025",
+                "slug": "senate-passes-bill-to-purchase-1m-bitcoin-in-2025",
+                "created_at": "2025-03-19T21:29:58.388315Z",
+                "close_time": "2025-12-31T12:00:00Z"
+              },
+              {
+                "market_id": "0xc607fa86d41d0439359936dda8fa37fa0441acfe8d8dfeac7722657a989e9de6",
+                "clob_token_ids": [
+                  "5323796094783360984032170082063311527711380033707214576152344498363170746750",
+                  "15023754393998281560179825751784236889073305203143629476591559611037961712971"
+                ],
+                "title": "Will Trump Media buy more Bitcoin in 2025?",
+                "description": "This market will resolve to \"Yes\" if Trump Media & Technology Group (TMTG) announces that it has acquired more Bitcoin between July 24 11:00 ET, 2025, and December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe resolution source for this market will be official information from TMTG, however a consensus of credible reporting may also be used.\n",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.385,
+                  "No": 0.615
+                },
+                "volume": 47505.223311,
+                "liquidity": 163.67,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-trump-media-buy-more-bitcoin-in-2025",
+                "slug": "will-trump-media-buy-more-bitcoin-in-2025",
+                "created_at": "2025-07-24T14:22:04.07516Z",
+                "close_time": "2025-12-31T00:00:00Z"
+              },
+              {
+                "market_id": "0x19ee98e348c0ccb341d1b9566fa14521566e9b2ea7aed34dc407a0ec56be36a2",
+                "clob_token_ids": [
+                  "93592949212798121127213117304912625505836768562433217537850469496310204567695",
+                  "3074539347152748632858978545166555332546941892131779352477699494423276162345"
+                ],
+                "title": "MicroStrategy sells any Bitcoin in 2025?",
+                "description": "This market will resolve to \"Yes\" if MicroStrategy sells any of its Bitcoin by December 31, 2025, 11:59 PM ET. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from MSTR and on-chain data, however a consensus of credible reporting will also be used.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.027,
+                  "No": 0.973
+                },
+                "volume": 1211777.149128,
+                "liquidity": 53480.13394,
+                "status": "active",
+                "url": "https://polymarket.com/market/microstrategy-sell-any-bitcoin-in-2025",
+                "slug": "microstrategy-sell-any-bitcoin-in-2025",
+                "created_at": "2024-12-31T16:02:33.362936Z",
+                "close_time": "2025-12-31T12:00:00Z"
+              },
+              {
+                "market_id": "0x9a4db724246b51cbfbc8000dbbd6b54d72b057767c3690e63d940b26d78c6cb0",
+                "clob_token_ids": [
+                  "108547978327958467449318042977006580876058560639743186491243488736783119648127",
+                  "61476326573463890939120700176570456436619008823217970387484180237661307640203"
+                ],
+                "title": "MicroStrategy sells any Bitcoin by March 31, 2026?",
+                "description": "This market will resolve to \"Yes\" if MicroStrategy sells any of its Bitcoin by 11:59 PM ET on the date specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from MSTR and on-chain data, however a consensus of credible reporting will also be used.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.115,
+                  "No": 0.885
+                },
+                "volume": 4641.253664,
+                "liquidity": 11270.874,
+                "status": "active",
+                "url": "https://polymarket.com/market/microstrategy-sells-any-bitcoin-by-march-31-2026",
+                "slug": "microstrategy-sells-any-bitcoin-by-march-31-2026",
+                "created_at": "2025-11-19T22:49:38.387602Z",
+                "close_time": ""
+              },
+              {
+                "market_id": "0x8e7a03cb1970e2ad6533b01892403516b6b3f5b5fa90ed7d104c28b27e40ba00",
+                "clob_token_ids": [
+                  "110251828161543119357013227499774714771527179764174739487025581227481937033858",
+                  "65176388692130651396848427090788038285140833850265294793449655516920659740141"
+                ],
+                "title": "MicroStrategy sells any Bitcoin by June 30, 2026?",
+                "description": "This market will resolve to \"Yes\" if MicroStrategy sells any of its Bitcoin by 11:59 PM ET on the date specified in the title. Otherwise, this market will resolve to \"No\".\n\nThe primary resolution source for this market will be information from MSTR and on-chain data, however a consensus of credible reporting will also be used.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.17,
+                  "No": 0.83
+                },
+                "volume": 2697.682693,
+                "liquidity": 9450.4993,
+                "status": "active",
+                "url": "https://polymarket.com/market/microstrategy-sells-any-bitcoin-by-june-30-2026",
+                "slug": "microstrategy-sells-any-bitcoin-by-june-30-2026",
+                "created_at": "2025-11-19T22:50:03.261894Z",
+                "close_time": "2026-07-01T04:00:00Z"
+              },
+              {
+                "market_id": "0xd8b9ff369452daebce1ac8cb6a29d6817903e85168356c72812317f38e317613",
+                "clob_token_ids": [
+                  "112540911653160777059655478391259433595972605218365763034134019729862917878641",
+                  "72957845969259179114974336105989648762775384471357386872640167050913336248574"
+                ],
+                "title": "Will Bitcoin reach $1,000,000 by December 31, 2025?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $1,000,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.004,
+                  "No": 0.996
+                },
+                "volume": 5565532.701174,
+                "liquidity": 141041.30045,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-reach-1000000-by-december-31-2025",
+                "slug": "will-bitcoin-reach-1000000-by-december-31-2025",
+                "created_at": "2024-12-30T20:41:14.977618Z",
+                "close_time": "2025-12-31T12:00:00Z"
+              },
+              {
+                "market_id": "0xac2be3a5471b343d43b9f0d3f141611b91feb8c66aed8e286cd3d2540714aaba",
+                "clob_token_ids": [
+                  "15600657178409553723631854347165934450743544837722869853285023214749561849304",
+                  "95832722052369159414941134432483791330342476703761512967217344447414576372729"
+                ],
+                "title": "Will Bitcoin reach $250,000 by December 31, 2025?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $250,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0055,
+                  "No": 0.9945
+                },
+                "volume": 5254772.129993,
+                "liquidity": 210845.53057,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-reach-250000-by-december-31-2025",
+                "slug": "will-bitcoin-reach-250000-by-december-31-2025",
+                "created_at": "2024-12-30T20:43:17.940226Z",
+                "close_time": "2025-12-31T12:00:00Z"
+              },
+              {
+                "market_id": "0x4e2887e913cd6e091c9b07b5e4013b24f372453efa6f11a0b0c5f65371729cf4",
+                "clob_token_ids": [
+                  "85949163243245471221790979452091560100141884930227668573477517865165344048388",
+                  "36921569939440488689507126893181296483417102090221899052515362361275875175227"
+                ],
+                "title": "Will Bitcoin reach $200,000 by December 31, 2025?",
+                "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $200,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+                "outcomes": [
+                  "Yes",
+                  "No"
+                ],
+                "prices": {
+                  "Yes": 0.0075,
+                  "No": 0.9925
+                },
+                "volume": 9283595.444883,
+                "liquidity": 389134.32376,
+                "status": "active",
+                "url": "https://polymarket.com/market/will-bitcoin-reach-200000-by-december-31-2025",
+                "slug": "will-bitcoin-reach-200000-by-december-31-2025",
+                "created_at": "2024-12-30T20:43:40.292689Z",
+                "close_time": "2025-12-31T12:00:00Z"
+              }
+            ],
+            "platform": "polymarket",
+            "market_ids": [
+              "0x293fb49f43b12631ec4ad0617d9c0efc0eacce33416ef16f68521427daca1678",
+              "0xfc4453f83b30fdad8ac707b7bd11309aa4c4c90d0c17ad0c4680d4142d4471f7",
+              "0x6e3ddb2cef36454e993c583432015a15d6d4f0e810bbc6754cccc3792cdbe421",
+              "0xc607fa86d41d0439359936dda8fa37fa0441acfe8d8dfeac7722657a989e9de6",
+              "0x19ee98e348c0ccb341d1b9566fa14521566e9b2ea7aed34dc407a0ec56be36a2",
+              "0x9a4db724246b51cbfbc8000dbbd6b54d72b057767c3690e63d940b26d78c6cb0",
+              "0x8e7a03cb1970e2ad6533b01892403516b6b3f5b5fa90ed7d104c28b27e40ba00",
+              "0xd8b9ff369452daebce1ac8cb6a29d6817903e85168356c72812317f38e317613",
+              "0xac2be3a5471b343d43b9f0d3f141611b91feb8c66aed8e286cd3d2540714aaba",
+              "0x4e2887e913cd6e091c9b07b5e4013b24f372453efa6f11a0b0c5f65371729cf4"
+            ],
+            "avg_probability": 0.0764,
+            "total_volume": 36038758,
+            "result_count": 10,
+            "created_at": "2025-11-27T13:54:29.509821+00:00"
+          }
+        ],
+        "metadata": {
+          "count": 1,
+          "filters": {
+            "session_id": "20251127_135429_ad368a",
+            "start_date": null,
+            "end_date": null,
+            "limit": 10,
+            "platform": "polymarket"
+          },
+          "timestamp": "2025-11-27T13:54:29.821257+00:00"
+        }
+      },
+      "session_id": "20251127_135429_ad368a",
+      "timestamp": "2025-11-27T13:54:29.821348+00:00",
+      "query": "bitcoin 2025",
+      "tool": "search_polymarket_with_history"
+    }
+  },
+  "metadata": {
+    "duration_ms": 701.9326686859131,
+    "num_tools": 1
+  }
+}

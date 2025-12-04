@@ -1,0 +1,60 @@
+{
+  "run_id": "20251125_183631_54aa5b",
+  "path_id": "path_1",
+  "task": {
+    "task_id": "task_2",
+    "agent": "polymarket_agent",
+    "description": "Retrieve current market data (prices, volumes, liquidity) for the discovered Bitcoin prediction markets",
+    "tools": [
+      "search_polymarket_markets",
+      "get_polymarket_history",
+      "get_market_price_history",
+      "get_market_price_range"
+    ],
+    "tool_params": {
+      "search_polymarket_markets": {
+        "query": "retrieve current market data (prices, volumes, liquidity) for the discovered bitcoin prediction markets",
+        "session_id": null,
+        "limit": 10
+      },
+      "get_polymarket_history": {
+        "session_id": null,
+        "limit": 10
+      },
+      "get_market_price_history": {
+        "market_id": null,
+        "date": null,
+        "date_range_hours": 12
+      },
+      "get_market_price_range": {
+        "market_id": null,
+        "start_date": null,
+        "end_date": null,
+        "interval_days": 1
+      }
+    },
+    "dependencies": [
+      "task_1"
+    ],
+    "agent_params": {
+      "query": "retrieve current market data (prices, volumes, liquidity) for the discovered bitcoin prediction markets",
+      "session_id": null,
+      "limit": 10
+    }
+  },
+  "tools_loaded": [
+    "search_polymarket_markets",
+    "get_market_price_history",
+    "get_polymarket_history",
+    "get_market_price_range"
+  ],
+  "agents_in_path": [
+    "polymarket_agent"
+  ],
+  "metadata": {
+    "total_tasks": 4,
+    "mappable_tasks": 4,
+    "num_agents": 1,
+    "num_tools": 4
+  }
+}

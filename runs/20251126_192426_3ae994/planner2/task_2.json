@@ -1,0 +1,51 @@
+{
+  "run_id": "20251126_192426_3ae994",
+  "path_id": "path_1",
+  "task": {
+    "task_id": "task_2",
+    "agent": "runner_agent",
+    "description": "Consolidate and analyze the prediction data",
+    "tools": [
+      "generate_structured_output",
+      "build_runner_answer"
+    ],
+    "tool_params": {
+      "generate_structured_output": {
+        "format": "json",
+        "fields": null,
+        "query": "bitcoin prediction 2025"
+      },
+      "build_runner_answer": {
+        "context": "bitcoin prediction 2025",
+        "style": "analytical",
+        "focus": "general",
+        "query": "bitcoin prediction 2025"
+      }
+    },
+    "dependencies": [
+      "task_1"
+    ],
+    "agent_params": {
+      "focus": "general",
+      "style": "analytical"
+    },
+    "ai_reasoning": "Task requires consolidation and analysis of prediction data. Using 'generate_structured_output' for consolidation and 'build_runner_answer' for analysis."
+  },
+  "tools_loaded": [
+    "generate_structured_output",
+    "get_polymarket_history",
+    "search_polymarket_markets",
+    "build_runner_answer"
+  ],
+  "agents_in_path": [
+    "runner_agent",
+    "polymarket_agent"
+  ],
+  "metadata": {
+    "total_tasks": 2,
+    "mappable_tasks": 2,
+    "num_agents": 2,
+    "num_tools": 4,
+    "ai_powered": true
+  }
+}

@@ -1,13 +1,4 @@
-"""
-Polymarket Agent 
 
-1. Parses natural language queries to extract topic and optional date
-2. Searches Polymarket markets for the topic
-3. Always returns current market state
-4. Adds historical comparison (specified date OR past week)
-5. Sorts by relevance then volume
-6. Flags low volume markets
-"""
 
 import json
 import logging
@@ -22,9 +13,7 @@ from src.bus.file_bus import write_atomic, ensure_dir
 from src.bus.schema import create_output_template
 from src.servers.polymarket.schema import MAX_POLYMARKET_RESULTS
 from src.servers.polymarket.search_markets import (
-    call_polymarket_api,
     call_polymarket_search_api,
-    parse_polymarket_response,
     parse_public_search_response,
 )
 
@@ -68,147 +57,12 @@ class PolymarketAgent:
         logger.info(f"{AGENT_NAME} v{AGENT_VERSION} initialized at {self.workspace}")
 
 
-    def parse_query_with_gpt(self, query: str) -> Dict[str, Any]:
-        """
-        Use GPT-4 to extract topic and optional date from query.
-
-        Args:
-            query: User's natural language query
-
-        Returns:
-            {
-                "topic": "extracted market topic",
-                "date": "YYYY-MM-DD or null",
-                "confidence": 0.0-1.0
-            }
-        """
-        import os
-
-        try:
-            # Load API key from config/keys.env or environment
-            config_dir = Path(__file__).parent.parent.parent.parent / "config"
-            env_file = config_dir / "keys.env"
-
-            api_key = os.environ.get("OPENAI_API_KEY")
-
-            # Try loading from file if not in environment
-            if not api_key and env_file.exists():
-                with open(env_file, "r", encoding="utf-8") as f:
-                    for line in f:
-                        if line.startswith("OPENAI_API_KEY="):
-                            api_key = line.split("=", 1)[1].strip()
-                            break
-
-            if not api_key:
-                logger.warning(
-                    "OPENAI_API_KEY not found, falling back to rule-based parsing"
-                )
-                return self._fallback_parse(query)
-
-            # Import OpenAI
-            try:
-                from openai import OpenAI
-            except ImportError:
-                logger.warning(
-                    "OpenAI library not installed, falling back to rule-based parsing"
-                )
-                return self._fallback_parse(query)
-
-            client = OpenAI(api_key=api_key)
-
-            # Simplified prompt - just extract topic and optional date
-            today = datetime.now().strftime("%Y-%m-%d")
-            prompt = f"""
-You are a query parser for a prediction markets system. Extract the topic and any date mentioned.
-
-Query: "{query}"
-
-Extract:
-1. TOPIC - The main subject (e.g., "Bitcoin price", "federal shutdown", "AI regulation")
-2. DATE - Any specific past date mentioned:
-   - Parse natural language: "Nov 1", "November 1st", "January 1 2025", "last week"
-   - Convert to YYYY-MM-DD format
-   - Return null if no specific date mentioned
-   - Today is {today}
-
-Return ONLY a JSON object:
-{{
-    "topic": "extracted topic",
-    "date": "YYYY-MM-DD or null",
-    "confidence": 0.95
-}}
-
-Examples:
-1. Query: "Bitcoin price predictions"
-   {{"topic": "bitcoin price", "date": null, "confidence": 0.98}}
-
-2. Query: "What was the opinion on Jan 1 2025 about Bitcoin?"
-   {{"topic": "bitcoin", "date": "2025-01-01", "confidence": 0.95}}
-
-3. Query: "AI regulation markets"
-   {{"topic": "AI regulation", "date": null, "confidence": 0.97}}
-
-4. Query: "Federal shutdown on November 5th"
-   {{"topic": "federal shutdown", "date": "2024-11-05", "confidence": 0.90}}
-
-Now parse the query above and return ONLY the JSON.
-""".strip()
-
-            logger.info("Calling GPT-4 to parse query")
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=150,
-            )
-
-            # Extract and parse JSON response
-            content = response.choices[0].message.content.strip()
-
-            # Remove markdown code blocks if present
-            if content.startswith("```"):
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
-                content = content.strip()
-
-            parsed = json.loads(content)
-            logger.info(
-                "Parsed - topic: '%s', date: %s, confidence: %s",
-                parsed["topic"],
-                parsed.get("date"),
-                parsed.get("confidence", "N/A"),
-            )
-
-            return parsed
-
-        except Exception as exc:  # pragma: no cover - defensive fallback
-            logger.error("GPT-4 parsing failed: %s. Falling back to rule-based parsing", exc)
-            return self._fallback_parse(query)
-
-    def _fallback_parse(self, query: str) -> Dict[str, Any]:
-        """
-        Simple rule-based parsing as fallback.
-
-        Args:
-            query: User query
-
-        Returns:
-            Parsed query dict
-        """
-        # Trim overly long queries to protect downstream processing
-        safe_query = query[:MAX_QUERY_LENGTH]
-        return {
-            "topic": safe_query,
-            "date": None,
-            "confidence": 0.5,
-        }
 
     def _extract_inline_dates(
         self, query: str
     ) -> tuple[Optional[str], Optional[str]]:
         """
-        Lightweight date extraction for simple mode (no reasoning/LLM).
+        Lightweight date extraction 
 
         Looks for ISO-like dates (YYYY-MM-DD) in the raw query text and, if two or
         more are present, treats the earliest as the comparison (past) date and the
@@ -248,32 +102,24 @@ Now parse the query above and return ONLY the JSON.
     # ------------------------
     # Main Run Entry Points
     # ------------------------
+    # def run(
+    #     self,
+    #     query: str,
+    #     session_id: Optional[str] = None,
+    #     limit: Optional[int] = None,
+    # ) -> Path:
+
+    #     if not query or not query.strip():
+    #         raise ValueError("Query cannot be empty")
+
+    #     return self.run_simple(query=query, limit=limit)
+
     def run(
         self,
         query: str,
-        session_id: Optional[str] = None,
         limit: Optional[int] = None,
     ) -> Path:
         """
-        Unified Polymarket agent entry point.
-
-        For all callers (scripts, orchestrator, tests), this now delegates to the
-        simple, API-only implementation that:
-        - Uses the Gamma `/markets` endpoint sorted by volume
-        - Filters by high volume and textual relevance
-        - Performs basic price validation
-        """
-        # session_id is accepted for backwards compatibility but ignored in simple mode.
-        return self.run_simple(query=query, limit=limit)
-
-    def run_simple(
-        self,
-        query: str,
-        limit: Optional[int] = None,
-    ) -> Path:
-        """
-        Simple Polymarket search with no LLM reasoning.
-
         - Uses Polymarket Gamma `/markets` API (sorted by volume)
         - Filters by keyword relevance and high volume
         - Validation focuses on:
@@ -281,7 +127,6 @@ Now parse the query above and return ONLY the JSON.
           2. Volume is non-negative and above threshold
           3. Market text (title/description/question) is keyword-relevant to query
 
-        Intended for custom, ad-hoc queries only (no reasoning).
         """
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
@@ -330,44 +175,7 @@ Now parse the query above and return ONLY the JSON.
                 logger.info("Simple Step 2: Validating prices and volume")
                 validated_markets: List[Dict[str, Any]] = []
 
-                # Basic relevance check: require at least one query keyword to appear
-                # in title/description/question (case-insensitive).
-                # Prefer phrase (pairwise) matches first, then fall back to single-word.
-                import re
 
-                # Build keyword list from query
-                # cleaned_query = re.sub(r"[?!.,;:]", "", query.lower())
-                # raw_words = [
-                #     w
-                #     for w in re.split(r"[\s\-]+", cleaned_query)
-                #     if w and len(w) > 2
-                # ]
-
-                # # Filter out standalone year tokens (e.g. "2024", "2025") so they
-                # # don't dominate relevance and match unrelated same-year markets.
-                # filtered_words: list[str] = []
-                # for w in raw_words:
-                #     if re.fullmatch(r"\d{4}", w):
-                #         try:
-                #             year = int(w)
-                #         except ValueError:
-                #             year = None
-                #         if year is not None and 1900 <= year <= 2100:
-                #             # Skip pure year tokens
-                #             continue
-                #     filtered_words.append(w)
-
-                # # Use filtered words when available; otherwise fall back to raw words.
-                # keyword_words = filtered_words or raw_words
-                # query_words_set = set(keyword_words)
-
-                # # Build pairwise phrases (adjacent word bigrams) to check first.
-                # phrases: list[str] = []
-                # if len(keyword_words) >= 2:
-                #     for i in range(len(keyword_words) - 1):
-                #         phrase = f"{keyword_words[i]} {keyword_words[i+1]}"
-                #         if phrase not in phrases:
-                #             phrases.append(phrase)
 
                 for market in all_markets:
                     prices = market.get("prices", {})
@@ -437,7 +245,10 @@ Now parse the query above and return ONLY the JSON.
                 )
                 final_markets = validated_markets[:search_limit]
 
-                # Optional: add historical comparison if dates are embedded in query.
+                # Optional: add historical comparison.
+                # Priority:
+                # 1) If inline dates are present in the query, use the past_date.
+                # 2) Otherwise, default to a lookback window (e.g. past week).
                 past_date, today_date = self._extract_inline_dates(query)
                 comparison_date = past_date
                 date_source: Optional[str] = None
@@ -452,6 +263,23 @@ Now parse the query above and return ONLY the JSON.
                         final_markets, comparison_date
                     )
                     date_source = "inline_query_dates"
+                else:
+                    # No explicit date found – default to last week from today.
+                    default_date = (
+                        datetime.now(timezone.utc).date()
+                        - timedelta(days=DEFAULT_LOOKBACK_DAYS)
+                    ).isoformat()
+                    logger.info(
+                        "Simple mode: no inline date detected, "
+                        "defaulting comparison_date to %s (%d-day lookback)",
+                        default_date,
+                        DEFAULT_LOOKBACK_DAYS,
+                    )
+                    comparison_date = default_date
+                    final_markets = self._add_historical_comparison(
+                        final_markets, comparison_date
+                    )
+                    date_source = "default_lookback_days"
 
                 result = {
                     "query": query,

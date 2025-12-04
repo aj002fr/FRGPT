@@ -1,0 +1,39 @@
+{
+  "run_id": "20251127_141546_dbcf86",
+  "path_id": "path_1",
+  "task": {
+    "task_id": "task_1",
+    "agent": "polymarket_agent",
+    "description": "Retrieve Polymarket prediction for Bitcoin in 2025",
+    "tools": [
+      "search_polymarket_with_history"
+    ],
+    "tool_params": {
+      "search_polymarket_with_history": {
+        "query": "bitcoin prediction 2025",
+        "limit": null,
+        "session_id": null
+      }
+    },
+    "dependencies": [],
+    "agent_params": {
+      "query": "bitcoin prediction 2025"
+    },
+    "ai_reasoning": "Task requires prediction market data for Bitcoin in 2025. Using unified tool that provides both current and historical data in one call."
+  },
+  "tools_loaded": [
+    "build_runner_answer",
+    "search_polymarket_with_history"
+  ],
+  "agents_in_path": [
+    "polymarket_agent",
+    "runner_agent"
+  ],
+  "metadata": {
+    "total_tasks": 2,
+    "mappable_tasks": 2,
+    "num_agents": 2,
+    "num_tools": 2,
+    "ai_powered": true
+  }
+}

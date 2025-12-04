@@ -13,7 +13,7 @@ User Query → PolymarketAgent → Polymarket `/markets` API (volume-sorted)
                     ↓                     ↓
               MCP Client         Keyword + Volume Filter
                     ↓                     ↓
-         call_polymarket_api   High-Volume Relevant Markets
+    call_polymarket_search_api   High-Volume Relevant Markets
                     ↓                     ↓
        polymarket_markets.db   File Bus (out/*.json)
                     ↓

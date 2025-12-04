@@ -1,0 +1,67 @@
+{
+  "query": "What is the bitcoin price prediction for 2025?",
+  "subtasks": [
+    {
+      "id": "task_1",
+      "description": "Retrieve the prediction for Bitcoin price in 2025 from Polymarket",
+      "assigned_agent": "polymarket_agent",
+      "dependencies": [],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "query": "Bitcoin price 2025"
+      }
+    },
+    {
+      "id": "task_2",
+      "description": "Consolidate and summarize the prediction for Bitcoin price in 2025",
+      "assigned_agent": "runner_agent",
+      "dependencies": [
+        "task_1"
+      ],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "focus": "summary",
+        "style": "analytical"
+      }
+    }
+  ],
+  "dependency_paths": [
+    [
+      "task_1",
+      "task_2"
+    ]
+  ],
+  "metadata": {
+    "total_tasks": 2,
+    "mappable_tasks": 2,
+    "unmappable_tasks": 0,
+    "has_cycles": false,
+    "max_depth": 1,
+    "parallel_groups": [
+      [
+        "task_1"
+      ],
+      [
+        "task_2"
+      ]
+    ],
+    "independent_tasks": 1,
+    "available_agents": [
+      "market_data_agent",
+      "polymarket_agent",
+      "runner_agent"
+    ],
+    "task_dependency_paths": {
+      "task_1": [
+        "task_1",
+        "task_2"
+      ],
+      "task_2": [
+        "task_1",
+        "task_2"
+      ]
+    }
+  }
+}

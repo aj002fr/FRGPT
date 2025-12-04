@@ -1,0 +1,436 @@
+{
+  "run_id": "20251126_162039_84b18a",
+  "task_id": "task_1",
+  "agent_name": "polymarket_agent",
+  "output_data": [
+    {
+      "query": "Bitcoin price 2025",
+      "parsed": null,
+      "comparison_date": "2025-11-19",
+      "date_source": "default_lookback_days",
+      "result": {
+        "query": "Bitcoin price 2025",
+        "parsed": null,
+        "comparison_date": "2025-11-19",
+        "date_source": "default_lookback_days",
+        "markets": [
+          {
+            "market_id": "0x9aa6086535a4b3145e9f7378dd58a7a8c30c4b15bd4fe17eb6990817f5cd3cd9",
+            "clob_token_ids": [
+              "87484108660213248881541352117231933897620313251765619093583161767567942237143",
+              "66227603050358363252823995280330068010453773135951949905956744267279138003735"
+            ],
+            "title": "Will Bitcoin reach $150,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $150,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0215,
+              "No": 0.9785
+            },
+            "volume": 10840245.339442,
+            "liquidity": 267432.95436,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-150000-by-december-31-2025-188",
+            "slug": "will-bitcoin-reach-150000-by-december-31-2025-188",
+            "created_at": "2024-12-30T20:44:03.025659Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "current_date": "2025-11-26",
+            "current_price": {
+              "Yes": 0.0215,
+              "No": 0.9785
+            },
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0351,
+              "no": 0.9649
+            },
+            "historical_date": "2025-11-19",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -1.36,
+              "direction": "down"
+            }
+          },
+          {
+            "market_id": "0x4e2887e913cd6e091c9b07b5e4013b24f372453efa6f11a0b0c5f65371729cf4",
+            "clob_token_ids": [
+              "85949163243245471221790979452091560100141884930227668573477517865165344048388",
+              "36921569939440488689507126893181296483417102090221899052515362361275875175227"
+            ],
+            "title": "Will Bitcoin reach $200,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $200,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0095,
+              "No": 0.9905
+            },
+            "volume": 9167049.964465,
+            "liquidity": 301494.20552,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-200000-by-december-31-2025",
+            "slug": "will-bitcoin-reach-200000-by-december-31-2025",
+            "created_at": "2024-12-30T20:43:40.292689Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "current_date": "2025-11-26",
+            "current_price": {
+              "Yes": 0.0095,
+              "No": 0.9905
+            },
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0174,
+              "no": 0.9826
+            },
+            "historical_date": "2025-11-19",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -0.79,
+              "direction": "down"
+            }
+          },
+          {
+            "market_id": "0xe84b1fdc087f4153ebf15cfc07f065dd5a66f3caf370b4547ea8e02100be95be",
+            "clob_token_ids": [
+              "70455106433105725093003807079135685186309776081399075740142938507518314484366",
+              "11800304361754383189551729117933216661503938872257140403668204817034252452180"
+            ],
+            "title": "Will Bitcoin reach $130,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $130,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.035,
+              "No": 0.965
+            },
+            "volume": 7841419.233053,
+            "liquidity": 279053.70158,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-130000-by-december-31-2025-911-832",
+            "slug": "will-bitcoin-reach-130000-by-december-31-2025-911-832",
+            "created_at": "2024-12-30T20:47:15.792078Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "current_date": "2025-11-26",
+            "current_price": {
+              "Yes": 0.035,
+              "No": 0.965
+            },
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0774,
+              "no": 0.9226
+            },
+            "historical_date": "2025-11-19",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -4.24,
+              "direction": "down"
+            }
+          },
+          {
+            "market_id": "0xd8b9ff369452daebce1ac8cb6a29d6817903e85168356c72812317f38e317613",
+            "clob_token_ids": [
+              "112540911653160777059655478391259433595972605218365763034134019729862917878641",
+              "72957845969259179114974336105989648762775384471357386872640167050913336248574"
+            ],
+            "title": "Will Bitcoin reach $1,000,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $1,000,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0035,
+              "No": 0.9965
+            },
+            "volume": 5362527.358053,
+            "liquidity": 128253.26792,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-1000000-by-december-31-2025",
+            "slug": "will-bitcoin-reach-1000000-by-december-31-2025",
+            "created_at": "2024-12-30T20:41:14.977618Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "current_date": "2025-11-26",
+            "current_price": {
+              "Yes": 0.0035,
+              "No": 0.9965
+            },
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0045,
+              "no": 0.9955
+            },
+            "historical_date": "2025-11-19",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -0.1,
+              "direction": "down"
+            }
+          },
+          {
+            "market_id": "0xac2be3a5471b343d43b9f0d3f141611b91feb8c66aed8e286cd3d2540714aaba",
+            "clob_token_ids": [
+              "15600657178409553723631854347165934450743544837722869853285023214749561849304",
+              "95832722052369159414941134432483791330342476703761512967217344447414576372729"
+            ],
+            "title": "Will Bitcoin reach $250,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $250,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.007,
+              "No": 0.993
+            },
+            "volume": 5203528.458155,
+            "liquidity": 172066.73177,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-250000-by-december-31-2025",
+            "slug": "will-bitcoin-reach-250000-by-december-31-2025",
+            "created_at": "2024-12-30T20:43:17.940226Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "current_date": "2025-11-26",
+            "current_price": {
+              "Yes": 0.007,
+              "No": 0.993
+            },
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0159,
+              "no": 0.9841
+            },
+            "historical_date": "2025-11-19",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -0.89,
+              "direction": "down"
+            }
+          },
+          {
+            "market_id": "0x0aeb566c973d193ef7f77d2532ba6bffe4f76d5f6b7c5422ceaa966536b7ef90",
+            "clob_token_ids": [
+              "95047670164958340277111777643825971965059782358468932324606496632183052684085",
+              "100375751383683889135740752845531216905065059223993637045364244391467921428816"
+            ],
+            "title": "Will Bitcoin dip to $70,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"Low\" price of $70,000 or lower. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"Low\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.\n",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.155,
+              "No": 0.845
+            },
+            "volume": 4526224.032406,
+            "liquidity": 125528.2278,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-dip-to-70000-by-december-31-2025-193-726-878-775-359-968-264-727-793-714",
+            "slug": "will-bitcoin-dip-to-70000-by-december-31-2025-193-726-878-775-359-968-264-727-793-714",
+            "created_at": "2024-12-30T20:51:32.263226Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "current_date": "2025-11-26",
+            "current_price": {
+              "Yes": 0.155,
+              "No": 0.845
+            },
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.137,
+              "no": 0.863
+            },
+            "historical_date": "2025-11-19",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": 1.8,
+              "direction": "up"
+            }
+          },
+          {
+            "market_id": "0x9322e033c6dc8be6d8495cc44ac578abaa28a8cccdb783de1bff0026066d1d05",
+            "clob_token_ids": [
+              "31708710617182893420436057149289712855851004287900968100076957544813460654120",
+              "58574611769837238797096904875365149395720078009414222609912865927309388209943"
+            ],
+            "title": "Will Bitcoin reach $140,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $140,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0245,
+              "No": 0.9755
+            },
+            "volume": 3238303.479078,
+            "liquidity": 139426.35512,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-140000-by-december-31-2025-258-893",
+            "slug": "will-bitcoin-reach-140000-by-december-31-2025-258-893",
+            "created_at": "2025-08-08T10:24:42.241575Z",
+            "close_time": "",
+            "current_date": "2025-11-26",
+            "current_price": {
+              "Yes": 0.0245,
+              "No": 0.9755
+            },
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0467,
+              "no": 0.9533
+            },
+            "historical_date": "2025-11-19",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -2.22,
+              "direction": "down"
+            }
+          },
+          {
+            "market_id": "0x0c23ad7af38087ab27f94fd35eec62b4f53c0d6edd16bf04d85b7c456dc777de",
+            "clob_token_ids": [
+              "54897787457036657865994456184914764553135864680096835028443076525607070890895",
+              "78805316555677329424627438782382022900925020552651782446877236048212682328103"
+            ],
+            "title": "Will Bitcoin reach $170,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"High\" price of $170,000 or higher. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"High\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0135,
+              "No": 0.9865
+            },
+            "volume": 3009811.312667,
+            "liquidity": 119276.16365,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-reach-170000-by-december-31-2025-215",
+            "slug": "will-bitcoin-reach-170000-by-december-31-2025-215",
+            "created_at": "2025-08-08T10:25:52.857018Z",
+            "close_time": "",
+            "current_date": "2025-11-26",
+            "current_price": {
+              "Yes": 0.0135,
+              "No": 0.9865
+            },
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0295,
+              "no": 0.9705
+            },
+            "historical_date": "2025-11-19",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -1.6,
+              "direction": "down"
+            }
+          },
+          {
+            "market_id": "0x5e8e585d855c4288c3805064e74fc7ea1dab47dc0e9b42a0dbd9ca5f49c997f9",
+            "clob_token_ids": [
+              "19172660598358578032571481657371270203404516640166684953652435968273007603461",
+              "95127172957892117780970143223263460656475089429444124822445842899956882270574"
+            ],
+            "title": "Will Bitcoin dip to $50,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"Low\" price of $50,000 or lower. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"Low\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.\n",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.028,
+              "No": 0.972
+            },
+            "volume": 2980758.219222,
+            "liquidity": 70975.56043,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-dip-to-50000-by-december-31-2025-391-715-682-587-692-994-786-318-267-857",
+            "slug": "will-bitcoin-dip-to-50000-by-december-31-2025-391-715-682-587-692-994-786-318-267-857",
+            "created_at": "2024-12-30T20:52:00.940565Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "current_date": "2025-11-26",
+            "current_price": {
+              "Yes": 0.028,
+              "No": 0.972
+            },
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.039,
+              "no": 0.961
+            },
+            "historical_date": "2025-11-19",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -1.1,
+              "direction": "down"
+            }
+          },
+          {
+            "market_id": "0x86f01fcc4fa9ca9871189d8f4a1121bb31784c889d78f82e2f6de32381e3d894",
+            "clob_token_ids": [
+              "17669060580911376882527520521421617329219303654142453382103185951654496084129",
+              "96180656579082529010130818562805501105870653065317280806936322177392461281296"
+            ],
+            "title": "Will Bitcoin dip to $20,000 by December 31, 2025?",
+            "description": "This market will immediately resolve to \"Yes\" if any Binance 1 minute candle for Bitcoin (BTCUSDT) between December 30, 2024, 20:00 and December 31, 2025, 23:59 in the ET timezone has a final \"Low\" price of $20,000 or lower. Otherwise, this market will resolve to \"No.\"\n\nThe resolution source for this market is Binance, specifically the BTCUSDT \"Low\" prices available at https://www.binance.com/en/trade/BTC_USDT, with the chart settings on \"1m\" for one-minute candles selected on the top bar.\n\nPlease note that the outcome of this market depends solely on the price data from the Binance BTCUSDT trading pair. Prices from other exchanges, different trading pairs, or spot markets will not be considered for the resolution of this market.\n",
+            "outcomes": [
+              "Yes",
+              "No"
+            ],
+            "prices": {
+              "Yes": 0.0095,
+              "No": 0.9905
+            },
+            "volume": 2490662.971199,
+            "liquidity": 51316.61599,
+            "status": "active",
+            "url": "https://polymarket.com/market/will-bitcoin-dip-to-20000-by-december-31-2025-942-621-278-695-321-896-769-417-957-733",
+            "slug": "will-bitcoin-dip-to-20000-by-december-31-2025-942-621-278-695-321-896-769-417-957-733",
+            "created_at": "2024-12-30T20:52:19.380665Z",
+            "close_time": "2025-12-31T12:00:00Z",
+            "current_date": "2025-11-26",
+            "current_price": {
+              "Yes": 0.0095,
+              "No": 0.9905
+            },
+            "url_valid": true,
+            "historical_price": {
+              "yes": 0.0098,
+              "no": 0.9902
+            },
+            "historical_date": "2025-11-19",
+            "historical_note": "Historical price from 25 data points (Polymarket CLOB API)",
+            "price_change": {
+              "yes_change": -0.03,
+              "direction": "down"
+            }
+          }
+        ],
+        "metadata": {
+          "total_markets": 10,
+          "low_volume_count": 0,
+          "search_method": "markets_volume_api_only"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "query": "Market query: Bitcoin price 2025",
+    "timestamp": "2025-11-26T16:21:03.826906Z",
+    "row_count": 1,
+    "agent": "polymarket-agent",
+    "version": "2.0",
+    "comparison_date": "2025-11-19",
+    "date_source": "default_lookback_days",
+    "low_volume_threshold": 1000
+  }
+}

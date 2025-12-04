@@ -112,9 +112,14 @@ if __name__ == "__main__":
             agent_name = task_plan.get('agent')
             if agent_name:
                 config = AGENT_CAPABILITIES.get(agent_name, {})
+                # Skip agents that orchestrator calls directly (e.g., runner_agent)
+                # Only generate scripts for worker_script agents
+                if config.get("execution_mode") == "orchestrator_direct":
+                    continue
+
                 module = config.get('module', '')
                 class_name = config.get('class', '')
-                
+
                 if module and class_name:
                     imports.add(f"from {module} import {class_name}")
         
@@ -126,30 +131,44 @@ if __name__ == "__main__":
         run_id: str,
         db_path: Path
     ) -> str:
-        """Generate async task functions."""
+        """Generate async task functions using tool-based execution."""
         functions = []
         
         for task_plan in execution_plan:
             task_id = task_plan['task_id']
             agent_name = task_plan['agent']
             description = task_plan.get('description', '')
+            tools = task_plan.get('tools', [])
+            tool_params = task_plan.get('tool_params', {})
             agent_params = task_plan.get('agent_params', {})
-            
+
             config = AGENT_CAPABILITIES.get(agent_name, {})
-            class_name = config.get('class', '')
+
+            # Skip agents that orchestrator calls directly (e.g., runner_agent in Stage 5)
+            # Only generate scripts for worker_script agents
+            if config.get("execution_mode") == "orchestrator_direct":
+                logger.debug(f"Skipping {agent_name} (execution_mode=orchestrator_direct)")
+                continue
+
+            # Generate tool-based execution
+            if not tools:
+                logger.warning(f"No tools selected for task {task_id}, skipping")
+                continue
             
-            # Build parameter string
-            param_str = self._build_param_string(agent_params)
+            # Generate tool execution code
+            tool_calls_code = self._generate_tool_calls(tools, tool_params)
             
             function = f'''async def task_{task_id.replace("-", "_")}() -> Dict[str, Any]:
     """
     Task {task_id}: {description}
     Agent: {agent_name}
+    Tools: {', '.join(tools)}
     """
     task_id = "{task_id}"
     agent_name = "{agent_name}"
     
     logger.info(f"Starting task {{task_id}}: {description[:50]}...")
+    logger.info(f"Using tools: {', '.join(tools)}")
     
     # Record task start in DB
     with WorkersDB(DB_PATH) as db:
@@ -158,17 +177,29 @@ if __name__ == "__main__":
     start_time = time.time()
     
     try:
-        # Execute agent
-        agent = {class_name}()
-        output_path = agent.run({param_str})
+        # Initialize MCP client for tool execution
+        from src.mcp.discovery import get_tool
+        
+        # Execute tools selected by Planner 2
+        tool_results = {{}}
+        
+{tool_calls_code}
         
         duration_ms = (time.time() - start_time) * 1000
         
-        logger.info(f"Task {{task_id}} completed: {{output_path}}")
+        logger.info(f"Task {{task_id}} completed with {{len(tool_results)}} tool results")
         
-        # Read output from file bus
-        with open(output_path, 'r') as f:
-            output_data = json.load(f)
+        # Combine tool results into output data
+        output_data = {{
+            'task_id': task_id,
+            'agent': agent_name,
+            'tools_used': list(tool_results.keys()),
+            'data': tool_results,
+            'metadata': {{
+                'duration_ms': duration_ms,
+                'num_tools': len(tool_results)
+            }}
+        }}
         
         # Store in DB
         with WorkersDB(DB_PATH) as db:
@@ -177,7 +208,7 @@ if __name__ == "__main__":
                 task_id,
                 status='success',
                 duration_ms=duration_ms,
-                output_file_path=str(output_path)
+                output_file_path=None  # Tool-based execution doesn't use file paths
             )
             db.store_task_output(
                 RUN_ID,
@@ -191,7 +222,7 @@ if __name__ == "__main__":
             'status': 'success',
             'task_id': task_id,
             'agent': agent_name,
-            'output_path': str(output_path),
+            'output_path': None,
             'data': output_data,
             'duration_ms': duration_ms,
             'error': None
@@ -225,6 +256,47 @@ if __name__ == "__main__":
             functions.append(function)
         
         return '\n\n'.join(functions)
+    
+    def _generate_tool_calls(
+        self,
+        tools: List[str],
+        tool_params: Dict[str, Dict[str, Any]]
+    ) -> str:
+        """
+        Generate code for calling MCP tools.
+        
+        This method is fully dynamic and handles any tools selected by Planner 2's AI,
+        including unified tools like search_polymarket_with_history that combine
+        multiple operations into a single call.
+        
+        Args:
+            tools: List of tool names selected by Planner 2
+            tool_params: Dict mapping tool_name -> parameters
+            
+        Returns:
+            Indented Python code for tool calls
+        """
+        tool_calls = []
+        
+        for tool_name in tools:
+            params = tool_params.get(tool_name, {})
+            # Use repr() instead of json.dumps() to get valid Python literals
+            params_str = repr(params)
+            
+            tool_call = f'''        # Call tool: {tool_name}
+        logger.info(f"Calling tool: {tool_name}")
+        tool_func = get_tool("{tool_name}")
+        if tool_func is None:
+            raise Exception(f"Tool not found: {tool_name}")
+        
+        tool_params_{tool_name.replace('-', '_')} = {params_str}
+        result_{tool_name.replace('-', '_')} = tool_func(**tool_params_{tool_name.replace('-', '_')})
+        tool_results["{tool_name}"] = result_{tool_name.replace('-', '_')}
+        logger.info(f"Tool {tool_name} completed")
+'''
+            tool_calls.append(tool_call)
+        
+        return '\n'.join(tool_calls)
     
     def _generate_main_function(
         self,

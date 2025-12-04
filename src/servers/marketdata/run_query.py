@@ -129,6 +129,12 @@ def run_query(
     # Execute query
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
+    
+    # Performance optimizations
+    conn.execute("PRAGMA synchronous = NORMAL")
+    conn.execute("PRAGMA temp_store = MEMORY")
+    conn.execute("PRAGMA cache_size = -64000")  # ~64MB
+    
     conn.row_factory = sqlite3.Row  # Return rows as dictionaries
     
     try:

@@ -174,7 +174,7 @@ Complete I/O contracts for the code-mode MCP system.
 |------|------|-------------|---------|
 | query | str | User search query | "Will Trump win 2024?" |
 | session_id | str (optional) | Session identifier (auto-generated if not provided) | "20251112143022_a3f2e9" |
-| domains | list[str] (optional) | Domains to search (default: all allowed) | ["polymarket.com", "kalshi.com"] |
+| domains | list[str] (optional) | Domains to search (default: all allowed) | ["polymarket.com", "predictit.org"] |
 | max_results | int (optional) | Maximum results (default: 10, max: 20) | 10 |
 
 ### Outputs
@@ -195,7 +195,7 @@ Complete I/O contracts for the code-mode MCP system.
       }
     ],
     "result_count": 5,
-    "domains_searched": "polymarket.com, kalshi.com, predictit.org"
+    "domains_searched": "polymarket.com, predictit.org"
   }],
   "metadata": {
     "query": "Polymarket search: Will Trump win 2024?",
@@ -312,8 +312,8 @@ from `config/keys.env` via `config.settings.get_api_key`.
 Additional optional variables used by offline tooling:
 
 - `OPENAI_API_KEY`: LLM API key for orchestrator task planning and GEPA-based planner optimisation.
-- `WANDB_PROJECT`: Optional Weights & Biases project name for GEPA optimisation runs in `scripts/planner_gepa_opt.py`.
-- `WANDB_RUN_NAME`: Optional Weights & Biases run name for GEPA optimisation runs in `scripts/planner_gepa_opt.py`.
+- `WANDB_PROJECT`: Optional Weights & Biases project name for GEPA optimisation runs in `scripts/helpers/planner_gepa_opt.py`.
+- `WANDB_RUN_NAME`: Optional Weights & Biases run name for GEPA optimisation runs in `scripts/helpers/planner_gepa_opt.py`.
 
 ---
 
@@ -409,7 +409,70 @@ Additional optional variables used by offline tooling:
 
 ## Polymarket Tools
 
-### search_polymarket_markets Tool
+### search_polymarket_with_history Tool ⭐ **PRIMARY TOOL**
+
+**Inputs**:
+
+| Parameter | Type | Description | Example |
+|-----------|------|-------------|---------|
+| query | str | Search query | "Bitcoin predictions" |
+| session_id | str (optional) | Session identifier (auto-generated) | "20251113143022_a3f2e9" |
+| limit | int (optional) | Result limit (default: 5, max: 50) | 10 |
+| historical_date | str (optional) | Historical date (YYYY-MM-DD) | "2024-11-01" |
+| days_back | int (optional) | Days to look back (default: 7) | 7 |
+
+**Output**:
+
+```json
+{
+  "markets": [
+    {
+      "title": "Bitcoin to reach $100k?",
+      "market_id": "0x123...",
+      "clob_token_ids": ["71321045679252212788969529556922467531..."],
+      
+      "current_price": {"yes": 0.65, "no": 0.35},
+      "historical_price": {"yes": 0.55, "no": 0.45},
+      
+      "price_change": {
+        "yes": 0.10,
+        "no": -0.10,
+        "yes_percent": 18.2,
+        "no_percent": -22.2,
+        "direction": "up"
+      },
+      
+      "current_date": "2025-11-27",
+      "historical_date": "2025-11-20",
+      "data_points": 24,
+      "volume": 1234567,
+      "url": "..."
+    }
+  ],
+  "metadata": {
+    "query": "Bitcoin predictions",
+    "session_id": "...",
+    "result_count": 5,
+    "current_date": "2025-11-27",
+    "historical_date": "2025-11-20",
+    "days_back": 7,
+    "platform": "polymarket",
+    "timestamp": "..."
+  }
+}
+```
+
+**Notes**: 
+- **USE THIS TOOL** - Combines current prices + historical prices from API + price change calculation
+- **API-based**: Fetches historical prices from Polymarket CLOB API (`/prices-history`)
+- Uses token IDs (`clob_token_ids`) from search results to query historical prices
+- Default: compares with 1 week ago, or use custom `historical_date`
+- Returns price deltas (absolute and percentage) for each market
+- Shows sentiment direction (up/down/stable)
+
+---
+
+### search_polymarket_markets Tool (Internal)
 
 **Inputs**:
 
@@ -417,7 +480,7 @@ Additional optional variables used by offline tooling:
 |-----------|------|-------------|---------|
 | query | str | Search query | "Bitcoin predictions" |
 | session_id | str | Session identifier | "20251113143022_a3f2e9" |
-| limit | int (optional) | Result limit (default: 10, max: 50) | 10 |
+| limit | int (optional) | Result limit (default: 5, max: 50) | 10 |
 
 **Output**:
 
@@ -428,22 +491,15 @@ Additional optional variables used by offline tooling:
       "market_id": "0x123...",
       "title": "Bitcoin to reach $100k?",
       "description": "...",
-      "outcomes": ["Yes", "No"],
-      "prices": {"Yes": 0.65, "No": 0.35},
+      "prices": {"yes": 0.65, "no": 0.35},
       "volume": 1250000,
       "liquidity": 85000,
       "status": "active",
-      "url": "https://polymarket.com/event/bitcoin-100k",
-      "slug": "bitcoin-100k",
-      "close_time": "2025-12-31T23:59:59Z",
-      "relevance_score": 0.85,
-      "relevance_reason": "Directly matches Bitcoin price prediction"
+      "url": "https://polymarket.com/event/bitcoin-100k"
     }
   ],
   "metadata": {
     "query": "Bitcoin predictions",
-    "search_method": "hybrid_llm",
-    "llm_scoring_enabled": true,
     "session_id": "20251113143022_a3f2e9",
     "result_count": 5,
     "platform": "polymarket",
@@ -453,9 +509,9 @@ Additional optional variables used by offline tooling:
 ```
 
 **Notes**: 
-- Markets include `relevance_score` (0-1) and `relevance_reason` when LLM scoring is enabled
-- Falls back to keyword-only if OpenAI API key not available
-- **Always returns at least 1 result** if any markets exist (fallback: LLM → keyword → top by volume)
+- Simple API call to Polymarket `/public-search` endpoint
+
+- Used internally by `search_polymarket_with_history`
 
 ### get_polymarket_history Tool
 
@@ -619,6 +675,128 @@ Stores task output data and metadata.
 
 ---
 
+## Runner Agent (Final Consolidation)
+
+### Inputs
+
+Called by the orchestrator with:
+
+| Name | Type | Description | Example |
+|------|------|-------------|---------|
+| query | str | Original natural language query | "What were Bitcoin predictions and how do they compare to futures?" |
+| worker_outputs | list[dict] | Task outputs from `WorkersDB.get_all_task_outputs` | `[{"task_id": "task_1", "agent_name": "polymarket_agent", ...}]` |
+| planning_table | list[dict] (optional) | Planning rows from `WorkersDB.get_task_plan` | `[{"task_id": "task_1", "agent_name": "polymarket_agent", ...}]` |
+| run_id | str (optional) | Orchestration run identifier | "20251125_120000" |
+
+### Outputs
+
+**Output File**: `workspace/agents/runner-agent/out/{id:06d}.json`
+
+```json
+{
+  "data": [{
+    "final_answer": "…final user-facing answer…",
+    "reasoning_metadata": {
+      "provider": "openai",
+      "model": "gpt-5",
+      "temperature": 0.2,
+      "max_tokens": 1500
+    },
+    "worker_outputs": [...],
+    "planning_table": [...]
+  }],
+  "metadata": {
+    "query": "RunnerAgent final answer for: <user query>",
+    "timestamp": "2025-11-25T12:00:00Z",
+    "row_count": 1,
+    "agent": "runner-agent",
+    "version": "1.0",
+    "run_id": "<run id>"
+  }
+}
+```
+
+---
+
+## Runner MCP Tools
+
+### generate_structured_output Tool
+
+**Inputs**:
+
+| Parameter | Type | Description | Example |
+|----------|------|-------------|---------|
+| query | str | Original natural language query | "What were Bitcoin predictions and how do they compare to futures?" |
+| worker_outputs | list[dict] | Task outputs from `WorkersDB.get_all_task_outputs` | `[{"task_id": "task_1", "agent_name": "polymarket_agent", ...}]` |
+| planning_table | list[dict] (optional) | Planning rows from `WorkersDB.get_task_plan` | `[{"task_id": "task_1", "agent_name": "polymarket_agent", ...}]` |
+| run_id | str \| null (optional) | Orchestration run identifier | "20251125_120000" |
+
+**Output**:
+
+```json
+{
+  "summary": {
+    "query": "<original query>",
+    "run_id": "<run id>",
+    "total_tasks": 3,
+    "agents_used": ["market_data_agent", "polymarket_agent"],
+    "tasks_per_agent": {
+      "market_data_agent": 1,
+      "polymarket_agent": 2
+    }
+  },
+  "worker_outputs": [...],
+  "planning_table": [...]
+}
+```
+
+### build_runner_answer Tool
+
+**Inputs**:
+
+Same as `generate_structured_output`:
+
+| Parameter | Type | Description |
+|----------|------|-------------|
+| query | str | Original natural language query |
+| worker_outputs | list[dict] | Task outputs from `WorkersDB.get_all_task_outputs` |
+| planning_table | list[dict] (optional) | Planning rows from `WorkersDB.get_task_plan` |
+| run_id | str \| null (optional) | Orchestration run identifier |
+
+**Output**:
+
+```json
+{
+  "query": "<original query>",
+  "run_id": "<run id>",
+  "final_answer": "…final user-facing answer…",
+  "reasoning_metadata": {
+    "provider": "openai",
+    "model": "gpt-5",
+    "temperature": 0.2,
+    "max_tokens": 1500
+  },
+  "worker_outputs": [...],
+  "planning_table": [...],
+  "summary": {
+    "total_tasks": 3,
+    "agents_used": ["market_data_agent", "polymarket_agent"]
+  }
+}
+```
+
+---
+
+## Orchestrator Planner Structural Metrics
+
+Additional structural metric computed for planner evaluation:
+
+| Name | Kind | Type | Description | Allowed values / range |
+|------|------|------|-------------|------------------------|
+| agent_params_ok | Internal | bool | True if all subtasks with assigned agents have well-formed agent parameters consistent with that agent’s expected inputs (e.g. DB fields for `market_data_agent`, concise natural-language queries and limits for `polymarket_agent`, structured event/time params for conceptual agents like `event_data_puller_agent`). | `true` or `false` |
+
+---
+
 ### prediction_queries Table (Polymarket)
 
 **Database**: `polymarket_markets.db`
@@ -643,6 +821,243 @@ Stores task output data and metadata.
 - `idx_session_id` on `session_id`
 - `idx_timestamp` on `timestamp`
 - `idx_platform` on `platform`
+
+---
+
+## EventData Puller Agent (Producer)
+
+### Inputs
+
+| Name | Type | Description | Example |
+|------|------|-------------|---------|
+| action | str | Action to perform | "update_calendar", "query_event", "find_correlations", "search_events" |
+| event_id | str (optional) | Event ID/ticker from Trading Economics | "USANFP", "USCPIYOY" |
+| event_name | str (optional) | Event name for search | "Non-Farm Payrolls", "CPI" |
+| country | str (optional) | Country code filter | "US", "GB", "EU" |
+| lookback_timestamp | str (optional) | Only events after this date (ISO format) | "2024-01-01" |
+| lookback_days | int (optional) | Days to look back from today | 365 |
+| window_hours | float (optional) | Hours for correlation window (default: 12) | 6, 12, 24 |
+| target_event_date | str (optional) | Specific date for correlation target | "2025-01-10" |
+| importance | str (optional) | Importance filter | "low", "medium", "high" |
+| limit | int (optional) | Maximum results (default: 100) | 50 |
+| include_correlations | bool (optional) | Include correlated events (default: true) | true, false |
+
+### Outputs
+
+**Output File**: `workspace/agents/eventdata-puller-agent/out/{id:06d}.json`
+
+```json
+{
+  "data": [{
+    "success": true,
+    "events": [
+      {
+        "event_id": "USANFP",
+        "event_name": "Non-Farm Payrolls",
+        "country": "US",
+        "category": "Labour",
+        "importance": "high",
+        "event_date": "2025-01-10T13:30:00+00:00",
+        "actual": 256.0,
+        "forecast": 165.0,
+        "previous": 212.0,
+        "unit": "K"
+      }
+    ],
+    "count": 12,
+    "summary": {
+      "total_instances": 12,
+      "actual_avg": 187.5,
+      "beat_rate": 0.583
+    },
+    "correlations": [...]
+  }],
+  "metadata": {
+    "query": "EventData action: query_event",
+    "timestamp": "2025-11-27T12:00:00Z",
+    "row_count": 1,
+    "agent": "eventdata-puller-agent",
+    "version": "1.0",
+    "action": "query_event"
+  }
+}
+```
+
+---
+
+## Trading Economics Tools
+
+### fetch_economic_calendar Tool
+
+**Inputs**:
+
+| Parameter | Type | Description | Example |
+|-----------|------|-------------|---------|
+| start_date | str (optional) | Start date (YYYY-MM-DD) | "2024-01-01" |
+| end_date | str (optional) | End date (YYYY-MM-DD) | "2025-01-01" |
+| country | str (optional) | Country code filter | "US" |
+| importance | str (optional) | Importance filter | "high" |
+| full_refresh | bool (optional) | Full history refresh (default: false) | true |
+
+**Output**:
+
+```json
+{
+  "success": true,
+  "events_fetched": 150,
+  "events_inserted": 45,
+  "events_updated": 12,
+  "date_range": {"start": "2024-01-01", "end": "2025-01-01"},
+  "country_filter": "US",
+  "database_path": "workspace/economic_events.db"
+}
+```
+
+### query_event_history Tool
+
+**Inputs**:
+
+| Parameter | Type | Description | Example |
+|-----------|------|-------------|---------|
+| event_id | str (optional) | Event ID/ticker | "USANFP" |
+| event_name | str (optional) | Event name (partial match) | "Non-Farm Payrolls" |
+| country | str (optional) | Country filter | "US" |
+| lookback_timestamp | str (optional) | Start date filter (ISO) | "2024-01-01" |
+| lookback_days | int (optional) | Days to look back | 365 |
+| limit | int (optional) | Max results (default: 100) | 50 |
+
+**Output**:
+
+```json
+{
+  "success": true,
+  "events": [...],
+  "count": 12,
+  "summary": {
+    "total_instances": 12,
+    "actual_available": 12,
+    "actual_avg": 187.5,
+    "beat_rate": 0.583
+  }
+}
+```
+
+### find_correlated_events Tool
+
+**Inputs**:
+
+| Parameter | Type | Description | Example |
+|-----------|------|-------------|---------|
+| target_event_id | str (optional) | Target event ID | "USANFP" |
+| target_event_name | str (optional) | Target event name | "Non-Farm Payrolls" |
+| target_event_date | str (optional) | Specific instance date | "2025-01-10" |
+| window_hours | float (optional) | Hours ± target (default: 12) | 6 |
+| exclude_same_event | bool (optional) | Exclude same event type (default: true) | true |
+| min_importance | str (optional) | Minimum importance | "medium" |
+| country | str (optional) | Country filter | "US" |
+| limit | int (optional) | Max results (default: 50) | 20 |
+
+**Output**:
+
+```json
+{
+  "success": true,
+  "target_event": {...},
+  "correlated_events": [
+    {
+      "event_id": "USURTOT",
+      "event_name": "Unemployment Rate",
+      "hours_from_target": 0.0,
+      "timing": "before"
+    }
+  ],
+  "count": 5,
+  "summary": {
+    "window_hours": 6,
+    "before_target": 2,
+    "after_target": 3
+  }
+}
+```
+
+### WebSocket Streaming Tools
+
+**start_event_stream**: Start real-time WebSocket stream
+- Inputs: countries (list), categories (list), importance (list)
+- Output: status, subscriptions
+
+**stop_event_stream**: Stop WebSocket stream
+- Output: status, final_stats
+
+**get_live_events**: Get events from buffer
+- Inputs: limit (int), since (str), include_db (bool)
+- Output: events (list), stream_status, buffer_size
+
+**get_stream_status**: Get stream status
+- Output: status, is_running, subscriptions, statistics
+
+---
+
+## Economic Events Database
+
+**Database**: `workspace/economic_events.db`
+
+### economic_events Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PRIMARY KEY | Auto-incrementing ID |
+| event_id | TEXT NOT NULL | Event identifier from Trading Economics |
+| event_name | TEXT NOT NULL | Event name |
+| country | TEXT NOT NULL | Country code (US, GB, EU, etc.) |
+| category | TEXT | Event category (Labour, Prices, GDP, etc.) |
+| importance | TEXT | Importance level (low, medium, high) |
+| event_date | TEXT NOT NULL | Event date (ISO-8601) |
+| actual | REAL | Actual value |
+| forecast | REAL | Forecast/expected value |
+| previous | REAL | Previous period value |
+| revised | REAL | Revised value |
+| unit | TEXT | Measurement unit |
+| ticker | TEXT | Trading Economics ticker |
+| source | TEXT | Data source (default: tradingeconomics) |
+| created_at | TEXT NOT NULL | Record creation timestamp |
+| updated_at | TEXT NOT NULL | Last update timestamp |
+
+**Unique Constraint**: (event_id, event_date)
+
+**Indices**:
+- `idx_event_id` on `event_id`
+- `idx_event_date` on `event_date`
+- `idx_country` on `country`
+- `idx_importance` on `importance`
+- `idx_event_name` on `event_name`
+- `idx_ticker` on `ticker`
+
+### live_event_stream Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PRIMARY KEY | Auto-incrementing ID |
+| event_id | TEXT NOT NULL | Event identifier |
+| event_name | TEXT NOT NULL | Event name |
+| country | TEXT NOT NULL | Country code |
+| category | TEXT | Event category |
+| importance | TEXT | Importance level |
+| event_date | TEXT NOT NULL | Event date |
+| actual | REAL | Actual value |
+| forecast | REAL | Forecast value |
+| previous | REAL | Previous value |
+| unit | TEXT | Measurement unit |
+| ticker | TEXT | Trading Economics ticker |
+| received_at | TEXT NOT NULL | WebSocket receive timestamp |
+| source | TEXT | Source (default: websocket) |
+
+**Unique Constraint**: (event_id, event_date, received_at)
+
+**Indices**:
+- `idx_live_event_id` on `event_id`
+- `idx_live_received_at` on `received_at`
+- `idx_live_event_date` on `event_date`
 
 ---
 

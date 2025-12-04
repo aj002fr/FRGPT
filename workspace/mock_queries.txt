@@ -1,0 +1,113 @@
+1. Show me how 2y, 5y, 10y, and 30y U.S. Treasury yields moved intraday today after the NFP release, with a focus on the first 30 minutes post-print.
+2. Compare the distribution of daily returns in TY futures over the last 3 months with the distribution around prior CPI release days over the last 10 years.
+3. What is the current Polymarket-implied probability that the Fed hikes again this year, and how has that probability moved over the past week?
+4. Summarize any major macro headlines from today that specifically mention U.S. Treasury yields, Fed policy, or inflation expectations.
+5. Pull the latest Bloomberg and Telegram chats from my macro channels and summarize what other traders are saying about the recent bear steepening in the curve.
+6. For the last 10 CPI releases, show the actual vs expected print and the subsequent 1-day move in 2y and 10y Treasury yields.
+7. How have 10y U.S. Treasury yields typically behaved in the week leading up to and following NFP releases over the last 20 years?
+8. Plot the historical distribution of daily changes in 10y yields on days when core CPI surprised to the upside by more than 0.2% since 2000.
+9. Is there currently an active Polymarket contract related to “U.S. 10y yield above 5%” or similar, and how have those odds evolved since last month's FOMC meeting?
+10. Search the web for any announcements today related to Treasury refunding, changes to auction sizes, or debt management that could impact long-end USTs.
+11. Show me the last 6 months of realized volatility in TY and US options and compare it with their current implied volatility.
+12. Did traders in my Bloomberg or Telegram chats flag any large UST block trades or RV flows around the time of this morning’s sudden 10y sell-off?
+13. For the 2013 taper tantrum period, show the path of 5y and 10y yields and the distribution of daily moves compared to “normal” periods.
+14. What did the market reaction look like in 2y and 10y yields around the 2008 Lehman bankruptcy vs around the COVID crash in March 2020?
+15. How do breakeven inflation expectations around 5y and 10y tenors typically react to upside CPI surprises vs downside ones?
+16. Is there any Polymarket contract about U.S. recession odds in the next 12 months, and how do those odds correlate with moves in the 2s10s curve over the past quarter?
+17. Search for any recent Fed speeches or policy remarks that directly reference term premiums or long-end yields and summarize the key points.
+18. Get me a quick summary of what my peers are chatting about regarding “soft landing vs hard landing” and how that is influencing their duration bias.
+19. For NFP, CPI, and FOMC decision days over the last 15 years, show the average and distribution of 1-day moves in TY futures.
+20. Check the historical seasonality of 10y yields—are there particular months or quarter-ends where yields tend to rise or fall more than usual?
+21. Plot the distribution of daily changes in the 2s10s spread over the last 5 years and highlight the most extreme steepening and flattening days.
+22. Show me all Polymarket contracts related to U.S. inflation, Fed policy rates, or Treasury yields, and identify which ones have had the biggest repricing in the past 48 hours.
+23. Search the web for any recent announcements about changes in Japanese or European reserve manager behavior that might affect their demand for U.S. Treasuries.
+24. Check my message channels for any mentions of “auction tail”, “weak bid-to-cover”, or “failed auction” in the context of recent U.S. Treasury auctions and summarize the tone.
+25. For the last 20 nonfarm payroll releases, show actual vs consensus, the surprise in standard deviations, and the corresponding 2y and 10y yield moves.
+26. How did 10y U.S. yields trade in the months leading up to and following the 1994 bond market crash? Plot the distribution of daily moves in that period.
+27. Generate a chart showing the distribution of daily changes in 10y yields conditional on CPI being above 4% vs below 2% across history.
+28. Is there any prediction market contract about “Fed cutting rates at the next meeting”, and how does that implied probability compare to what’s priced into front-end futures?
+29. Have there been any major headlines in the last 24 hours about U.S. fiscal policy, debt ceiling debates, or credit rating actions that could affect Treasury yields?
+30. Pull any recent chat messages mentioning “curve cap”, “duration extension”, or “buying the dip in 30s” and summarize the consensus trade.
+31. For CPI releases during 2010–2015 vs 2019–2024, compare the distributions of 1-day moves in 2y yields—have reaction magnitudes changed structurally?
+32. Check calendar history: in prior cycles when the Fed paused after a hiking campaign, how did 2y and 10y yields behave in the following 6 months?
+33. Plot the joint distribution of daily changes in TY futures and S&P 500 futures over the last decade to see how often we get “risk-off with rallying bonds” vs “risk-on with selling bonds”.
+34. Is there a Polymarket contract directly tied to “U.S. CPI YoY above/below X%” and how has market-implied inflation there moved relative to TIPS breakevens?
+35. Search today’s news for anything about foreign central bank or sovereign wealth fund buying/selling of Treasuries.
+36. Scan my chats for any mention of large RV trades like “5s30s steepeners”, “butterfly in 2s5s10s”, or “gamma scalping in TY options” and summarize the positioning bias.
+37. Ahead of next week’s CPI, show the historical distribution of TY futures returns in the 3 days before the print across the last 20 years.
+38. Compare how 2s10s and 5s30s curves behaved in the run-up to past U.S. recessions (e.g., 2001, 2008) using calendar-dated historical event markers.
+39. Plot the distribution of daily changes in 10y yields on days with big negative payroll surprises (< -100k vs consensus) vs big positive surprises (> +200k).
+40. Is there currently any prediction market contract about “U.S. 10y yields below 3%” or “above 6%” by a certain date that would inform tail risk scenarios for duration?
+41. Find any recent articles or press releases about changes in regulatory demand for HQLA that might structurally increase demand for Treasuries.
+42. From my chats, extract any comments that reference “term premium”, “curve inversion”, or “Fed behind the curve” and cluster them into bullish vs bearish duration views.
+43. For past FOMC meetings where the Fed surprised hawkish vs dovish, show the distribution of intraday moves in 2y and 10y yields from 1 hour before to 3 hours after the decision.
+44. Check historically how often 10y yields move more than 15 bp in a single day and whether those moves are clustered around known macro events or are more idiosyncratic.
+45. Plot a distribution of daily changes in 30y yields over the last 30 years and overlay major structural regime shifts: Volcker disinflation, 2008 crisis, post-COVID, etc.
+46. Is there any Polymarket or similar contract that tracks “U.S. debt-to-GDP” or “Treasury issuance volumes”, and has that opinion shifted significantly lately?
+47. Search for news or official statements about changes in U.S. Treasury issuance strategy (e.g., more long-end vs short-end) and assess likely impact on term structure.
+48. Pull the last week of chat messages for references to “short covering”, “stop-outs”, or “forced selling” in USTs and infer whether today’s rally is flow-driven or macro-driven.
+49. Show me how actual vs expected CPI and NFP have historically impacted 1-week and 1-month realized volatility in TY and US options.
+50. Can you tell me my current P&L and VAR on the whole UST and options portfolio and recommend exact trade sizes to hit a target Sharpe ratio? (intentionally not answerable with current agents)
+51. ok whats goin on in 10yr today?? big move n i dont see why, give me charts + news + what ppl are sayin.
+52. ty fut vol look cheeeap?? check last yr vs now n tell me if buying gamma makes sense here.
+53. why is 2s10s so flat lol, show history vs recession odds + any prediction mkt stuff.
+54. pls show me how 5y5y fwd real vs nominals looked b4 last 3 recessions and where they are now.
+55. what did bonds do after 1987 crash and can we compare that path for 10y yields to what’s happening after the COVID shock?
+56. check if there’s any onchain / crypto prediction market on US rates (even if niche) and see if it disagrees with street pricing.
+57. look back 25y and tell me on which days we had the biggest intraday range in TY futures and what macro events (if any) occurred on those days.
+58. scan news + chats for anything about US Treasury tax policy changes or windfall taxes that could indirectly affect bond demand.
+59. what are other big macro funds long/short in USTs right now, broken down by fund name and size, and how are they positioned in options skew? (intentionally not answerable with current agents)
+60. just give me a quick vibe-check: are people generally bullish or bearish duration today across news, chats, and prediction markets, and does that line up with historical analogs before big reversals?
+61. Using historical price data and event info, show how 2y, 5y, and 10y UST yields typically react to surprise CPI vs in-line CPI, and plot the distributions side-by-side.
+62. Check if there is a Polymarket contract on “Fed funds rate at year-end” and overlay that implied path vs the current Eurodollar/SOFR futures curve.
+63. Search the web for any breaking news today about Treasury auctions, fiscal packages, or rating-agency comments that might explain the sudden sell-off in 10s.
+64. Pull the last 200 messages from my Bloomberg and Telegram macro chats and summarize whether the tone on UST duration is net long, net short, or neutral.
+65. For the last 15 NFP and CPI releases, use EventData plus MarketData to compute the joint distribution of 1-day changes in 2y and 10y yields and visualize it.
+66. From CalendarChecker, list all major U.S. macro events over the next 3 months, then from MarketData show how TY futures historically trade in the week before each type of event.
+67. Plot the distribution of daily moves in the 2s10s curve over the last 10 years and annotate dates of key events (NFP, CPI, FOMC) from EventData and CalendarChecker.
+68. Check prediction markets for anything on “U.S. recession in next 12 months”, then show how those odds have tracked vs the 2s10s inversion over time.
+69. scan news + my chats for any mention of “UST liquidity stress”, “off-the-run cheapness”, or “basis blowouts” in the last 48h and tell me if this is more a micro or macro story.
+70. For the last 20 FOMC meetings, pull actual decisions and surprises (EventDataPuller), show intraday TY futures paths (MarketData), and plot distributions of moves (DistributionWizard).
+71. Give me a histogram of TY futures daily returns conditioned on days when there was no major macro data on the calendar vs days with big-ticket events.
+72. Is there a Polymarket market on “U.S. CPI > 3% at year-end”? If so, show me its price history vs 5y breakeven inflation and headline CPI surprises.
+73. Search the web for analysis pieces that directly discuss “term premium” in the context of the current sell-off and summarize the main theses.
+74. Pull my Bloomberg/Telegram chats and extract any references to “risk parity”, “CTA selling”, or “systematic de-leveraging” in USTs and classify them as bullish/bearish duration.
+75. For the period around the 2011 U.S. debt ceiling crisis, show daily moves in 10y yields and overlay key political event dates from CalendarChecker.
+76. Using MarketData and DistributionWizard, show the distribution of weekly changes in 30y yields in the 5 years before 2008 vs the 5 years after.
+77. Compare prediction-market odds of a Fed cut at the next meeting with current front-end futures pricing and summarize any discrepancy.
+78. look across news, chats, and prediction mkts and tell me if the consensus explanation for today’s bull steepener in USTs is “growth”, “inflation”, or “flows”.
+79. For the last 25 CPI prints, pull actual vs expected, plus breakeven inflation moves, and visualize the distribution of those breakeven changes.
+80. Check calendar history for periods when the Fed was on hold after a hiking cycle, then show how TY futures trended in the 3 months after the first pause.
+81. Give me a distribution of intraday ranges in TY futures on days with major Fed speakers vs days without, using CalendarChecker to identify speech days.
+82. pls pull last 3 months of chats + price data and tell me if short gamma in TY options has been a recurring theme right before big moves.
+83. Use WebSearch and MessagePuller together to find any discussion about changes to U.S. bank regulation (LCR, HQLA) that might alter structural demand for Treasuries.
+84. From EventData, list all upcoming CPI, NFP, and FOMC dates for the next year; from MarketData, show how realized vol in TY behaves in the 5 days before each.
+85. Is there any prediction market on “U.S. 10y yield above 6% by 2027”? If yes, show the term structure of that probability vs historical max drawdowns in TY.
+86. Search news for anything about foreign central banks (BoJ, SAFE, ECB) materially changing their UST holdings, and map the dates to major rate moves in 10s.
+87. Pull my chats for any mention of “UST options skew”, “paying receiver swaptions”, or “crash risk” and summarize what side of skew people like.
+88. Plot the distribution of 1-month changes in 2s10s since 1990 and highlight prior times we've been this inverted; annotate those with recession dates from CalendarChecker.
+89. For each NFP since 2005, combine EventData and MarketData to show the joint distribution of payroll surprise and 1-hour post-release move in 2y yields.
+90. whats the vibe today on duration? use chats + prediction mkts + last wk’s price action to give me just 1 line: “street is long/short/etc”.
+91. Using historical event calendars, show whether bonds tend to rally or sell off into U.S. elections, and compare that to current prediction-market pricing on which party wins.
+92. Generate a distribution of daily TY futures returns for periods when the Fed was doing QE vs QT and summarize the shift in tails.
+93. Check Polymarket for any contracts referencing “U.S. default”, “debt ceiling”, or “Treasury issuance”; then search the web for related headlines and combine into a risk brief.
+94. scan my chats today for “stop out”, “margin call”, “forced selling” in UST context and see if that aligns with unusually large intraday ranges in 10s.
+95. For CPI, PCE, and NFP over the last 10 years, use EventData to classify upside vs downside surprises and show distributions of TY returns on each class with DistributionWizard.
+96. make me a chart of 10y yield daily changes since 1980 and visibly highlight the top 1% biggest moves; annotate what events were on those days from CalendarChecker.
+97. Is there a prediction market on “terminal Fed funds rate this cycle”? If so, show me how its implied terminal has shifted vs dot plot meetings.
+98. Search the web for any commentary today explicitly linking UST moves to commodity prices or FX (e.g., USDJPY) and summarize the cross-asset narrative.
+99. take chats + news + prediction mkts and tell me if we’re closer to a “bond vigilantes” story or “soft landing” story right now.
+100. For the 2020 COVID shock period, pull daily UST futures and options data, then plot the distribution of daily changes in implied vol and compare with current period.
+101. Using EventData and CalendarChecker, identify all historical “double data” days (NFP + ISM, CPI + FOMC, etc.) and show if UST volatility is structurally higher on those days.
+102. pull recent chats and flag any mentions of “UST basis trades” or “SOFR vs UST arb”; see if there’s any consistent view on which leg is rich/cheap.
+103. Compare prediction-market odds of “no U.S. recession by end of next year” with the slope of 3m–10y, and highlight times in the past when these disagreed this much.
+104. give me a simple histogram: daily TY returns when core CPI > headline vs when core < headline, over the last 15 years.
+105. Search the web for historical commentary on the 1994 bond crash and summarize how market participants described the drivers vs what we’re seeing today.
+106. Look at my chats from the last month and cluster messages that talk about “adding duration” vs “selling duration”; has sentiment flipped recently?
+107. For all U.S. payroll Fridays since 1990, show how often 10y yields close higher vs lower vs unchanged, and visualize the distribution of those moves.
+108. Is there any Polymarket contract specifically on “UST 10y yield above 5.5% before 2026”? If so, show how that pricing changed around key inflation prints.
+109. find out why 30y yields spiked 20bp this afternoon using combo of news, chats, event calendar, and historical distributions of intraday moves; tell me if this is normal.
+110. tell me exact optimal UST butterfly trades for max risk-adjusted return over next quarter using proprietary models and non-public positioning data. (deliberately not answerable with current agents)
+
+
+

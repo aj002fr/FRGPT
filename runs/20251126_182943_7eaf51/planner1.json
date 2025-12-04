@@ -1,0 +1,46 @@
+{
+  "query": "test query",
+  "subtasks": [
+    {
+      "id": "task_1",
+      "description": "Search for: test query",
+      "assigned_agent": "polymarket_agent",
+      "dependencies": [],
+      "priority": 1,
+      "mappable": true,
+      "agent_params": {
+        "query": "search for: test query",
+        "session_id": null,
+        "limit": 10
+      }
+    }
+  ],
+  "dependency_paths": [
+    [
+      "task_1"
+    ]
+  ],
+  "metadata": {
+    "total_tasks": 1,
+    "mappable_tasks": 1,
+    "unmappable_tasks": 0,
+    "has_cycles": false,
+    "max_depth": 0,
+    "parallel_groups": [
+      [
+        "task_1"
+      ]
+    ],
+    "independent_tasks": 1,
+    "available_agents": [
+      "market_data_agent",
+      "polymarket_agent",
+      "runner_agent"
+    ],
+    "task_dependency_paths": {
+      "task_1": [
+        "task_1"
+      ]
+    }
+  }
+}
