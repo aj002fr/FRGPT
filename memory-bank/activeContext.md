@@ -11,6 +11,16 @@
 - R0.4 5064/5065 (staged): events from Postgres `economic_events` (read-only role) via `EventsCache`; output identical to the SQLite reader (2,124 events, same order); `/api/events` 17 ms vs 0.7–13 s over the share. Postgres is a one-time copy of the 9/23 12:26 SQLite build until Yaman's pipeline writes it.
 - Deploy at 17:00, in order `v3`, `v1`, `events`: `powershell -File ops\release0\deploy_release0.ps1 -Item <item> -Action deploy`; rollback `-Action restore`. 5053 and 5064 move to headless tasks (`MDP R0 v3 5053`, `MDP R0 flow 5064`); V1 restarts through its launcher loop.
 - Finding (not changed in R0, identical-output rule): the Databento cache `ts` that V3 stores as hist runs 0.2–14 ms (median ~1 ms) behind AccessAPI exchange timestamps, so the 1 ms window pairs only ~50–65% of the same trades; where hist and live overlap, unmatched live prints sit next to their hist twins. For Milestone 5/9.
+- Deploy content is the fixed tag `release0` (`fe00867`), not the branch head (the head's 5064/5065 need Milestone 2 modules). A simulated deploy onto a copy of the Y: tree confirmed V1/V3/5064/5065 import cleanly with it.
+- Coordination: a parallel session edited V3 on Y: again at 12:41–12:57 (live_publisher, core, app, dashboard.js, index.html, tests; not yet restarted or documented). The deploy guard refuses V3 until that work is re-synced and merged; V1 and events are unaffected.
+
+### Canonical flow writer, local runtime, supervisor (Milestones 1–4, 6 on `ops/local-runtime`)
+
+- `scripts/flow_store/` (writer) and `scripts/dashboard_runtime/` (serve/cache/supervisor) are built and tested (24 flow_store, 6 supervisor, 4 runtime tests). Shadow run 2 (`MDP shadow flow writer` task, DBs in `C:\dev\mdp_shadow`, Databento off) started 13:22 ET; the gate needs 08:20–10:30 ET tomorrow and tonight's halt/reopen, then `shadow_compare` clean over sampled intervals.
+- Shadow run 1 (13:02–13:21, kept in `C:\dev\mdp_shadow_run1`) found three writer bugs, all fixed before run 2: stream de-duplication dropped real same-packet identical fills (tape never had trades historical lacked, so no de-dup at all now); per-root staleness opened false gaps because TBBO carries only trades (coverage now follows the connection); AccessAPI `/historical/trades` returns empty JSON for microsecond bounds (fetches use whole seconds and filter locally).
+- Read path: `flow_history.read_connection` (thread-local, `query_only`, no DDL/lock) for V1 queries, 5064 and 5065; `history_status` memoized 60 s; PROVISIONAL feed badge; `backfill_accessapi.py` refuses the canonical-owned DB.
+- Local runtime: waitress option on 5058/5063/5064/5065, rotating and slow-request logs, response cache for 5064/5065 endpoints, V2.2/V2.7 background producers (requests read the latest evaluation). `docs/local_runtime_paths.md` classifies every data path; risks: V1+V2.7 share `banner_alerts.sqlite`, V2.7 reads V2's signal log (V2 down since 9/23 19:05), Databento key on Z:, 5065 OHLCV via this PC's Tailscale IP.
+- Supervisor profiles in `ops/supervisor/profiles.json` (rehearsal 6053–6065, production 5053–5065). Local venv `C:\dev\market_data_puller\.venv` from `ops/requirements-dashboards.lock.txt` (Y: freeze + waitress + psutil).
 
 ### V3 5053 CPU spin quick fix (restarted 11:47 ET)
 

@@ -2447,6 +2447,27 @@ Complete I/O contracts for the code-mode MCP system.
 | GET /api/diagnostic.cohorts | Output | dict | `all`/`auction`/`month_end`/`tier1`/`nfp`/`cpi`/`fomc` plus weekdays with bid_gt_ask / ask_gt_bid stats | Counts only |
 | GET /api/diagnostic.bps_per_mm_dv01 | Output | dict | `all`/`auction`/`month_end`/`tier1` → `{n, slope_bps_per_mm, intercept_bps}` | OLS day bps on net $DV01; slope × 1e6 |
 | flow_history_dash.EVENTS_DB | Constant | Path | Existing SQLite; no longer the default source (only an explicit `db_path=` reads SQLite) | `Y:\Yaman\Fundamentals\Economic Events\Data\events.sqlite` |
+| FLOW_HISTORY_DB_PATH | EnvVar | path | optional; read at import by `flow_history.DB_PATH` (V1 writer, 5064/5065 readers, flow_store) | local runtime / shadow DBs |
+| FLOW_TAPE_DB_PATH | EnvVar | path | optional; default `workspace/analysis/flow_store/flow_tape.sqlite`; writer status.json sits next to it | `C:\dev\mdp_shadow\flow_tape.sqlite` |
+| flow_store.SEAL_DELAY_SEC | Constant | int | `10` | Minute sealed at end + 10 s |
+| flow_store.BACKFILL_SETTLE_MINUTES | Constant | int | `2` | Backfill never reaches the forming minute or the last 2 minutes |
+| flow_store.LEASE_HEARTBEAT_SEC / LEASE_STALE_SEC | Constant | int | `10` / `60` | Single-writer lease |
+| flow_store.COVERAGE_STALE_SEC / COVERAGE_HEAD_US / COVERAGE_TAIL_US | Constant | int | `60` s / `1_000_000` / `2_000_000` µs | Connection-level coverage margins |
+| flow_store.QUEUE_MAX | Constant | int | `200000` | Writer queue; overflow starts a new coverage epoch |
+| trade_tape / provisional_tape | Output | SQLite table | `trade_id TEXT PK = contract|ts_us|price_nanos|size|side|occurrence`, symbol, contract, ts_us, ts_event_ns, price_nanos, size, side, occurrence, source, sequence, ingested_utc, raw | `flow_tape.sqlite` |
+| coverage | Output | SQLite table | (symbol, start_us, end_us, source) healthy AccessAPI intervals; gaps = uncovered | live `accessapi_live`, backfill `accessapi_hist` |
+| front_contract / front_contract_override | Output | SQLite table | (session YYYY-MM-DD, symbol) -> contract; frozen once written; override wins | method `prev_session_volume_tape` or `..._accessapi_hist` |
+| flow_revisions | Output | SQLite table | before_json/after_json/reason per changed bar | provisional replaced by backfill logs `backfill` |
+| meta.canonical_start_us | Output | int µs | set once at first start (next minute) | bars never written before it |
+| writer status.json | Output | JSON | updated_utc, pid, connected, source, record_age_sec, queue_depth, pending_minutes, counters, last_backfill, errors, lease, canonical_start_us, last_sealed_minute_utc | supervisor writer health |
+| MDP_SERVER | EnvVar | `werkzeug` or `waitress` | default for `--server` | local runtime uses waitress |
+| MDP_LOG_DIR | EnvVar | path | default `%LOCALAPPDATA%\market_data_puller\logs` | `<app>.log`, `<app>.slow.log` |
+| dashboard_runtime.SLOW_REQUEST_MS | Constant | int | `1000` | slow-request log threshold |
+| supervisor.CHECK_EVERY_SEC / FAILURES_BEFORE_RESTART | Constant | float / int | `10` / `3` | health cadence and restart rule |
+| supervisor.BACKOFF_BASE_SEC / BACKOFF_MAX_SEC / BACKOFF_RESET_AFTER_SEC | Constant | float | `5` / `300` / `600` | crash-loop backoff |
+| supervisor.WRITER_STATUS_STALE_SEC / WRITER_SEALED_STALE_SEC / BAR_STALE_SEC | Constant | float | `30` / `180` / `300` | phase-aware data health (bars only while OPEN) |
+| v22/v27 PRODUCER_POLL_SEC / PRODUCER_MAX_SEC | Constant | float | `1` / `20` | one evaluation per TBBO tick; requests read `_PRODUCED` |
+| feed.provisional / feed.source | Output | bool / str | true when newest bar is `databento_provisional` | 5064/5065 feed badge |
 | ECON_EVENTS_PG_DSN | EnvVar | str (secret) | libpq URI for role `economic_events_reader`; environment first, else `config/keys.env` (gitignored); hosts LAN first, Tailscale second; never `localhost` | `postgresql://economic_events_reader:***@172.30.86.68:5432,100.79.30.21:5432/economic_events` |
 | EVENTS_CACHE_DIR | EnvVar | path | optional; default `%LOCALAPPDATA%\market_data_puller\cache` | Per-app last-good file `events_tagged_mdp_<port>.json` |
 | flow_history_dash.EVENTS_REFRESH_SEC | Constant | float | `60.0` | Background Postgres refresh period |

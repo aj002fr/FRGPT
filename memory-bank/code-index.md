@@ -10,7 +10,51 @@ Release 0 deploy tool for a 17:00–18:00 ET window, one item at a time: `v3` (5
 
 ### release0/stream_probe.py
 
-Reads V3's `/api/live/stream` for N seconds and prints event counts, bytes, time to the first picture, and trade-print lag (receive time minus the print's ET time, so it includes feed delay).
+Reads V3's `/api/live/stream` for N seconds and prints event counts, bytes, time to the first picture, and live-delta print lag (receive time minus the print's ET time, so it includes feed delay). Replayed prints (after a subscribe or rebuild; no `strip`) are counted separately.
+
+### supervisor/profiles.json
+
+Process profiles for `scripts/dashboard_runtime/supervisor.py`: `rehearsal` (writer + V3/V2.2/V2.7/flow/supply on 6053/6058/6063/6064/6065, rehearsal DBs under `C:\dev\mdp_rehearsal\data`) and `production` (5053-5065, C: checkout DBs, writer with `--provisional`). `{python}` is replaced by the interpreter passed to the supervisor.
+
+## Canonical flow store (`scripts/flow_store/`)
+
+### normalize.py
+
+One normalization for AccessAPI live WebSocket TBBO records and `/historical/trades` rows: dashboard symbol from the contract root, exact price in nanos, integer size, B/A/N side, event time in ns and in µs rounded half-even (the historical store's rounding; 126/126 live trades matched). Identity is `(contract, ts_us, price_nanos, size, side)` plus an occurrence number, because identical fills can share a CME packet.
+
+### sessions.py
+
+CME Globex interest-rate sessions labelled by their 17:00 ET close (Sun 18:00-Mon 17:00 = Monday; halt and weekend are outside), exact integer ns bounds across DST, `previous_session`, and `choose_front` (highest prior-session volume, ties alphabetical).
+
+### store.py
+
+`FlowStore`: `flow_tape.sqlite` (trade_tape, provisional_tape, coverage, front_contract + override, writer_lease, flow_revisions, sealed_minutes, meta, schema_version) and the canonical bars in `flow_history.sqlite` (`v1_aggress_flow_1m`, V1 schema and ts keys). Single-writer lease (heartbeat 10 s, stale 60 s, `BEGIN IMMEDIATE`); inserts are `append` (live) or set-based `set` (historical window; only the per-key shortfall is inserted, so replays are no-ops); bars before `canonical_start_us` are never written and every change to an existing bar is logged.
+
+### aggregate.py
+
+Sparse 1-minute bars with V1's DV01 formulas (B +1, A -1, N excluded entirely), bucketed by the µs event time both endpoints share; `trade_price` is the minute's last B/A price.
+
+### backfill.py
+
+Gap-only AccessAPI historical backfill: uncovered intervals clipped to sessions, never the forming minute or the last 2 minutes, whole-second requests filtered locally (AccessAPI returns empty JSON for µs bounds), set-based inserts, re-seal of touched minutes (which replaces provisional bars with a revision). Also `ensure_front`, `seal_minute`, `seal_provisional`.
+
+### writer_main.py
+
+Standalone writer: AccessAPI WebSocket -> bounded queue (overflow epochs close coverage) -> 1 s batches -> seal at minute end + 10 s -> 60 s backfill; lease heartbeat and `status.json` every 10 s; no stream de-duplication (identical same-packet fills are real trades). Coverage follows the one connection (any record within 60 s; start 1 s after the first batch, end 2 s behind the newest event). `--provisional` runs the Databento backup during AccessAPI silence and seals uncovered minutes as `databento_provisional`.
+
+### shadow_compare.py
+
+Milestone 3 check: for an interval, per-key trade counts vs AccessAPI historical, front contracts, sealed bars vs bars rebuilt from historical (counts exact, flows 1e-9 relative), in-session coverage gaps and unsealed minutes; JSON report, exit 0 only when clean.
+
+## Local dashboard runtime (`scripts/dashboard_runtime/`)
+
+### serve.py
+
+`serve` (waitress threads 16 / connection_limit 500 / channel_timeout 120, or werkzeug), `add_server_args` (`--server`, default `MDP_SERVER`), `configure_logging` (rotating app log and slow-request log under `MDP_LOG_DIR`, request logs at WARNING), `install_request_timing`, and `ResponseCache` / `cached_response` (one build per key and data tick, bounded waits, last-good, gzip, ETag/304) used by 5064 `/api/today`, `/api/bootstrap` and 5065 `/api/live`, `/api/bootstrap`.
+
+### supervisor.py
+
+Milestone 6 supervisor: starts the writer and the five apps headless, data-based health every 10 s (writer status/lease/sealed minute/queue; HTTP; newest-bar age for 5064/5065 only while OPEN), restart after three failed checks or on exit with 5-300 s backoff, `alerts.jsonl` + Windows Event Log, `metrics.jsonl` (CPU/RSS/threads/check ms), `supervisor_status.json`.
 
 ## Event Parent/Component Mapping (`config/`)
 
