@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import bisect
 import logging
-from collections import defaultdict
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -66,7 +66,11 @@ def _is_missing_seq(value: object) -> bool:
 
 
 def _matched_incoming(stored: pd.DataFrame, incoming: pd.DataFrame, symbol: str) -> np.ndarray:
-    """True for each incoming row that pairs to one unused stored row."""
+    """True for each incoming row that pairs to one unused stored row.
+
+    Incoming rows claim in order; each takes the closest unused stored row
+    within the window, ties going to the lowest stored row.
+    """
     n_in = len(incoming)
     matched = np.zeros(n_in, dtype=bool)
     if stored.empty or incoming.empty:
@@ -114,28 +118,48 @@ def _matched_incoming(stored: pd.DataFrame, incoming: pd.DataFrame, symbol: str)
             used[j] = True
             matched[i] = True
 
-    buckets: Dict[Tuple[str, int, float], list] = defaultdict(list)
-    for j in range(len(stored)):
-        buckets[(str(s_side[j]), int(s_size[j]), float(s_price[j]))].append(j)
+    window_ns = int(window // np.timedelta64(1, "ns"))
+    s_ns_arr = s_ts.astype(np.int64)
+    s_ns = s_ns_arr.tolist()
+    i_ns = i_ts.astype(np.int64).tolist()
+    s_side_l, s_size_l, s_price_l, s_raw_l = s_side.tolist(), s_size.tolist(), s_price.tolist(), s_raw.tolist()
+    i_side_l, i_size_l, i_price_l, i_raw_l = i_side.tolist(), i_size.tolist(), i_price.tolist(), i_raw.tolist()
+    used_rows = used.tolist()
+
+    buckets: Dict[Tuple[str, int, float], Tuple[List[int], List[int]]] = {}
+    for j in np.argsort(s_ns_arr, kind="stable").tolist():
+        key = (str(s_side_l[j]), int(s_size_l[j]), float(s_price_l[j]))
+        entry = buckets.get(key)
+        if entry is None:
+            entry = buckets[key] = ([], [])
+        entry[0].append(s_ns[j])
+        entry[1].append(j)
 
     for i in range(n_in):
         if matched[i]:
             continue
+        entry = buckets.get((str(i_side_l[i]), int(i_size_l[i]), float(i_price_l[i])))
+        if entry is None:
+            continue
+        times, rows = entry
+        t = i_ns[i]
+        lo = bisect.bisect_left(times, t - window_ns)
+        hi = bisect.bisect_right(times, t + window_ns, lo)
+        raw_i = i_raw_l[i]
         best_j = None
         best_dt = None
-        for j in buckets[(str(i_side[i]), int(i_size[i]), float(i_price[i]))]:
-            if used[j]:
+        for k in range(lo, hi):
+            j = rows[k]
+            if used_rows[j]:
                 continue
-            if i_raw[i] and s_raw[j] and i_raw[i] != s_raw[j]:
+            if raw_i and s_raw_l[j] and raw_i != s_raw_l[j]:
                 continue
-            delta = abs(s_ts[j] - i_ts[i])
-            if delta > window:
-                continue
-            if best_dt is None or delta < best_dt:
+            delta = abs(times[k] - t)
+            if best_dt is None or delta < best_dt or (delta == best_dt and j < best_j):
                 best_j = j
                 best_dt = delta
         if best_j is not None:
-            used[best_j] = True
+            used_rows[best_j] = True
             matched[i] = True
     return matched
 

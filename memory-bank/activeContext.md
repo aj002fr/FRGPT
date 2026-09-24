@@ -1,5 +1,21 @@
 # Active Context
 
+## Recent Changes (2026-09-24)
+
+### V3 5053 CPU spin quick fix (restarted 11:47 ET)
+
+- Symptom: 5053 was delayed and not responding. The 9/23 21:07 process (PID 34760) had used one full core for 14 hours (~52k CPU-s, ~3 GB). `py-spy dump --nonblocking` showed `v3-live-rebuild` holding the GIL in `print_reconcile._matched_incoming`, called from `apply_live` in `_live_display_trades`.
+- Cause 1: `_matched_incoming` scanned every stored print with the same side/size/price for each incoming print, with no time bound. Live prints carry no `sequence`, so all ~30k live TY prints in the 2-hour lookback took that path on every rebuild (minutes each).
+- Cause 2: the rebuild never stopped. The cached curve beta was from the 21:05 ET bucket, so every rebuild saw `bucket_stale` and kicked a beta thread. `ensure_beta_ref(compute=True)` returned the same cached entry without computing, and `_kick_beta_ref` still called `offer_history()`, which queued the next rebuild. `beta_ref.json` had not been written since 21:08:36.
+- Fix (V3 package only): the matcher uses time-sorted buckets and a ±1 ms bisect, with the same greedy order and tie-break (tested against the old scan on 40 random seeds). `ensure_beta_ref` has a new `refresh_stale` kwarg; a failed refresh keeps last-good; each session is mask-sliced instead of full-frame copied. `_kick_beta_ref` refreshes once per chip set per process, then holds the value (the user chose a frozen beta for this session), and calls `offer_history()` only after a fresh OK beta. `_snapshot_tenday_trades` and `_snapshot_tenday_path` return shared frames instead of deep copies.
+- Restart (user approved): stopped cmd 32840 and its children, relaunched `Y:\Aastha\SOD\run_aggression_monitor_v3.bat` (cmd 34424, Python PID 19800). Beta refreshed at 11:48:52 for the 11:45 ET bucket (curve 3.16e-08, 10 sessions) and stayed held through later buckets. Idle CPU ~0.6% of a core; ~17% averaged over a 4-minute backfill cycle. Live trade events are ~0.6 s behind the exchange; `/api/live_status` answers in ~0.2 s.
+- One-time startup cost: once the 10-session trades load, the Panel 5 path build takes ~80 CPU-s. At 11:55 it starved the AccessAPI websocket keepalive (1011 ping timeout, reconnected within a second).
+- Open for the performance chat:
+  - Every rebuild still broadcasts the full picture as a `history` event (41.5 MB opening snapshot; up to 80k points on each of four charts), because `total_aggress` is rebased at the moving 2-hour start. The rebuild cost (~12–23 CPU-s) is mostly `iterrows` panel building and JSON encoding.
+  - The backfill gets Databento `422 data_start_after_available_end` each cycle, but `covered_end` advances anyway, leaving historical holes. The session store has no rows for the last 2 hours, so rebuilds fall back to the backfill window.
+  - SSE writer threads block in `write` on slow Tailscale or Cursor clients.
+  - After the 18:00 ET session roll, the held beta locks to the first evening bucket that fits (~18:05). Restart V3 once the fuller fix lands, or before the US session.
+
 ## Recent Changes (2026-09-23)
 
 ### Gamma Tracker V6 restarted

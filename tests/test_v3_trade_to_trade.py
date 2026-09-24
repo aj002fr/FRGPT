@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -35,7 +38,15 @@ from scripts.aggression_dashboard_v3.panels import (
     build_state_timeline_panel,
     collapse_ready_state_runs,
 )
-from scripts.aggression_dashboard_v3.print_reconcile import apply_hist, apply_live, reconcile_symbol
+from scripts.aggression_dashboard_v3.print_reconcile import (
+    _matched_incoming,
+    apply_hist,
+    apply_live,
+    normalize_price,
+    normalize_side,
+    normalize_size,
+    reconcile_symbol,
+)
 
 
 def test_last_3h_tod_window_uses_session_morning():
@@ -538,3 +549,189 @@ def test_beta_cache_reuses_stale_tod_bucket_and_keeps_curve_separate(tmp_path, m
     )
     assert curve["ok"] is False
     assert "still computing" in curve["reason"]
+
+
+def _reference_matched(stored: pd.DataFrame, incoming: pd.DataFrame, symbol: str) -> np.ndarray:
+    """Unbounded bucket scan; the reference result for _matched_incoming."""
+    matched = np.zeros(len(incoming), dtype=bool)
+    if stored.empty or incoming.empty:
+        return matched
+    s_side = stored["side"].map(normalize_side).to_numpy()
+    s_size = stored["size"].map(normalize_size).to_numpy()
+    s_price = np.array([normalize_price(v, symbol) for v in stored["price"]], dtype=float)
+    s_raw = (
+        stored["raw_symbol"].fillna("").astype(str).to_numpy()
+        if "raw_symbol" in stored.columns
+        else np.array([""] * len(stored))
+    )
+    s_ts = stored["ts"].to_numpy(dtype="datetime64[ns]")
+    i_side = incoming["side"].map(normalize_side).to_numpy()
+    i_size = incoming["size"].map(normalize_size).to_numpy()
+    i_price = np.array([normalize_price(v, symbol) for v in incoming["price"]], dtype=float)
+    i_raw = (
+        incoming["raw_symbol"].fillna("").astype(str).to_numpy()
+        if "raw_symbol" in incoming.columns
+        else np.array([""] * len(incoming))
+    )
+    i_ts = incoming["ts"].to_numpy(dtype="datetime64[ns]")
+    window = np.timedelta64(1, "ms")
+    used = np.zeros(len(stored), dtype=bool)
+    buckets = defaultdict(list)
+    for j in range(len(stored)):
+        buckets[(str(s_side[j]), int(s_size[j]), float(s_price[j]))].append(j)
+    for i in range(len(incoming)):
+        best_j = None
+        best_dt = None
+        for j in buckets[(str(i_side[i]), int(i_size[i]), float(i_price[i]))]:
+            if used[j]:
+                continue
+            if i_raw[i] and s_raw[j] and i_raw[i] != s_raw[j]:
+                continue
+            delta = abs(s_ts[j] - i_ts[i])
+            if delta > window:
+                continue
+            if best_dt is None or delta < best_dt:
+                best_j = j
+                best_dt = delta
+        if best_j is not None:
+            used[best_j] = True
+            matched[i] = True
+    return matched
+
+
+def _random_prints(rng: np.random.Generator, n: int, *, with_raw: bool = True) -> pd.DataFrame:
+    tick = TICK_SIZE_BY_SYMBOL["TY"]
+    frame = pd.DataFrame({
+        "ts": pd.Timestamp("2026-09-24T13:00:00Z") + pd.to_timedelta(rng.integers(0, 20_000_000, size=n), unit="ns"),
+        "price": 112.0 + tick * rng.integers(0, 3, size=n) + rng.choice([0.0, 1e-12], size=n),
+        "size": rng.choice([1, 1, 1, 2, 5], size=n),
+        "side": rng.choice(["A", "B", "BID", "ASK", "N"], size=n),
+        "raw_symbol": rng.choice(np.array(["ZNZ6", "ZNH7", "", None], dtype=object), size=n),
+    })
+    return frame if with_raw else frame.drop(columns=["raw_symbol"])
+
+
+def test_matched_incoming_equals_reference_scan():
+    for seed in range(40):
+        rng = np.random.default_rng(seed)
+        stored = _random_prints(rng, 300, with_raw=seed % 5 != 0)
+        echo = stored.sample(n=200, random_state=seed).copy()
+        jitter = rng.choice(
+            np.array([0, 1, -1, 999_999, -999_999, 1_000_000, -1_000_000, 1_000_001, 250_000, -2_500_000]),
+            size=len(echo),
+        )
+        echo["ts"] = echo["ts"] + pd.to_timedelta(jitter, unit="ns")
+        fresh = _random_prints(rng, 150, with_raw=seed % 7 != 0)
+        incoming = pd.concat([echo, fresh], ignore_index=True).sample(frac=1.0, random_state=seed + 1).reset_index(drop=True)
+        expected = _reference_matched(stored, incoming, "TY")
+        actual = _matched_incoming(stored, incoming, "TY")
+        assert np.array_equal(actual, expected), f"seed {seed}"
+
+
+def test_matched_incoming_large_bucket_is_fast():
+    n = 20_000
+    ts = pd.Timestamp("2026-09-24T13:00:00Z") + pd.to_timedelta(np.arange(n) * 2_000_000, unit="ns")
+    stored = pd.DataFrame({"ts": ts, "price": 112.015625, "size": 1, "side": "B", "raw_symbol": "ZNZ6"})
+    incoming = stored.copy()
+    incoming["ts"] = incoming["ts"] + pd.Timedelta(microseconds=300)
+    started = time.perf_counter()
+    matched = _matched_incoming(stored, incoming, "TY")
+    elapsed = time.perf_counter() - started
+    assert matched.all()
+    assert elapsed < 5.0
+
+
+def _seed_stale_beta(br, tmp_path, monkeypatch) -> datetime:
+    monkeypatch.setattr(br, "CACHE_PATH", tmp_path / "beta_ref.json")
+    monkeypatch.setattr(br, "load_dv01_table", lambda: {"TY": 85.0, "FV": 42.0, "TU": 36.0, "US": 125.0})
+    start = datetime(2026, 9, 2, 22, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(br, "completed_session_starts", lambda now_utc, n=10: [start])
+    br._save_entry({
+        "version": br.BETA_VERSION,
+        "price_symbol": "TY",
+        "aggression_symbols": ["TY"],
+        "dv01_adjust": True,
+        "sessions": [start.isoformat()],
+        "lookback_hours": 3,
+        "tod_bucket": "10:00",
+        "ok": True,
+        "beta_ref": 4e-8,
+        "beta_display_yield_bp_per_1m": -0.5,
+    })
+    return datetime(2026, 9, 17, 17, 35, tzinfo=timezone.utc)
+
+
+def test_beta_compute_holds_stale_bucket_without_refresh(tmp_path, monkeypatch):
+    from scripts.aggression_dashboard_v3 import beta_ref as br
+
+    now = _seed_stale_beta(br, tmp_path, monkeypatch)
+    calls = []
+    monkeypatch.setattr(br, "compute_session_beta", lambda *a, **k: calls.append(1) or {"ok": True, "beta": 9e-8})
+    out = br.ensure_beta_ref(price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now, compute=True)
+    assert out["ok"] is True
+    assert out["bucket_stale"] is True
+    assert out["beta_ref"] == 4e-8
+    assert calls == []
+
+
+def test_beta_refresh_stale_recomputes_and_saves_bucket(tmp_path, monkeypatch):
+    from scripts.aggression_dashboard_v3 import beta_ref as br
+
+    now = _seed_stale_beta(br, tmp_path, monkeypatch)
+    monkeypatch.setattr(br, "compute_session_beta", lambda *a, **k: {"ok": True, "beta": 9e-8})
+    out = br.ensure_beta_ref(
+        price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now, compute=True, refresh_stale=True
+    )
+    assert out["ok"] is True
+    assert not out.get("bucket_stale")
+    assert out["beta_ref"] == 9e-8
+    peek = br.ensure_beta_ref(price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now, compute=False)
+    assert peek["bucket_stale"] is False
+    assert peek["beta_ref"] == 9e-8
+
+
+def test_beta_failed_refresh_keeps_last_good(tmp_path, monkeypatch):
+    from scripts.aggression_dashboard_v3 import beta_ref as br
+
+    now = _seed_stale_beta(br, tmp_path, monkeypatch)
+    monkeypatch.setattr(br, "compute_session_beta", lambda *a, **k: {"ok": False, "beta": None})
+    out = br.ensure_beta_ref(
+        price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now, compute=True, refresh_stale=True
+    )
+    assert out["ok"] is True
+    assert out["bucket_stale"] is True
+    assert out["beta_ref"] == 4e-8
+    entries = json.loads((tmp_path / "beta_ref.json").read_text(encoding="utf-8"))["entries"]
+    assert [(e["tod_bucket"], e["beta_ref"]) for e in entries.values()] == [("10:00", 4e-8)]
+
+
+def test_kick_beta_ref_offers_history_only_for_fresh_beta(monkeypatch):
+    from scripts.aggression_dashboard_v3 import app as v3app
+
+    class _Publisher:
+        offers = 0
+
+        def offer_history(self) -> None:
+            self.offers += 1
+
+    publisher = _Publisher()
+    results = iter([
+        {"ok": True, "beta_ref": 4e-8, "bucket_stale": False},
+        {"ok": True, "beta_ref": 4e-8, "bucket_stale": True},
+        {"ok": False, "beta_ref": None},
+    ])
+    refresh_flags = []
+
+    def fake_ensure(**kwargs):
+        refresh_flags.append(kwargs["refresh_stale"])
+        return next(results)
+
+    monkeypatch.setattr(v3app, "ensure_beta_ref", fake_ensure)
+    monkeypatch.setattr(v3app, "_PUBLISHER", publisher)
+    monkeypatch.setattr(v3app, "_BETA_WARM_KEYS", set())
+    monkeypatch.setattr(v3app, "_BETA_HELD_KEYS", set())
+    for _ in range(3):
+        thread = v3app._kick_beta_ref("TY", ("TY",), True)
+        thread.join(timeout=5)
+    assert refresh_flags == [True, False, False]
+    assert publisher.offers == 1
