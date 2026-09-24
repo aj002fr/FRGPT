@@ -17,7 +17,9 @@ Complete I/O contracts for the code-mode MCP system.
 | BETA_VERSION | Constant | str | last_3h_tod_v1 | Entry identity in `aggression_v3_live/beta_ref.json` |
 | beta_ref.json.entries | Internal | dict[str, dict] | one payload per (version, price, symbols, dv01, sessions, lookback) | TY-only and curve betas coexist; peek ignores tod_bucket |
 | ensure_beta_ref.compute | Input | bool | default True; False returns last-good or `still computing` | Live `/api/aggression` peeks; warmup thread computes |
-| ensure_beta_ref.bucket_stale | Output | bool | True when last-good tod_bucket ≠ current 5-min ET bucket | Request path still kicks a background refresh |
+| ensure_beta_ref.refresh_stale | Input | bool | default False; with `compute=True` recomputes a stale TOD bucket; a failed refresh returns last-good unchanged | V3 `_kick_beta_ref` passes True only on the first kick per chip set per process |
+| ensure_beta_ref.bucket_stale | Output | bool | True when last-good tod_bucket ≠ current 5-min ET bucket | Rebuild still kicks; held chip sets return the cached entry and do not re-trigger a rebuild |
+| _kick_beta_ref | Internal | (price_symbol, aggression_symbols, dv01_adjust, trades_window=None) -> Thread \| None | None when a compute for the key is already running | `offer_history()` only after a fresh OK beta; key then joins `_BETA_HELD_KEYS` (beta held until restart) |
 | MATCH_WINDOW | Constant | Timedelta | 1ms | Live/hist one-to-one match window in `print_reconcile.py` |
 | MATCH_RATE_FLOOR | Constant | float | 0.5 | Skip unmatched interior hist if match rate is below this |
 | q | Spec | float | 1 tick | Quiet if `|d|<=q` and `max(|a|,|b|)<=q` |

@@ -99,6 +99,7 @@ _TENDAY_THREAD: threading.Thread | None = None
 _LAST_CACHE_PRUNE_DATE = None
 _BETA_WARM_LOCK = threading.Lock()
 _BETA_WARM_KEYS: set[tuple] = set()
+_BETA_HELD_KEYS: set[tuple] = set()
 _TENDAY_PATH_LOCK = threading.Lock()
 _TENDAY_PATH: Dict[str, Any] = {"key": None, "frame": pd.DataFrame(), "building": None}
 _PUBLISHER: LivePublisher | None = None
@@ -116,31 +117,40 @@ def _kick_beta_ref(
     aggression_symbols: Tuple[str, ...],
     dv01_adjust: bool,
     trades_window: Optional[Dict[str, pd.DataFrame]] = None,
-) -> None:
+) -> Optional[threading.Thread]:
+    """Compute beta_ref once per key per process, then hold it until restart."""
     key = _beta_warm_key(price_symbol, aggression_symbols, dv01_adjust)
     with _BETA_WARM_LOCK:
         if key in _BETA_WARM_KEYS:
-            return
+            return None
         _BETA_WARM_KEYS.add(key)
+        refresh_stale = key not in _BETA_HELD_KEYS
 
     def _run() -> None:
+        fresh = False
         try:
-            ensure_beta_ref(
+            payload = ensure_beta_ref(
                 price_symbol=price_symbol,
                 aggression_symbols=aggression_symbols,
                 dv01_adjust=dv01_adjust,
                 trades_window=trades_window,
                 compute=True,
+                refresh_stale=refresh_stale,
             )
+            fresh = bool(payload.get("ok")) and not payload.get("bucket_stale")
         except Exception:
             logger.exception("V3 background beta_ref failed")
         finally:
             with _BETA_WARM_LOCK:
                 _BETA_WARM_KEYS.discard(key)
-            if _PUBLISHER is not None:
+                if fresh:
+                    _BETA_HELD_KEYS.add(key)
+            if fresh and _PUBLISHER is not None:
                 _PUBLISHER.offer_history()
 
-    threading.Thread(target=_run, name="v3-beta-ref", daemon=True).start()
+    thread = threading.Thread(target=_run, name="v3-beta-ref", daemon=True)
+    thread.start()
+    return thread
 
 
 def _tenday_path_key(
@@ -154,11 +164,12 @@ def _tenday_path_key(
 
 
 def _snapshot_tenday_path(key: tuple) -> pd.DataFrame:
+    """Shared 10-session path frame. Callers must not modify it in place."""
     with _TENDAY_PATH_LOCK:
         if _TENDAY_PATH.get("key") != key:
             return pd.DataFrame()
         frame = _TENDAY_PATH.get("frame")
-        return frame.copy() if frame is not None else pd.DataFrame()
+        return frame if frame is not None else pd.DataFrame()
 
 
 def _kick_tenday_path(
@@ -592,9 +603,10 @@ def _tenday_refresher() -> None:
 
 
 def _snapshot_tenday_trades(symbols: Tuple[str, ...]) -> Dict[str, pd.DataFrame]:
+    """Shared 10-session trade frames. Callers must not modify them in place."""
     with _TENDAY_LOCK:
         return {
-            symbol: df.copy()
+            symbol: df
             for symbol, df in (_TENDAY.get("trades") or {}).items()
             if symbol in symbols
         }

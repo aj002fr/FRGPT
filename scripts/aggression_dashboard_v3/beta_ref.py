@@ -248,8 +248,14 @@ def ensure_beta_ref(
     now: Optional[datetime] = None,
     trades_window: Optional[Dict[str, pd.DataFrame]] = None,
     compute: bool = True,
+    refresh_stale: bool = False,
 ) -> Dict[str, Any]:
-    """Return the 10-session mean of last-3-hour TOD change-on-change slopes."""
+    """Return the 10-session mean of last-3-hour TOD change-on-change slopes.
+
+    A cached entry from an earlier TOD bucket is returned with ``bucket_stale``
+    unless both ``compute`` and ``refresh_stale`` are set. A failed refresh
+    keeps that last-good entry.
+    """
     now_utc = bucket_display_time(now or datetime.now(timezone.utc))
     starts = completed_session_starts(now_utc, n=BETA_REF_SESSIONS)
     start_keys = [_session_key(start) for start in starts]
@@ -267,7 +273,8 @@ def ensure_beta_ref(
         cached = _usable_entry(_entries_from_disk(), cache_id)
     if cached:
         stale = cached.get("tod_bucket") != cache_id["tod_bucket"]
-        return {**cached, "bucket_stale": bool(stale)}
+        if not (compute and refresh_stale and stale):
+            return {**cached, "bucket_stale": bool(stale)}
     if not compute:
         return {
             **cache_id,
@@ -294,9 +301,8 @@ def ensure_beta_ref(
                 if df is None or df.empty:
                     scoped[symbol] = pd.DataFrame()
                     continue
-                work = df.copy()
-                work["ts"] = pd.to_datetime(work["ts"], utc=True)
-                scoped[symbol] = work.loc[(work["ts"] >= start_ts) & (work["ts"] < end_ts)].copy()
+                ts = pd.to_datetime(df["ts"], utc=True)
+                scoped[symbol] = df.loc[(ts >= start_ts) & (ts < end_ts)].copy()
         row = compute_session_beta(
             start,
             price_symbol=price_symbol,
@@ -311,6 +317,8 @@ def ensure_beta_ref(
             betas.append(float(row["beta"]))
 
     if len(betas) < 1:
+        if cached:
+            return {**cached, "bucket_stale": True}
         payload = {
             **cache_id,
             "ok": False,

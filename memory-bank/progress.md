@@ -1,5 +1,9 @@
 # Progress
 
+## 2026-09-24
+
+- V3 5053 quick fix for "delayed / not responding". The 9/23 21:07 process had used one full core for 14 hours (~52k CPU-s, ~3 GB). Two causes: `print_reconcile._matched_incoming` scanned whole side/size/price buckets for every print (quadratic; minutes per rebuild on the 2-hour tape), and the rebuild never stopped, because `ensure_beta_ref(compute=True)` returned the stale 21:05-bucket entry and `_kick_beta_ref` still called `offer_history()`. Fixed with a time-bounded matcher (identical matches; 0.12 s for 30k vs 30k), `ensure_beta_ref(refresh_stale=...)`, beta computed once per process then held (user choice), `offer_history()` only after a fresh beta, and no per-rebuild deep copies of the 10-session frames. Tests: `tests/test_v3_trade_to_trade.py` + `tests/test_v3_live_stream.py` (46 pass). Restarted 5053 at 11:47 ET (Python PID 19800): idle ~0.6% of a core, ~17% averaged over a backfill cycle (one ~12–23 s rebuild every ~4 min), live trade events ~0.6 s behind the exchange. Beta refreshed for the 11:45 ET bucket (curve 3.16e-08, 10 sessions) and held. Open items are listed in `activeContext.md`.
+
 ## 2026-09-23
 
 - 5065 return distributions now include the 5Y auction day: 08:00–13:00, 10:00–13:00, and 13:00–17:00 on the 5Y date, next to the same three 2Y-day charts. Static supply-weeks HTML dumps unchanged. Manual 5065 restart required.
