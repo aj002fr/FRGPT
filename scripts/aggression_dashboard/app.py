@@ -156,21 +156,17 @@ def _ensure_flow_history_thread() -> None:
 
 
 def _flow_history_backfill() -> None:
-    """Build missing history from parquet cache, then fold in-memory bars."""
+    """Build missing history from parquet cache, then fold in-memory live bars.
+
+    Ten-day Databento bars stay in memory as model input only; persisting them would
+    overwrite minutes written live from AccessAPI.
+    """
     try:
         stats = backfill_from_trade_cache()
         logger.info("V1 flow history cache backfill %s", stats)
     except Exception:
         logger.exception("V1 flow history cache backfill failed")
     try:
-        with _TENDAY_LOCK:
-            tenday_bars = {
-                symbol: df.copy()
-                for symbol, df in (_TENDAY.get("bars") or {}).items()
-            }
-            covered_end = _TENDAY.get("covered_end")
-        if tenday_bars:
-            persist_completed_bars(tenday_bars, before=covered_end, source="tenday")
         with _SESSION_1M_LOCK:
             session_bars = {
                 symbol: df.copy()
@@ -256,8 +252,7 @@ def _tenday_refresher() -> None:
                     "models": {},
                     "error": None,
                 })
-            logger.info("10-day fair-value 1m bars stored for dates %s; raw ticks dropped", dates)
-            persist_completed_bars(bars, before=end, source="tenday")
+            logger.info("10-day fair-value 1m bars stored in memory for dates %s; raw ticks dropped", dates)
         except Exception as exc:
             logger.exception("10-day fair-value source refresh failed")
             with _TENDAY_LOCK:
