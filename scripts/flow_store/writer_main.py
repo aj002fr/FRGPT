@@ -64,6 +64,19 @@ def now_us() -> int:
     return time.time_ns() // 1000
 
 
+def redelivery_key(data: dict, trade) -> Optional[tuple]:
+    """Identity of one AccessAPI stream entry, used only to drop an exact re-delivery.
+
+    Several identical fills can share a CME packet (same sequence, time, price, size, side);
+    they are separate trades, so sequence plus content is not a duplicate test. AccessAPI stamps
+    each stream entry with its own ingest time.
+    """
+    ingest = data.get("ingest_write_ts_utc_ns")
+    if ingest in (None, ""):
+        return None
+    return (str(ingest), trade.sequence, trade.key)
+
+
 class FlowWriter:
     def __init__(self, *, tape_path: Path, history_path: Path, status_path: Path, ws_url: str = ACCESS_API_WS,
                  api_base: str = ACCESS_API_BASE, provisional: bool = False, owner: str = "flow_writer") -> None:
@@ -272,15 +285,15 @@ class FlowWriter:
                     trade = normalize_record(data, source=SOURCE_LIVE, keep_raw=True)
                     if trade is None:
                         continue
-                    if trade.sequence is not None:
-                        seq_key = (data.get("publisher_id"), trade.contract, trade.sequence, trade.key)
-                        if seq_key in self.recent_seq_set:
+                    entry = redelivery_key(data, trade)
+                    if entry is not None:
+                        if entry in self.recent_seq_set:
                             self.counters["duplicates"] += 1
                             continue
                         if len(self.recent_seq) == self.recent_seq.maxlen:
                             self.recent_seq_set.discard(self.recent_seq.popleft())
-                        self.recent_seq.append(seq_key)
-                        self.recent_seq_set.add(seq_key)
+                        self.recent_seq.append(entry)
+                        self.recent_seq_set.add(entry)
                     live.append(trade)
                 else:
                     trade = normalize_record(data, source=SOURCE_BACKUP)

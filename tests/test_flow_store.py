@@ -66,6 +66,18 @@ def test_identical_prints_are_counted_not_merged(store):
     assert len(store.trades_in_range("TY", *window)) == 4
 
 
+def test_same_packet_identical_fills_are_not_redeliveries():
+    from scripts.flow_store.writer_main import redelivery_key
+
+    base = live(T0, "104.9375", side="A", seq=88063197)
+    fills = [{**base, "ingest_write_ts_utc_ns": str(1790269025600000000 + i)} for i in range(3)]
+    keys = {redelivery_key(f, normalize_record(f, source=SOURCE_LIVE)) for f in fills}
+    assert len(keys) == 3
+    again = redelivery_key(fills[1], normalize_record(fills[1], source=SOURCE_LIVE))
+    assert again in keys
+    assert redelivery_key(base, normalize_record(base, source=SOURCE_LIVE)) is None
+
+
 def test_round_us_is_half_to_even():
     assert round_us(1_000_499) == 1000 and round_us(1_000_501) == 1001
     assert round_us(1_000_500) == 1000 and round_us(1_001_500) == 1002
