@@ -30,6 +30,7 @@ body {
 .feed.NOT_LIVE { background: #a33; color: #fff; }
 .feed.HALT { background: #8a6d1b; color: #fff; }
 .feed.CLOSED { background: #4a5560; color: #fff; }
+.feed.provisional { outline: 2px dashed #f0ad4e; outline-offset: 1px; }
 
 main {
   margin: 0 auto;

@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import sqlite3
 import threading
 from pathlib import Path
 from typing import Any
 
 from datetime import date
 
-from scripts.aggression_dashboard.flow_history import DB_PATH
+from scripts.aggression_dashboard.flow_history import DB_PATH, latest_bar
 from scripts.aggression_flow_history_dash.daily import aggregate_daily
-from scripts.aggression_flow_history_dash.session import current_session_day, next_session_day
+from scripts.aggression_flow_history_dash.session import current_session_day, feed_status, next_session_day
 
 _LOCK = threading.Lock()
 _DAILY: dict[tuple[Any, ...], tuple[str | None, list[dict[str, Any]]]] = {}
@@ -19,30 +18,18 @@ _DAILY: dict[tuple[Any, ...], tuple[str | None, list[dict[str, Any]]]] = {}
 
 def latest_bar_ts(symbol: str = "TY", *, db_path: Path | None = None) -> str | None:
     """Last 1-minute bar timestamp. Uses the (symbol, ts_utc) index. No COUNT(*)."""
-    path = Path(db_path) if db_path is not None else DB_PATH
-    if not path.exists():
-        return None
-    # Plain path open: file: URIs treat UNC hosts (\\100.95...) as URL authority.
-    try:
-        conn = sqlite3.connect(str(path), timeout=30)
-    except sqlite3.Error:
-        return None
-    try:
-        conn.execute("PRAGMA query_only=ON")
-        wanted = str(symbol or "TY").strip().upper()
-        if wanted == "CURVE":
-            row = conn.execute("SELECT MAX(ts_utc) FROM v1_aggress_flow_1m").fetchone()
-        else:
-            row = conn.execute(
-                "SELECT MAX(ts_utc) FROM v1_aggress_flow_1m WHERE symbol = ?",
-                (wanted,),
-            ).fetchone()
-        value = None if row is None else row[0]
-        return None if value is None else str(value)
-    except sqlite3.Error:
-        return None
-    finally:
-        conn.close()
+    return latest_bar(symbol, db_path=Path(db_path) if db_path is not None else DB_PATH)[0]
+
+
+def latest_bar_source(symbol: str = "TY", *, db_path: Path | None = None) -> str | None:
+    """Source of the newest bar (`databento_provisional` means the feed is provisional)."""
+    return latest_bar(symbol, db_path=Path(db_path) if db_path is not None else DB_PATH)[1]
+
+
+def feed_for(symbol: str = "TY", *, db_path: Path | None = None) -> dict[str, Any]:
+    """feed_status of the newest bar, including whether it is PROVISIONAL."""
+    ts, source = latest_bar(symbol, db_path=Path(db_path) if db_path is not None else DB_PATH)
+    return feed_status(ts, source=source)
 
 
 def _active_session() -> date:

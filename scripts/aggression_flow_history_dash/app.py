@@ -18,8 +18,7 @@ except ImportError as exc:  # pragma: no cover
     raise SystemExit("Flask is required. Install with: pip install flask") from exc
 
 from scripts.aggression_dashboard.core import SYMBOL_PARENT_MAP
-from scripts.aggression_flow_history_dash.cache import cached_daily, cached_history, latest_bar_ts
-from scripts.aggression_flow_history_dash.session import feed_status
+from scripts.aggression_flow_history_dash.cache import cached_daily, cached_history, feed_for, latest_bar_ts
 from scripts.aggression_flow_history_dash.daily import (
     build_diagnostic,
     build_today_outlook,
@@ -90,7 +89,7 @@ def _filter_dates(rows: list[dict[str, Any]], start: date | None, end: date | No
 
 
 def _feed(symbol: str) -> dict[str, Any]:
-    return feed_status(latest_bar_ts(symbol))
+    return feed_for(symbol)
 
 
 @app.get("/")
@@ -106,12 +105,12 @@ def index() -> Any:
 @app.get("/api/status")
 def api_status() -> Any:
     symbol = str(request.args.get("symbol") or "TY").strip().upper()
-    last_ts = latest_bar_ts(symbol)
+    feed = feed_for(symbol)
     return jsonify({
         "success": True,
         "label": STATUS_LABEL,
-        "last_ts_utc": last_ts,
-        "feed": feed_status(last_ts),
+        "last_ts_utc": latest_bar_ts(symbol),
+        "feed": feed,
         "events": events_status(),
     })
 

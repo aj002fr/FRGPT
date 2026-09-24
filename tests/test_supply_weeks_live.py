@@ -193,8 +193,7 @@ def test_api_is_read_only(tmp_path: Path, monkeypatch) -> None:
             "last_bar_ts": None,
         },
     )
-    monkeypatch.setattr(live_app, "latest_bar_ts", lambda *a, **k: None)
-    monkeypatch.setattr(live_app, "feed_status", lambda *a, **k: {"state": "NOT_LIVE"})
+    monkeypatch.setattr(live_app, "feed_for", lambda *a, **k: {"state": "NOT_LIVE", "provisional": False})
     client = live_app.app.test_client()
     boot = client.get("/api/bootstrap")
     live = client.get("/api/live")

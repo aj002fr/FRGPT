@@ -30,6 +30,7 @@ h1 { margin: 0; font-size: 1.7rem; }
 .feed.NOT_LIVE { background: #a33; }
 .feed.HALT { background: #8a6d1b; }
 .feed.CLOSED { background: #4a5560; }
+.feed.provisional { outline: 2px dashed #f0ad4e; outline-offset: 1px; }
 .stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
 .stat-item {
   background: var(--bg-secondary);

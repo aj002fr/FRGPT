@@ -124,8 +124,9 @@ function renderFeed(payload) {
   const state = feed.state || "NOT_LIVE";
   const session = feed.session_date ? `session ${feed.session_date}` : "no session";
   const last = feed.last_bar_et ? `last 1m ${feed.last_bar_et}` : "no bars";
-  node.className = `feed ${state}`;
-  node.textContent = `${state.replace("_", " ")} · ${session} · ${last}`;
+  node.className = `feed ${state}${feed.provisional ? " provisional" : ""}`;
+  node.textContent = `${feed.provisional ? "PROVISIONAL · " : ""}${state.replace("_", " ")} · ${session} · ${last}`;
+  node.title = feed.provisional ? "Latest minutes come from the Databento backup during an AccessAPI outage; they are replaced when AccessAPI data arrives." : "";
 }
 
 function money(value) {

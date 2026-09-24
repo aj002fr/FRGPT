@@ -17,9 +17,8 @@ try:
 except ImportError as exc:  # pragma: no cover
     raise SystemExit("Flask is required. Install with: pip install flask") from exc
 
-from scripts.aggression_flow_history_dash.cache import latest_bar_ts
+from scripts.aggression_flow_history_dash.cache import feed_for
 from scripts.aggression_flow_history_dash.events import events_status, start_events_cache
-from scripts.aggression_flow_history_dash.session import feed_status
 from scripts.supply_weeks_live.cache import build_payload
 
 logging.basicConfig(
@@ -108,7 +107,7 @@ def api_bootstrap() -> Any:
                 "windows": payload["windows"],
                 "compare": payload.get("compare") or {},
                 "current": _public_current(payload["current"]),
-                "feed": feed_status(latest_bar_ts("TY")),
+                "feed": feed_for("TY"),
                 "events": events_status(),
             }
         )
@@ -130,7 +129,7 @@ def api_live() -> Any:
                 "windows": payload["windows"],
                 "compare": payload.get("compare") or {},
                 "current": _public_current(payload["current"]),
-                "feed": feed_status(latest_bar_ts("TY")),
+                "feed": feed_for("TY"),
                 "events": events_status(),
             }
         )

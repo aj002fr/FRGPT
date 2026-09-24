@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-from scripts.aggression_dashboard.flow_history import DB_PATH
+from scripts.aggression_dashboard.flow_history import DB_PATH, read_connection
 from scripts.aggression_flow_history_dash.session import to_eastern
 from scripts.supply_weeks_live.weeks import (
     BPS_PER_POINT,
@@ -27,14 +27,10 @@ CLOCK_HOURS = 120
 
 
 def _read_bars(symbol: str, start: datetime, end: datetime, db_path: Path) -> list[dict[str, Any]]:
-    if not db_path.exists():
+    conn = read_connection(db_path)
+    if conn is None:
         return []
     try:
-        conn = sqlite3.connect(str(db_path), timeout=30)
-    except sqlite3.Error:
-        return []
-    try:
-        conn.execute("PRAGMA query_only=ON")
         rows = conn.execute(
             """
             SELECT ts_utc, ts_et, buy_flow, sell_flow, signed_flow, trade_price
@@ -46,8 +42,6 @@ def _read_bars(symbol: str, start: datetime, end: datetime, db_path: Path) -> li
         ).fetchall()
     except sqlite3.Error:
         return []
-    finally:
-        conn.close()
     out = []
     for ts_utc, ts_et, buy_flow, sell_flow, signed_flow, trade_price in rows:
         out.append(

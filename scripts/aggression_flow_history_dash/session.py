@@ -91,8 +91,15 @@ def next_session_day(now: datetime | None = None) -> date:
     return (clock + timedelta(days=1)).date()
 
 
-def feed_status(last_ts: Any, *, now: datetime | None = None) -> dict[str, Any]:
-    """LIVE only when the session is open and the last 1m bar is fresh."""
+PROVISIONAL_SOURCE = "databento_provisional"
+
+
+def feed_status(last_ts: Any, *, now: datetime | None = None, source: str | None = None) -> dict[str, Any]:
+    """LIVE only when the session is open and the last 1m bar is fresh.
+
+    `provisional` is true when the newest bar came from the Databento backup during an
+    AccessAPI outage; those minutes are replaced once AccessAPI data arrives.
+    """
     clock = to_eastern(now) or datetime.now(EASTERN)
     phase = market_phase(clock)
     session = current_session_day(clock)
@@ -112,4 +119,6 @@ def feed_status(last_ts: Any, *, now: datetime | None = None) -> dict[str, Any]:
         "last_bar_et": None if last is None else last.isoformat(sep=" ", timespec="minutes"),
         "age_sec": age_sec,
         "frequency": "1-minute completed bars from every trade print",
+        "source": source,
+        "provisional": source == PROVISIONAL_SOURCE,
     }

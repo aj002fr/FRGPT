@@ -16,6 +16,7 @@ import re
 import sqlite3
 import sys
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -85,6 +86,51 @@ def _connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(_SCHEMA)
     return conn
+
+
+_READERS = threading.local()
+STATUS_TTL_SEC = 60.0
+_STATUS_MEMO: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
+def read_connection(db_path: Path = DB_PATH) -> sqlite3.Connection | None:
+    """Thread-local read-only connection: no DDL, no journal-mode change, no process-wide lock.
+
+    Plain path open (a `file:` URI breaks on UNC hosts); `query_only` refuses writes. None if
+    the database does not exist (it is never created here).
+    """
+    key = str(db_path)
+    conns = getattr(_READERS, "conns", None)
+    if conns is None:
+        conns = _READERS.conns = {}
+    conn = conns.get(key)
+    if conn is not None:
+        return conn
+    if not Path(db_path).exists():
+        return None
+    conn = sqlite3.connect(key, timeout=30)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA query_only=ON")
+    conns[key] = conn
+    return conn
+
+
+def latest_bar(symbol: str = "TY", *, db_path: Path = DB_PATH) -> tuple[str | None, str | None]:
+    """(ts_utc, source) of the newest 1-minute bar; CURVE means any symbol. Index seek, no scan."""
+    conn = read_connection(db_path)
+    if conn is None:
+        return None, None
+    wanted = str(symbol or "TY").strip().upper()
+    try:
+        if wanted == "CURVE":
+            row = conn.execute("SELECT ts_utc, source FROM v1_aggress_flow_1m ORDER BY ts_utc DESC LIMIT 1").fetchone()
+        else:
+            row = conn.execute(
+                "SELECT ts_utc, source FROM v1_aggress_flow_1m WHERE symbol = ? ORDER BY ts_utc DESC LIMIT 1", (wanted,)
+            ).fetchone()
+    except sqlite3.Error:
+        return None, None
+    return (None, None) if row is None else (str(row[0]), row[1])
 
 
 def _as_utc_ts(value: Any) -> pd.Timestamp:
@@ -230,36 +276,34 @@ def query_flow_history(
         params.append(_as_utc_ts(end).isoformat())
     clause = f"WHERE {' AND '.join(filters)}" if filters else ""
     try:
-        with _LOCK:
-            conn = _connect(db_path)
-            try:
-                if wanted == "CURVE":
-                    sql = f"""
-                    SELECT ts_utc, ts_et,
-                           SUM(buy_contracts) AS buy_contracts,
-                           SUM(sell_contracts) AS sell_contracts,
-                           SUM(buy_flow) AS buy_flow,
-                           SUM(sell_flow) AS sell_flow,
-                           SUM(signed_contracts) AS signed_contracts,
-                           SUM(signed_flow) AS signed_flow,
-                           SUM(trade_count) AS trade_count
-                    FROM v1_aggress_flow_1m
-                    {clause}
-                    GROUP BY ts_utc, ts_et
-                    ORDER BY ts_utc
-                    """
-                else:
-                    sql = f"""
-                    SELECT ts_utc, ts_et, symbol, buy_contracts, sell_contracts,
-                           buy_flow, sell_flow, signed_contracts, signed_flow,
-                           trade_count, trade_price, source
-                    FROM v1_aggress_flow_1m
-                    {clause}
-                    ORDER BY ts_utc
-                    """
-                rows = conn.execute(sql, params).fetchall()
-            finally:
-                conn.close()
+        conn = read_connection(db_path)
+        if conn is None:
+            return []
+        if wanted == "CURVE":
+            sql = f"""
+            SELECT ts_utc, ts_et,
+                   SUM(buy_contracts) AS buy_contracts,
+                   SUM(sell_contracts) AS sell_contracts,
+                   SUM(buy_flow) AS buy_flow,
+                   SUM(sell_flow) AS sell_flow,
+                   SUM(signed_contracts) AS signed_contracts,
+                   SUM(signed_flow) AS signed_flow,
+                   SUM(trade_count) AS trade_count
+            FROM v1_aggress_flow_1m
+            {clause}
+            GROUP BY ts_utc, ts_et
+            ORDER BY ts_utc
+            """
+        else:
+            sql = f"""
+            SELECT ts_utc, ts_et, symbol, buy_contracts, sell_contracts,
+                   buy_flow, sell_flow, signed_contracts, signed_flow,
+                   trade_count, trade_price, source
+            FROM v1_aggress_flow_1m
+            {clause}
+            ORDER BY ts_utc
+            """
+        rows = conn.execute(sql, params).fetchall()
         return [dict(row) for row in rows]
     except Exception:
         logger.exception("V1 flow history query failed")
@@ -267,7 +311,7 @@ def query_flow_history(
 
 
 def history_status(*, db_path: Path = DB_PATH) -> dict[str, Any]:
-    """Coverage summary for the durable store."""
+    """Coverage summary for the durable store (full scans; memoized for STATUS_TTL_SEC)."""
     empty = {
         "path": str(db_path),
         "row_count": 0,
@@ -275,25 +319,26 @@ def history_status(*, db_path: Path = DB_PATH) -> dict[str, Any]:
         "min_ts_utc": None,
         "max_ts_utc": None,
     }
+    memo = _STATUS_MEMO.get(str(db_path))
+    if memo is not None and memo[0] > time.monotonic():
+        return memo[1]
     try:
-        with _LOCK:
-            conn = _connect(db_path)
-            try:
-                total = conn.execute("SELECT COUNT(*) AS n FROM v1_aggress_flow_1m").fetchone()
-                bounds = conn.execute(
-                    "SELECT MIN(ts_utc) AS min_ts, MAX(ts_utc) AS max_ts FROM v1_aggress_flow_1m"
-                ).fetchone()
-                per = conn.execute(
-                    """
-                    SELECT symbol, COUNT(*) AS n, MIN(ts_utc) AS min_ts, MAX(ts_utc) AS max_ts
-                    FROM v1_aggress_flow_1m
-                    GROUP BY symbol
-                    ORDER BY symbol
-                    """
-                ).fetchall()
-            finally:
-                conn.close()
-        return {
+        conn = read_connection(db_path)
+        if conn is None:
+            return empty
+        total = conn.execute("SELECT COUNT(*) AS n FROM v1_aggress_flow_1m").fetchone()
+        bounds = conn.execute(
+            "SELECT MIN(ts_utc) AS min_ts, MAX(ts_utc) AS max_ts FROM v1_aggress_flow_1m"
+        ).fetchone()
+        per = conn.execute(
+            """
+            SELECT symbol, COUNT(*) AS n, MIN(ts_utc) AS min_ts, MAX(ts_utc) AS max_ts
+            FROM v1_aggress_flow_1m
+            GROUP BY symbol
+            ORDER BY symbol
+            """
+        ).fetchall()
+        result = {
             "path": str(db_path),
             "row_count": int(total["n"] if total else 0),
             "min_ts_utc": None if bounds is None else bounds["min_ts"],
@@ -313,6 +358,8 @@ def history_status(*, db_path: Path = DB_PATH) -> dict[str, Any]:
                 "sell_flow": "aggress sell $DV01",
             },
         }
+        _STATUS_MEMO[str(db_path)] = (time.monotonic() + STATUS_TTL_SEC, result)
+        return result
     except Exception:
         logger.exception("V1 flow history status failed")
         return empty

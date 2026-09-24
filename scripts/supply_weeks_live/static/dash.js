@@ -91,8 +91,10 @@ function renderFeed(feed) {
   const stateName = (feed && feed.state) || "NOT_LIVE";
   const session = feed && feed.session_date ? `session ${feed.session_date}` : "no session";
   const last = feed && feed.last_bar_et ? `last 1m ${feed.last_bar_et}` : "no bars";
-  node.className = `feed ${stateName}`;
-  node.textContent = `${stateName.replace("_", " ")} · ${session} · ${last}`;
+  const provisional = Boolean(feed && feed.provisional);
+  node.className = `feed ${stateName}${provisional ? " provisional" : ""}`;
+  node.textContent = `${provisional ? "PROVISIONAL · " : ""}${stateName.replace("_", " ")} · ${session} · ${last}`;
+  node.title = provisional ? "Latest minutes come from the Databento backup during an AccessAPI outage; they are replaced when AccessAPI data arrives." : "";
 }
 
 function money(value) {

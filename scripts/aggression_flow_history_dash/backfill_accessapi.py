@@ -220,7 +220,25 @@ def backfill_session(
     return written
 
 
+def guard_canonical_owner(db_path) -> None:
+    """No direct bar writes into a flow_history.sqlite the canonical writer owns.
+
+    Once `scripts.flow_store` has a tape for that database, gaps are filled by its own gap-only
+    backfill (holding the writer lease), and legacy rows are immutable until the Milestone 9
+    audit, which rebuilds into a separate --db-path.
+    """
+    from scripts.flow_store.settings import history_db_path, tape_db_path
+
+    target = Path(db_path) if db_path else DB_PATH
+    if tape_db_path().exists() and target.resolve() == Path(history_db_path()).resolve():
+        raise SystemExit(
+            f"{target} is owned by the canonical flow writer (tape {tape_db_path()}). "
+            "Canonical gaps are filled by scripts.flow_store; rebuild legacy periods into a separate --db-path."
+        )
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    guard_canonical_owner(args.db_path)
     start = datetime.strptime(args.start, "%Y-%m-%d").date()
     end = datetime.strptime(args.end, "%Y-%m-%d").date()
     symbols = tuple(s.strip().upper() for s in args.symbols.split(",") if s.strip())
