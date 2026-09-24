@@ -34,7 +34,7 @@ EASTERN = ZoneInfo("America/New_York")
 DEFAULT_BUCKET = "1min"
 TICK_PLOT_MAX_POINTS = 80_000
 DEFAULT_DV01_PATH = PROJECT_ROOT / "config" / "aggression_dv01.json"
-CACHE_VERSION = "trades_v2"
+CACHE_VERSION = "trades_v3"
 BUYSELL_EMA_SPAN = 10
 CACHE_RETENTION_DAYS = 30
 LIVE_STORE_DIR = PROJECT_ROOT / "workspace" / "analysis" / "aggression_v3_live"
@@ -327,7 +327,10 @@ def fetch_trades_with_contract(
 
     records: List[Dict[str, Any]] = []
     for idx, row in raw_df.iterrows():
-        ts = idx if isinstance(idx, pd.Timestamp) else pd.Timestamp(idx, tz="UTC")
+        # The DataFrame index is ts_recv (Databento's capture clock, 0.2-90 ms late); live AccessAPI
+        # prints carry exchange time, and the 1 ms reconcile only pairs like with like.
+        ts = row.get("ts_event") if "ts_event" in raw_df.columns else idx
+        ts = ts if isinstance(ts, pd.Timestamp) else pd.Timestamp(ts, tz="UTC")
         try:
             price = float(row.get("price", 0))
             if price > 1e6:
