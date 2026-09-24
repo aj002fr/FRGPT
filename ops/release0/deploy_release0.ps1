@@ -19,7 +19,7 @@
   Y: is written only by deploy and restore. Backups and the log live under -BackupRoot on C:.
 #>
 param(
-    [Parameter(Mandatory = $true)][ValidateSet('v3', 'v1', 'events')][string]$Item,
+    [Parameter(Mandatory = $true)][ValidateSet('v3', 'v3core', 'v1', 'events')][string]$Item,
     [ValidateSet('status', 'deploy', 'restore', 'verify')][string]$Action = 'status',
     [string]$Repo = 'C:\dev\market_data_puller',
     [string]$Target = 'Y:\Aastha\market_data_puller',
@@ -39,6 +39,7 @@ $Items = @{
     v3     = @{ Files = @('scripts/aggression_dashboard_v3/print_reconcile.py',
                           'scripts/aggression_dashboard_v3/live_publisher.py',
                           'scripts/aggression_dashboard_v3/app.py') }
+    v3core = @{ Files = @('scripts/aggression_dashboard_v3/core.py') }
     v1     = @{ Files = @('scripts/aggression_dashboard/app.py') }
     events = @{ Files = @('scripts/aggression_flow_history_dash/events.py',
                           'scripts/aggression_flow_history_dash/app.py',
@@ -55,10 +56,11 @@ $CursorRulesNew = 'Calendar source is Yaman''s Postgres `economic_events` (read-
 $RollbackHint = 'rollback: `powershell -File C:\dev\market_data_puller\ops\release0\deploy_release0.ps1 -Item {ITEM} -Action restore`; source of truth `C:\dev\market_data_puller` branch `ops/local-runtime`.'
 $Notes = @{
     v3     = '- Release 0 R0.2 deployed {TIME} ET (V3 5053): vectorized exact print matcher (`_matched_incoming`; the 11:37 bisect loop is kept as `_matched_incoming_reference` and the bad-input fallback), `LiveOverlayCache` re-matches only the lookback edges, rebuilds coalesce to >=60 s (5 s while warming), the picture is prepared off-lock and JSON-encoded once, trade broadcasts are queued under the lock, catch-up runs in 2000-print batches. Golden/replay tests on the 9/23 US-open fixture: `tests/test_v3_reconcile_golden.py`. 5053 now runs headless from task `MDP R0 v3 5053` (log `%LOCALAPPDATA%\market_data_puller\logs\v3_5053.log`); ' + $RollbackHint
+    v3core = '- V3 exchange-time history deployed {TIME} ET (5053, user-approved 9/24): `fetch_trades_with_contract` stores Databento `ts_event` (the DataFrame index is `ts_recv`, 0.17-90 ms late), cache `trades_v3`; the 1 ms reconcile now pairs Databento history with AccessAPI live prints (9/23 13:00-13:30 UTC TY 4,576/4,576, was 48.7%), so overlap windows no longer carry 29-46% duplicate prints. This restart also made the parallel session''s pending V3 edits live. 5053 now runs headless from task `MDP R0 v3 5053`; ' + $RollbackHint
     v1     = '- Release 0 R0.3 deployed {TIME} ET (V1 5050): ten-day Databento bars are no longer persisted to `flow_history.sqlite` (refresher and startup seed); live AccessAPI writes are unchanged, and minutes when V1 was down stay as holes. Test: `tests/test_v1_no_tenday_persist.py`; ' + $RollbackHint
     events = '- Release 0 R0.4 deployed {TIME} ET (5064/5065): economic events come from Yaman''s Postgres `economic_events` (read-only role; DSN `ECON_EVENTS_PG_DSN` in `config/keys.env`) through an in-memory cache refreshed every 60 s with a last-good file; 5064 `/api/status` and 5065 `/api/bootstrap` + `/api/live` carry an `events` block. Postgres is a one-time copy of the 9/23 12:26 SQLite build until Yaman''s pipeline writes to it. 5064 now runs headless from task `MDP R0 flow 5064`; ' + $RollbackHint
 }
-$NoteMarker = @{ v3 = 'Release 0 R0.2 deployed'; v1 = 'Release 0 R0.3 deployed'; events = 'Release 0 R0.4 deployed' }
+$NoteMarker = @{ v3 = 'Release 0 R0.2 deployed'; v3core = 'V3 exchange-time history deployed'; v1 = 'Release 0 R0.3 deployed'; events = 'Release 0 R0.4 deployed' }
 $NoteTargets = @(
     @{ Rel = 'memory-bank/progress.md'; Heading = '## 2026-09-24' },
     @{ Rel = 'memory-bank/activeContext.md'; Heading = '## Recent Changes (2026-09-24)' }
@@ -182,7 +184,7 @@ function Get-Json([string]$Url, [int]$TimeoutSec = 120) {
 
 function Restart-Item {
     switch ($Item) {
-        'v3' { Stop-App 5053 $Apps[5053].Bat; Start-App 5053 }
+        { $_ -in 'v3', 'v3core' } { Stop-App 5053 $Apps[5053].Bat; Start-App 5053 }
         'v1' { Stop-App 5050 'run_aggression_monitor.bat' -KeepLauncherLoop; Log 'V1 launcher loop restarts V1 in ~15 s'; Wait-Port 5050 240 }
         'events' { Stop-App 5064 $Apps[5064].Bat; Start-App 5064; Stop-App 5065 $Apps[5065].Bat; Start-App 5065 }
     }
@@ -190,7 +192,7 @@ function Restart-Item {
 
 function Verify-Item {
     switch ($Item) {
-        'v3' {
+        { $_ -in 'v3', 'v3core' } {
             $s = Get-Json 'http://127.0.0.1:5053/api/live_status' 60
             Log ("v3 live_status: connected={0} source={1} market_open={2}" -f $s.connected, $s.source, $s.market_open)
             $probe = & $BasePython (Join-Path $Repo 'ops\release0\stream_probe.py') --seconds 75 2>&1
@@ -276,7 +278,7 @@ switch ($Action) {
         foreach ($p in 5050, 5053, 5064, 5065) { Write-Host ("port {0}: {1}" -f $p, $(if (Get-ListenerPid $p) { "listening pid $(Get-ListenerPid $p)" } else { 'DOWN' })) }
     }
     'deploy' {
-        if ($Item -eq 'v3' -and $ReleaseRef -eq 'release0') {
+        if ($Item -in 'v3', 'v3core' -and $ReleaseRef -eq 'release0') {
             throw 'release0 v3 files predate the parallel V3 work now on Y:; pass an explicit -ReleaseRef built on the latest yshare-sync'
         }
         $states = @{}
