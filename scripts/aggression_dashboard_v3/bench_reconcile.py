@@ -34,39 +34,32 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture", type=Path, required=True)
     parser.add_argument("--day", default="2026-09-23")
-    parser.add_argument("--now-utc", default="14:30", help="end of the 2h lookback window")
-    parser.add_argument("--with-reference", action="store_true", help="also time the original matcher (minutes for TY)")
+    parser.add_argument("--now-utc", default="15:30", help="end of the window")
+    parser.add_argument("--hours", type=float, default=4.5, help="window length (the fixture starts 11:00 UTC)")
+    parser.add_argument("--with-reference", action="store_true", help="also time the bisect reference matcher")
     args = parser.parse_args()
 
     now = pd.Timestamp(f"{args.day} {args.now_utc}", tz="UTC")
-    start = now - pd.Timedelta(hours=2)
-    totals = {"reference_s": 0.0, "full_ms": 0.0, "cached_ms": 0.0}
+    start = now - pd.Timedelta(hours=args.hours)
+    totals = {"reference_s": 0.0, "merge_ms": 0.0}
     for symbol in ("TY", "FV", "TU", "US"):
         hist = pr._as_trades(pd.read_parquet(args.fixture / f"hist_{symbol}.parquet"))
         live = pr._as_trades(pd.read_parquet(args.fixture / f"live_{symbol}.parquet"))
-        covered = now - pd.Timedelta(minutes=4)
-        stored = _window(hist, start, covered)
+        hw = _window(hist, start, now - pd.Timedelta(minutes=20))
         lv = _window(live, start, now)
-        full_ms, _ = _ms(lambda: pr.apply_live(stored, lv, symbol))
-        cache = pr.LiveOverlayCache()
-        prev_start, prev_now = start - pd.Timedelta(minutes=1), now - pd.Timedelta(minutes=1)
-        cache.apply_live(_window(hist, prev_start, covered), _window(live, prev_start, prev_now), symbol)
-        started = time.perf_counter()
-        cache.apply_live(stored, lv, symbol)
-        cached_ms = (time.perf_counter() - started) * 1000.0
-        line = f"{symbol}: stored {len(stored):,} live {len(lv):,} | full {full_ms:7.1f} ms | cached rebuild {cached_ms:6.1f} ms"
+        merge_ms, merged = _ms(lambda: pr.reconcile_symbol(None, live=lv, historical=hw, symbol=symbol))
+        line = f"{symbol}: live {len(lv):,} hist {len(hw):,} -> {len(merged):,} rows | live-first merge {merge_ms:7.1f} ms"
         if args.with_reference:
             started = time.perf_counter()
-            pr._matched_incoming_reference(stored, lv, symbol)
+            pr._matched_incoming_reference(lv, hw, symbol)
             ref_s = time.perf_counter() - started
             totals["reference_s"] += ref_s
-            line += f" | original {ref_s:7.1f} s"
+            line += f" | bisect reference match {ref_s:6.2f} s"
         print(line, flush=True)
-        totals["full_ms"] += full_ms
-        totals["cached_ms"] += cached_ms
-    summary = f"all symbols: full {totals['full_ms']:.1f} ms, cached rebuild {totals['cached_ms']:.1f} ms"
+        totals["merge_ms"] += merge_ms
+    summary = f"all symbols: live-first merge {totals['merge_ms']:.1f} ms"
     if args.with_reference:
-        summary += f", original {totals['reference_s']:.1f} s"
+        summary += f", bisect reference match {totals['reference_s']:.2f} s"
     print(summary)
     return 0
 

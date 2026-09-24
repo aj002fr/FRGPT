@@ -1,0 +1,25 @@
+---
+description: Aggression V3 is the trade-to-trade six-state monitor on 5053.
+globs: scripts/aggression_dashboard_v3/**,scripts/aggression_flow_effort.py,docs/aggression_v1_monitor.tex
+alwaysApply: false
+---
+
+# V3 trade-to-trade monitor
+
+`scripts/aggression_dashboard_v3/` on port `5053` implements `docs/aggression_v1_monitor.tex`. It is not the old V2-copy / flow-effort page.
+
+- Writes only `workspace/analysis/aggression_v3_live/`
+- Label `PROVISIONAL / RESEARCH-ONLY / TRADE-TO-TRADE / NON-EXECUTABLE`
+- Manual start: `Y:\Aastha\SOD\run_aggression_monitor_v3.bat`
+- Do not kill/restart 5053 unless the user asks
+- Do not edit V1 (5050), V1.3 (5055), or V2 from V3 work
+- Offline flow-effort helpers: `scripts/aggression_flow_effort.py`
+- Default view is the whole curve (FV+TU+TY+US vs TY price). `beta_ref` is the 10-session mean of last-3-hour TOD `ΔP`-on-`ΔA` slopes for the selected chips.
+- Banner READY is gated on live + `beta_ref>0` + 15m endpoints after the last >15m gap. It is not gated on a process-global config key. `beta_ref.json` is multi-entry so TY-only and curve means coexist; peek reuses last-good across 5-minute TOD buckets.
+- Beta hold (2026-09-24, user-chosen): each chip set computes `beta_ref` once per process (startup refresh of the current bucket via `ensure_beta_ref(refresh_stale=True)`), then holds it until V3 restarts or the completed-session set rolls at 18:00 ET. A failed refresh keeps last-good. `_kick_beta_ref` calls `offer_history()` only after a fresh OK beta; a stale return must never re-trigger a rebuild (that loop pinned 5053 at 100% CPU for 14 hours).
+- Session tape hole-only merge (`print_reconcile.py`), done per rebuild over the whole session by `_live_display_trades` (no separate hist-only store): live first, then hist. Match size / side / tick-price within 1ms; keep stored. Hist fills left/interior holes only; skip interior if match rate < 0.5; never insert hist after the live tail.
+- TotalAggress is session-to-date from the first print after 18:00 ET and the Panel 4 path starts at the session's first price (spec). Lookback only clips the charts; never rebuild the sum from the 2-hour window start (that shifted every value, forced a 41 MB `history` resend every rebuild, and left steps at the live tail). `history` only fires when a hole-fill moves a shared value by more than `PREFIX_TOLERANCE`.
+- Backfill `covered_end` is the earliest symbol's last fetched Databento print, never wall-clock `now`; otherwise the next start lands past Databento's ~20-minute availability lag (`422 data_start_after_available_end`) and gaps never fill.
+- Page (`static/dashboard.js`): queue trade deltas and redraw charts at most once per second (`LIVE_FLUSH_MS`), min/max-decimate drawn points per pixel bucket, and keep Panel 3 buy/sell as WebGL spikes. Per-message `extendTraces`/`relayout` and SVG bars froze browsers ("page isn't responding") with ~64k prints per 2 hours.
+- `_matched_incoming` must stay time-bounded (time-sorted buckets + bisect ±1 ms; ties go to the lowest stored row). A full per-bucket scan is quadratic and took minutes per rebuild on a 2-hour tape.
+- `_snapshot_tenday_trades` / `_snapshot_tenday_path` return shared frames; callers must not modify them in place.

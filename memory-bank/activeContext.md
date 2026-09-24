@@ -2,17 +2,18 @@
 
 ## Recent Changes (2026-09-24)
 
-### Dashboard reliability plan: Release 0 (R0.2–R0.4 staged for the 17:00 ET window)
+### Dashboard reliability plan: Release 0 (R0.3–R0.4 for the 17:00 ET window; R0.2 held)
 
 - Plan: `c:\Users\aasth\.cursor\plans\dashboard_reliability_fixes_4e8509b6.plan.md`. This work lives in the C: checkout `C:\dev\market_data_puller`, branch `ops/local-runtime` (Y: history, snapshot commit `6715631` of the 11:05 Y: tree, parallel V3 fix merged in `ae0cd42`). Y: stays read-only except Release 0 deploys through `ops\release0\deploy_release0.ps1`, which refuses if a Y: file changed since the `yshare-sync` merge base.
 - R0.1 done 10:58: v27 (5063) and supply weeks (5065) run headless from tasks `MDP R0 v27 5063` / `MDP R0 supply 5065` (logs `%LOCALAPPDATA%\market_data_puller\logs\`); `:8445`/`:8447` answer.
 - R0.2 V3 (staged): vectorized exact matcher; the 11:37 bisect loop is now `_matched_incoming_reference` and the fallback. On the 9/23 US-open fixture (`C:\dev\mdp_golden\v3\20260923`) all three implementations agree (original loop on 2 h windows, bisect loop on 30 min windows, synthetic adversarial cases). 2 h window at the open: full overlay 20–80 ms per symbol, cached rebuild 10–28 ms per symbol (72 ms all four); the original loop took minutes. Publisher: coalesced rebuilds (60 s; 5 s warming), off-lock prepare, one JSON encode, broadcasts under the lock, 2000-print catch-up batches.
 - R0.3 V1 (staged): ten-day Databento bars stay in memory only; live AccessAPI writes unchanged.
 - R0.4 5064/5065 (staged): events from Postgres `economic_events` (read-only role) via `EventsCache`; output identical to the SQLite reader (2,124 events, same order); `/api/events` 17 ms vs 0.7–13 s over the share. Postgres is a one-time copy of the 9/23 12:26 SQLite build until Yaman's pipeline writes it.
-- Deploy at 17:00, in order `v3`, `v1`, `events`: `powershell -File ops\release0\deploy_release0.ps1 -Item <item> -Action deploy`; rollback `-Action restore`. 5053 and 5064 move to headless tasks (`MDP R0 v3 5053`, `MDP R0 flow 5064`); V1 restarts through its launcher loop.
+- Deploy at 17:00, `v1` then `events`: `powershell -File ops\release0\deploy_release0.ps1 -Item <item> -Action deploy`; rollback `-Action restore`. 5064 moves to headless task `MDP R0 flow 5064`; V1 restarts through its launcher loop.
 - Finding (not changed in R0, identical-output rule): the Databento cache `ts` that V3 stores as hist runs 0.2–14 ms (median ~1 ms) behind AccessAPI exchange timestamps, so the 1 ms window pairs only ~50–65% of the same trades; where hist and live overlap, unmatched live prints sit next to their hist twins. For Milestone 5/9.
 - Deploy content is the fixed tag `release0` (`fe00867`), not the branch head (the head's 5064/5065 need Milestone 2 modules). A simulated deploy onto a copy of the Y: tree confirmed V1/V3/5064/5065 import cleanly with it.
-- Coordination: a parallel session edited V3 on Y: again at 12:41–12:57 (live_publisher, core, app, dashboard.js, index.html, tests; not yet restarted or documented). The deploy guard refuses V3 until that work is re-synced and merged; V1 and events are unaffected.
+- Coordination: the parallel session's 12:41–12:57 V3 edits (page freeze + session-to-date sum, section below) are synced as `d1edbc1` and merged into `ops/local-runtime`. The merge keeps their live-first merge, session-anchored rebuild and display-built tape, on top of the vectorized matcher and off-lock rebuild. `LiveOverlayCache` was removed: the full live-first merge takes ~0.6 s for all four symbols over the 9/23 11:00–15:30 UTC tape (bisect reference 0.8 s), and rebuilds are ≥60 s apart. R0.2 is not deployed tonight: production V3 stays with that session until its restart lands.
+- V3 double counting (open, needs a decision): V3's Databento `ts` is `ts_recv` (`core.py` stores the `to_df()` index), AccessAPI live `ts` is exchange time. On the 9/23 fixture the same trades differ by +0.17 ms minimum, 0.5–1.0 ms median, 13–27 ms p99, ~90 ms max, never negative. The ±1 ms matcher misses 30–46% of pairs, so the merged tape holds 29–46% duplicate prints wherever live and backfill overlap (TY 12:30–14:30 UTC: 30,358 real trades → 44,390 rows in today's production merge, 45,173 in the live-first merge). Wider windows only shrink it (20 ms ~1%, 100 ms 0.02–0.12%). Root fix: take `ts_event` from Databento; cached `trades_v2` days hold only `ts_recv`.
 
 ### Canonical flow writer, local runtime, supervisor (Milestones 1–4, 6 on `ops/local-runtime`)
 
@@ -23,7 +24,30 @@
 - Supervisor profiles in `ops/supervisor/profiles.json` (rehearsal 7053–7065, production 6053–6065; the cutover switch is the Tailscale repoint). Local venv `C:\dev\market_data_puller\.venv` from `ops/requirements-dashboards.lock.txt` (Y: freeze + waitress + psutil).
 - Shadow run 2 at the 13:30:46 kill/restart: FV and TY exact, but 2 ZT and 1 ZB prints 0.5 s after reconnect were never delivered live (AccessAPI subscribes each root's stream separately). Fixed in `450539f`: each root's coverage starts at its own first record. The shadow writer runs that code since 13:39:53 ET (`C:\dev\mdp_shadow\restarts.txt`); the gate uses only windows after it.
 - Rehearsal so far: supervisor restarts, 20-viewer load (v22/v27 p95 27 ms, 5065 p95 24 ms, v3 20 SSE clean), `VACUUM INTO` of the 1.03 GB DB in 8.5 s + `quick_check` 3.1 s, no rehearsal process holds any file on Y:/Z:/D:. Runbook `docs/cutover_runbook.md`. V3 missed one 10 s health check at 13:35:56 (recovered): Milestone 5 material.
-- R0.2 V3 is held tonight: the parallel session's 12:25 plan ("V3 page freeze and day-so-far running sum") owns V3 on Y: and has unrestarted edits there. Merge the vectorized matcher on top of its final files afterwards.
+
+### V3 page freeze fix (live) and day-so-far running sum (restart pending)
+
+- Symptom (12:07 ET): Chrome "page isn't responding" on 5053 and the banner "as of 12:02:25". The server was idle (0.05 CPU-s per 10 s); all five SSE writer threads were blocked because the browsers had stopped reading.
+- Page fix, live now (`dashboard.js` is served `no-store`; a reload picks it up):
+  - Trade deltas are queued; charts redraw at most once per second with one `Plotly.react` per panel and `uirevision`.
+  - Min/max decimation per pixel bucket (every drawn point is a real print; full detail when zoomed).
+  - Panel 3 buy/sell are WebGL spikes; their values show on the TotalAggress hover.
+  - Measured in the browser against the running V3: redraw ~155 ms per flush (was ~734 ms), main thread ~12% busy, banner lag 0–1 s.
+- Server fix, on disk and tested (55 pass), **needs a V3 restart**:
+  - Rebuilds run from `session_start` (18:00 ET). TotalAggress is session-to-date and the Panel 4 path starts from the session's first price. Lookback clips the charts only.
+  - The old 2-hour rebase shifted every value, forced a 41 MB `history` resend each rebuild, and left a visible step at the live tail (seen at 12:42, about −4M).
+  - `_prefix_changed` has a 0.5 $DV01 tolerance. The rebuild-time tail is re-accumulated onto the rebuilt sum.
+  - `_live_display_trades` is the live-first merge (hist fills holes); the unused hist-only session store was removed.
+  - Backfill `covered_end` is the earliest symbol's last fetched print, not `now`, which fixes the repeating `422 data_start_after_available_end` gaps.
+  - `build_print_frame` sign/session labels are computed once per distinct value; `_tag_sessions` uses `session_labels` too.
+  - The BuySell live smoothing ignores same-timestamp prints (it used to reset to ±100) and reads the last Panel 2 time as ET, not UTC.
+  - The template is bumped to `dashboard.js?v=live3`.
+- Blocked: Cursor's shell failed with `EMFILE: too many open files` on its terminal files (a subagent failed the same way). V3 PID 19800, started 11:47 ET under cmd 34424, is still running the pre-change server code. To apply: close that V3 window (or `taskkill /PID 34424 /T /F`), then run `Y:\Aastha\SOD\run_aggression_monitor_v3.bat`.
+- After the restart, check:
+  - `history` events are rare (hole-fills only).
+  - The Panel 1 left edge shows the session-to-date level with no step at the right edge.
+  - The console shows `data_end_after_available_end ... Retrying` instead of repeated `data_start_after_available_end` 422s.
+  - Each rebuild costs ~15–20 CPU-s every ~4 minutes.
 
 ### V3 5053 CPU spin quick fix (restarted 11:47 ET)
 

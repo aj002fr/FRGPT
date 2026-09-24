@@ -94,50 +94,6 @@ def _frames_equal(a: pd.DataFrame, b: pd.DataFrame) -> None:
     pd.testing.assert_frame_equal(a.reset_index(drop=True), b.reset_index(drop=True), check_exact=True)
 
 
-def _replay(stored_all: pd.DataFrame, live_all: pd.DataFrame, symbol: str, steps, *, lookback, cover_every: int = 4,
-            late: int | None = None, hole: int | None = None) -> pr.LiveOverlayCache:
-    """Rebuild-style calls on a sliding window; every call must equal the full apply_live."""
-    cache = pr.LiveOverlayCache()
-    stored_all = pr._as_trades(stored_all).sort_values("ts", kind="stable").reset_index(drop=True)
-    live_all = pr._as_trades(live_all).sort_values("ts", kind="stable").reset_index(drop=True)
-    covered = None
-    hole_ts = None
-    for k, now in enumerate(steps):
-        start = now - lookback
-        if covered is None or k % cover_every == 0:
-            covered = now - pd.Timedelta(minutes=4)
-        stored = stored_all.loc[(stored_all["ts"] >= start) & (stored_all["ts"] <= covered)].reset_index(drop=True)
-        live = live_all.loc[(live_all["ts"] >= start) & (live_all["ts"] <= now)].reset_index(drop=True)
-        if late is not None and k == late and len(live) > 10:
-            row = live.iloc[[len(live) // 2]].copy()
-            live = pd.concat([live, row.assign(size=row["size"] + 7)], ignore_index=True).sort_values("ts", kind="stable").reset_index(drop=True)
-        if hole is not None and k == hole and len(stored) > 10:
-            hole_ts = stored["ts"].iloc[len(stored) // 2]
-        if hole_ts is not None:
-            stored = stored.loc[stored["ts"] != hole_ts].reset_index(drop=True)
-        _frames_equal(pr.apply_live(stored, live, symbol), cache.apply_live(stored, live, symbol))
-    return cache
-
-
-def test_overlay_cache_replay_on_synthetic_stream() -> None:
-    rng = np.random.default_rng(11)
-    base = pd.Timestamp("2026-09-23 12:00", tz="UTC")
-    n = 6000
-    ts = base + pd.to_timedelta(np.sort(rng.integers(0, 3_600_000_000_000, n)), unit="ns")
-    burst = rng.random(n) < 0.3
-    ts = ts.where(~burst, ts.to_series().shift(1).fillna(ts[0]).to_numpy())
-    stored = pd.DataFrame({
-        "ts": ts, "price": 110.0 + rng.integers(0, 3, n) / 64.0, "size": rng.choice([1, 1, 2], n),
-        "side": rng.choice(["A", "B"], n), "instrument_id": "1", "raw_symbol": "ZNZ6", "dashboard_symbol": "TY",
-    })
-    live = stored.copy()
-    live["ts"] = live["ts"] - pd.to_timedelta(rng.integers(0, 1_400_000, n), unit="ns")
-    steps = [base + pd.Timedelta(minutes=10 + k) for k in range(45)]
-    cache = _replay(stored, live, "TY", steps, lookback=pd.Timedelta(minutes=20), late=17, hole=30)
-    assert cache.reused > 20
-    assert cache.full >= 3
-
-
 def _with_reference(monkeypatch: pytest.MonkeyPatch, fn, *args, **kwargs):
     with monkeypatch.context() as m:
         m.setattr(pr, "_matched_incoming", pr._matched_incoming_reference)
@@ -219,16 +175,6 @@ def test_golden_us_open_2h_windows_match_recorded_reference(symbol: str, monkeyp
         assert np.array_equal(got_hist, expected["matched_hist"]), f"{symbol} {start}-{end} hist side differs"
         _frames_equal(_with_matched(monkeypatch, expected["matched_live"], pr.apply_live, h, lv, symbol), pr.apply_live(h, lv, symbol))
         _frames_equal(_with_matched(monkeypatch, expected["matched_hist"], pr.apply_hist, lv, h, symbol), pr.apply_hist(lv, h, symbol))
-
-
-@golden
-@pytest.mark.parametrize("symbol", ["TY", "US"])
-def test_golden_overlay_cache_replay_through_us_open(symbol: str) -> None:
-    hist, live = _load(symbol)
-    steps = [pd.Timestamp(DAY + "12:00", tz="UTC") + pd.Timedelta(minutes=k) for k in range(0, 150)]
-    cache = _replay(hist, live, symbol, steps, lookback=pd.Timedelta(hours=2), late=40, hole=90)
-    assert cache.reused > 100
-    assert cache.full >= 3
 
 
 @golden

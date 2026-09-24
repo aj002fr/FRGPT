@@ -735,3 +735,65 @@ def test_kick_beta_ref_offers_history_only_for_fresh_beta(monkeypatch):
         thread.join(timeout=5)
     assert refresh_flags == [True, False, False]
     assert publisher.offers == 1
+
+
+def test_aggressor_signs_match_classify_apply():
+    from scripts.aggression_dashboard_v3.core import _aggressor_signs
+    from scripts.totalaggress_vs_price_chart import classify_aggressor
+
+    side = pd.Series(["A", "B", "BID", "ask", "N", "", None, np.nan, " b ", "Ask", "X"] * 3, dtype=object)
+    expected = side.apply(classify_aggressor)
+    actual = _aggressor_signs(side)
+    assert actual.tolist() == expected.tolist()
+    assert str(actual.dtype) == "int64"
+
+
+def test_session_labels_match_strftime_across_dst():
+    from scripts.aggression_dashboard_v3.core import session_labels
+
+    et = pd.date_range("2026-03-06T12:00", "2026-03-10T12:00", freq="37min", tz="America/New_York").append(
+        pd.date_range("2026-10-30T12:00", "2026-11-03T12:00", freq="41min", tz="America/New_York")
+    )
+    dates = et.normalize()
+    dates = pd.DatetimeIndex(dates.where(et.hour >= 18, dates - pd.Timedelta(days=1))).insert(3, pd.NaT)
+    expected = [None if pd.isna(v) else v for v in dates.strftime("%Y-%m-%dT18:00")]
+    actual = [None if pd.isna(v) else v for v in session_labels(dates)]
+    assert actual == expected
+
+
+def test_backfill_covered_end_uses_earliest_last_print():
+    from scripts.aggression_dashboard_v3.app import _backfill_covered_end
+
+    t0 = datetime(2026, 9, 24, 15, 0, tzinfo=timezone.utc)
+    merged = {
+        "TY": pd.DataFrame({"ts": pd.to_datetime([t0, t0 + timedelta(minutes=10)], utc=True)}),
+        "FV": pd.DataFrame({"ts": pd.to_datetime([t0 + timedelta(minutes=7)], utc=True)}),
+        "TU": pd.DataFrame(columns=["ts"]),
+    }
+    previous = t0 - timedelta(hours=1)
+    assert _backfill_covered_end(merged, previous) == t0 + timedelta(minutes=7)
+    assert _backfill_covered_end({"TY": pd.DataFrame(columns=["ts"])}, previous) == previous
+
+
+def test_live_display_trades_is_live_first_with_hist_before_live(monkeypatch):
+    from scripts.aggression_dashboard_v3 import app as v3app
+
+    live = pd.concat(
+        [_ty_print("2026-09-24T15:00:00.000Z", 2, "B"), _ty_print("2026-09-24T15:00:05.000Z", 3, "A")],
+        ignore_index=True,
+    )
+    echo = live.copy()
+    echo["ts"] = echo["ts"] + pd.Timedelta(microseconds=300)
+    hist = pd.concat([_ty_print("2026-09-24T14:00:00Z", 7, "B"), echo], ignore_index=True)
+    hist.attrs["front_contracts"] = [{"raw_symbol": "ZNZ6"}]
+    monkeypatch.setattr(v3app, "_peek_backfill_window", lambda symbols, start, end: ({"TY": hist}, {}, {}))
+    monkeypatch.setattr(v3app.LIVE_BUFFER, "get_trades", lambda symbols, start, end: {"TY": live})
+    trades, _errors, _state = v3app._live_display_trades(
+        ("TY",),
+        datetime(2026, 9, 23, 22, 0, tzinfo=timezone.utc),
+        datetime(2026, 9, 24, 16, 0, tzinfo=timezone.utc),
+    )
+    ty = trades["TY"]
+    assert int(ty["size"].sum()) == 12
+    assert ty["ts"].iloc[1:].tolist() == live["ts"].tolist()
+    assert ty.attrs["front_contracts"] == [{"raw_symbol": "ZNZ6"}]

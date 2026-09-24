@@ -28,6 +28,9 @@ const HOVER_BANNER_IDLE = {
   headline: "HOVER BANNER",
   reason: "Hover any chart timestamp to see the 15-minute six-state at that print.",
 };
+const LIVE_FLUSH_MS = 1000;
+const LIVE_MAX_POINTS = 80000;
+const BANNER_ROWS_MAX = 100000;
 
 let refreshTimer = null;
 let statusTimer = null;
@@ -40,6 +43,11 @@ let hoverEventsBound = false;
 let hoveredBannerX = null;
 let lastStripRuns = [];
 let lastLookbackStart = null;
+let currentPanels = null;
+let pendingPrints = [];
+let flushTimer = null;
+let chartsDirty = false;
+let stripDirty = false;
 
 function selectedAggressionSymbols() {
   return Array.from(document.querySelectorAll("#aggression-symbols input:checked"))
@@ -294,11 +302,113 @@ function bindBannerHoverEvents() {
     const element = document.getElementById(id);
     element.on("plotly_hover", onPanelHover);
     element.on("plotly_unhover", onPanelUnhover);
+    if (ZOOM_RERENDER[id]) {
+      element.on("plotly_relayout", (eventData) => onPanelRelayout(id, eventData));
+    }
   });
 }
 
-function panelDataToArrays(panel) {
-  const rows = panel.data || [];
+const ZOOM_RERENDER = {
+  "panel-p1": (panels) => panels.p1 && renderDualAxisPanel("panel-p1", panels.p1),
+  "panel-p2": (panels) => panels.p2 && renderDualAxisPanel("panel-p2", panels.p2),
+  "panel-p3": (panels) => panels.p3 && renderVolumePanel("panel-p3", panels.p3),
+  "panel-p4": (panels) => panels.p4 && renderPredictionPanel("panel-p4", panels.p4),
+  "panel-p5": (panels) => panels.p5 && renderPredictionPanel("panel-p5", panels.p5),
+};
+
+function onPanelRelayout(elementId, eventData) {
+  if (!currentPanels || !eventData) {
+    return;
+  }
+  const keys = Object.keys(eventData);
+  if (keys.some((key) => key.startsWith("xaxis.range") || key === "xaxis.autorange")) {
+    ZOOM_RERENDER[elementId](currentPanels);
+  }
+}
+
+function visibleXRange(elementId) {
+  const element = document.getElementById(elementId);
+  const xaxis = element && element._fullLayout && element._fullLayout.xaxis;
+  if (!xaxis || xaxis.autorange !== false || !Array.isArray(xaxis.range)) {
+    return null;
+  }
+  return xaxis.range.map((value) => String(value).replace(" ", "T"));
+}
+
+function plotBuckets(elementId) {
+  const element = document.getElementById(elementId);
+  const width = element && element.clientWidth ? element.clientWidth : 1200;
+  return Math.max(400, Math.min(4000, Math.round(width)));
+}
+
+function lowerBoundX(rows, value) {
+  let lo = 0;
+  let hi = rows.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (String(rows[mid].x) < value) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo;
+}
+
+function decimateRows(rows, fields, range, buckets) {
+  let lo = 0;
+  let hi = rows.length;
+  if (range) {
+    lo = Math.max(0, lowerBoundX(rows, range[0]) - 1);
+    hi = Math.min(rows.length, lowerBoundX(rows, range[1]) + 1);
+  }
+  const count = hi - lo;
+  if (count <= buckets * 4) {
+    return lo === 0 && hi === rows.length ? rows : rows.slice(lo, hi);
+  }
+  const out = [];
+  const step = count / buckets;
+  for (let bucket = 0; bucket < buckets; bucket += 1) {
+    const start = lo + Math.floor(bucket * step);
+    const end = Math.min(hi, lo + Math.floor((bucket + 1) * step));
+    if (start >= end) {
+      continue;
+    }
+    const keep = new Set([start, end - 1]);
+    fields.forEach((field) => {
+      let minIndex = -1;
+      let maxIndex = -1;
+      let minValue = Infinity;
+      let maxValue = -Infinity;
+      for (let i = start; i < end; i += 1) {
+        const value = rows[i][field];
+        if (value == null || !Number.isFinite(value)) {
+          continue;
+        }
+        if (value < minValue) {
+          minValue = value;
+          minIndex = i;
+        }
+        if (value > maxValue) {
+          maxValue = value;
+          maxIndex = i;
+        }
+      }
+      if (minIndex >= 0) {
+        keep.add(minIndex);
+      }
+      if (maxIndex >= 0) {
+        keep.add(maxIndex);
+      }
+    });
+    Array.from(keep).sort((a, b) => a - b).forEach((index) => out.push(rows[index]));
+  }
+  return out;
+}
+
+function panelDataToArrays(panel, elementId) {
+  const fields = (panel.traces || []).map((traceConfig) => traceConfig.field);
+  const rows = decimateRows(panel.data || [], fields, visibleXRange(elementId), plotBuckets(elementId));
   const x = rows.map((row) => row.x);
   return { rows, x };
 }
@@ -340,6 +450,7 @@ function baseLayout(panel, height = 420) {
     title: { text: panel.title, x: 0.02, xanchor: "left", font: { size: 15 } },
     template: "plotly",
     height,
+    uirevision: MODE_SELECT.value,
     margin: { l: 68, r: 82, t: 58, b: 86 },
     hovermode: "x unified",
     legend: {
@@ -355,7 +466,7 @@ function baseLayout(panel, height = 420) {
 }
 
 function renderDualAxisPanel(elementId, panel) {
-  const { rows, x } = panelDataToArrays(panel);
+  const { rows, x } = panelDataToArrays(panel, elementId);
   const traces = (panel.traces || []).map((traceConfig) => {
     if (traceConfig.type === "bar") {
       return makeBarTrace(traceConfig, x, rows);
@@ -383,16 +494,44 @@ function renderDualAxisPanel(elementId, panel) {
   Plotly.react(elementId, traces, layout, { responsive: true });
 }
 
+function makeSpikeTrace(traceConfig, rows) {
+  const x = [];
+  const y = [];
+  rows.forEach((row) => {
+    const value = row[traceConfig.field];
+    if (value == null || !Number.isFinite(value) || value === 0) {
+      return;
+    }
+    x.push(row.x, row.x, row.x);
+    y.push(0, value, null);
+  });
+  return {
+    x,
+    y,
+    name: traceConfig.name,
+    type: "scattergl",
+    mode: "lines",
+    yaxis: traceConfig.axis === "y2" ? "y2" : traceConfig.axis === "y3" ? "y3" : "y",
+    line: { color: traceConfig.color, width: 1 },
+    connectgaps: false,
+    hoverinfo: "skip",
+  };
+}
+
 function renderVolumePanel(elementId, panel) {
-  const { rows, x } = panelDataToArrays(panel);
+  const { rows, x } = panelDataToArrays(panel, elementId);
   const traces = (panel.traces || []).map((traceConfig) => {
     if (traceConfig.type === "bar") {
-      return makeBarTrace(traceConfig, x, rows);
+      return makeSpikeTrace(traceConfig, rows);
     }
-    return makeLineTrace(panel, traceConfig, x, rows);
+    const trace = makeLineTrace(panel, traceConfig, x, rows);
+    if (traceConfig.field === "total_aggress") {
+      trace.customdata = rows.map((row) => [row.buy_aggress || 0, row.sell_aggress || 0]);
+      trace.hovertemplate = `${traceConfig.name}: %{y:,.0f}<br>Buy aggress: %{customdata[0]:,.0f}<br>Sell aggress: %{customdata[1]:,.0f}<br>%{x}<extra></extra>`;
+    }
+    return trace;
   });
   const layout = baseLayout(panel, 480);
-  layout.barmode = "relative";
   layout.yaxis2 = {
     title: panel.layout?.yaxis2_title || "",
     overlaying: "y",
@@ -410,9 +549,10 @@ function renderVolumePanel(elementId, panel) {
   Plotly.react(elementId, traces, layout, { responsive: true });
 }
 
-function addLargeResidualMarkers(traces, panel) {
-  const points = panel.large_residuals || [];
-  if (!points.length) return;
+function addLargeResidualMarkers(traces, panel, elementId) {
+  const all = panel.large_residuals || [];
+  if (!all.length) return;
+  const points = decimateRows(all, ["y"], visibleXRange(elementId), plotBuckets(elementId));
   traces.push({
     x: points.map((point) => point.x),
     y: points.map((point) => point.y),
@@ -487,13 +627,14 @@ function renderStateTimeline(elementId, panel, rangeX) {
 }
 
 function renderPredictionPanel(elementId, panel) {
-  const { rows, x } = panelDataToArrays(panel);
+  const { rows, x } = panelDataToArrays(panel, elementId);
   const traces = (panel.traces || []).map((traceConfig) => makeLineTrace(panel, traceConfig, x, rows));
-  addLargeResidualMarkers(traces, panel);
+  addLargeResidualMarkers(traces, panel, elementId);
   Plotly.react(elementId, traces, baseLayout(panel), { responsive: true });
 }
 
 function renderPayload(payload) {
+  currentPanels = payload.panels || {};
   const p1Rows = payload.panels && payload.panels.p1 && payload.panels.p1.data;
   if (p1Rows && p1Rows.length) {
     lastLookbackStart = p1Rows[0].x;
@@ -522,6 +663,15 @@ function renderPayload(payload) {
     ? `beta_ref: ${Number(beta.beta_ref).toExponential(2)} | last ${beta.lookback_hours || 3}h to ${beta.tod_bucket || "?"} ET | yield display: ${Number(beta.beta_display_yield_bp_per_1m).toFixed(4)}`
     : `beta_ref: unavailable${beta.reason ? ` (${beta.reason})` : ""}`;
   META.textContent = `Prints: ${(flow.trade_count || 0).toLocaleString()} | Aggress final: ${(flow.total_aggress_final || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} | ${betaText}`;
+  const lastX = p1Rows && p1Rows.length ? p1Rows[p1Rows.length - 1].x : null;
+  if (lastX != null) {
+    pendingPrints = pendingPrints.filter((row) => row.x > lastX);
+  }
+  chartsDirty = false;
+  stripDirty = false;
+  if (pendingPrints.length) {
+    scheduleLiveFlush();
+  }
 }
 
 function parseStreamPayload(event) {
@@ -532,30 +682,135 @@ function parseStreamPayload(event) {
   }
 }
 
-function extendTraceFields(elementId, prints, fields) {
-  const element = document.getElementById(elementId);
-  if (!element || !element.data || !prints.length) {
+function appendPanelRows(panel, prints, fields) {
+  if (!panel) {
     return;
   }
-  const xs = prints.map((row) => row.x);
-  const update = { x: [], y: [] };
-  const indices = [];
-  fields.forEach((field, index) => {
-    if (index >= element.data.length) {
+  if (!Array.isArray(panel.data)) {
+    panel.data = [];
+  }
+  const rows = panel.data;
+  prints.forEach((point) => {
+    const row = { x: point.x };
+    fields.forEach((field) => {
+      row[field] = point[field] == null ? null : point[field];
+    });
+    rows.push(row);
+  });
+}
+
+function trimRowsBefore(rows, start, xOf, maxRows) {
+  let cut = 0;
+  if (start) {
+    while (cut < rows.length && String(xOf(rows[cut]) || "") < start) {
+      cut += 1;
+    }
+  }
+  if (maxRows && rows.length - cut > maxRows) {
+    cut = rows.length - maxRows;
+  }
+  return cut > 0 ? rows.splice(0, cut) : [];
+}
+
+function computeAxisAlignment(rows) {
+  let aMin = Infinity;
+  let aMax = -Infinity;
+  let pMin = Infinity;
+  let pMax = -Infinity;
+  rows.forEach((row) => {
+    const aggress = row.total_aggress;
+    if (aggress == null || !Number.isFinite(aggress)) {
       return;
     }
-    update.x.push(xs);
-    update.y.push(prints.map((row) => row[field]));
-    indices.push(index);
+    aMin = Math.min(aMin, aggress);
+    aMax = Math.max(aMax, aggress);
+    const price = row.price;
+    if (price != null && Number.isFinite(price)) {
+      pMin = Math.min(pMin, price);
+      pMax = Math.max(pMax, price);
+    }
   });
-  if (!indices.length) {
+  const aSpan = aMax - aMin;
+  const pSpan = pMax - pMin;
+  if (!(aSpan > 0) || !(pSpan > 0)) {
+    return null;
+  }
+  return {
+    aggress_range: [aMin - aSpan * 0.05, aMax + aSpan * 0.05],
+    price_range: [pMin - pSpan * 0.05, pMax + pSpan * 0.05],
+  };
+}
+
+function trimBannerSeries() {
+  const removed = trimRowsBefore(bannerSeries, lastLookbackStart, (row) => row.x, BANNER_ROWS_MAX);
+  removed.forEach((row) => {
+    candidateXKeys(row.x).forEach((key) => {
+      if (bannerByX.get(key) === row) {
+        bannerByX.delete(key);
+      }
+    });
+  });
+}
+
+function scheduleLiveFlush() {
+  if (flushTimer === null) {
+    flushTimer = setTimeout(flushLive, LIVE_FLUSH_MS);
+  }
+}
+
+function flushLive() {
+  flushTimer = null;
+  if (!currentPanels) {
+    pendingPrints = [];
     return;
   }
-  Plotly.extendTraces(element, update, indices);
-  if (lastLookbackStart) {
-    Plotly.relayout(elementId, {
-      "xaxis.range": [lastLookbackStart, xs[xs.length - 1]],
+  if (pendingPrints.length) {
+    const prints = pendingPrints;
+    pendingPrints = [];
+    appendPanelRows(currentPanels.p1, prints, ["total_aggress", "price"]);
+    appendPanelRows(currentPanels.p2, prints, ["buysell_ratio", "price"]);
+    appendPanelRows(currentPanels.p3, prints, ["buy_aggress", "sell_aggress", "total_aggress", "price"]);
+    appendPanelRows(currentPanels.p4, prints, ["price", "implied_price"]);
+    ["p1", "p2", "p3", "p4"].forEach((key) => {
+      const panel = currentPanels[key];
+      if (panel && Array.isArray(panel.data)) {
+        trimRowsBefore(panel.data, lastLookbackStart, (row) => row.x, LIVE_MAX_POINTS);
+      }
     });
+    trimBannerSeries();
+    chartsDirty = true;
+  }
+  if ((chartsDirty || stripDirty) && !document.hidden) {
+    renderLiveCharts();
+  }
+}
+
+function renderLiveCharts() {
+  if (chartsDirty) {
+    if (currentPanels.p1) {
+      currentPanels.p1.axis_align = computeAxisAlignment(currentPanels.p1.data || []);
+      renderDualAxisPanel("panel-p1", currentPanels.p1);
+    }
+    if (currentPanels.p2) {
+      renderDualAxisPanel("panel-p2", currentPanels.p2);
+    }
+    if (currentPanels.p3) {
+      renderVolumePanel("panel-p3", currentPanels.p3);
+    }
+    if (currentPanels.p4) {
+      renderPredictionPanel("panel-p4", currentPanels.p4);
+    }
+    chartsDirty = false;
+    stripDirty = true;
+  }
+  if (stripDirty) {
+    trimRowsBefore(lastStripRuns, lastLookbackStart, (run) => run.x1 || run.x0, 0);
+    renderStateTimeline(
+      "panel-p1-states",
+      { data: lastStripRuns, title: "Six-state through lookback" },
+      panelTimeRange(currentPanels.p1),
+    );
+    stripDirty = false;
   }
 }
 
@@ -581,14 +836,10 @@ function applyStripEdge(strip) {
     lastStripRuns.push({ ...strip.run });
   } else if (strip.action === "close" && strip.run && lastStripRuns.length) {
     lastStripRuns[lastStripRuns.length - 1] = { ...strip.run };
+  } else {
+    return;
   }
-  const p1 = document.getElementById("panel-p1");
-  const range = p1 && p1.data && p1.data[0] && p1.data[0].x && p1.data[0].x.length
-    ? [p1.data[0].x[0], p1.data[0].x[p1.data[0].x.length - 1]]
-    : lastLookbackStart
-      ? [lastLookbackStart, strip.run && strip.run.x1]
-      : null;
-  renderStateTimeline("panel-p1-states", { data: lastStripRuns, title: "Six-state through lookback" }, range);
+  stripDirty = true;
 }
 
 function applyTradeDelta(delta) {
@@ -597,12 +848,10 @@ function applyTradeDelta(delta) {
     lastLookbackStart = delta.lookback_start;
   }
   if (prints.length) {
-    extendTraceFields("panel-p1", prints, ["total_aggress", "price"]);
-    extendTraceFields("panel-p2", prints, ["buysell_ratio", "price"]);
-    extendTraceFields("panel-p3", prints, ["buy_aggress", "sell_aggress", "price", "total_aggress"]);
-    extendTraceFields("panel-p4", prints, ["price", "implied_price"]);
+    prints.forEach((row) => pendingPrints.push(row));
     appendBannerRows(prints);
     applyStripEdge(delta.strip);
+    scheduleLiveFlush();
   }
   if (delta.flow_dominance) {
     updateFlowDominanceBanner(delta.flow_dominance);
@@ -612,10 +861,17 @@ function applyTradeDelta(delta) {
   }
   const flow = delta.meta && delta.meta.flow;
   if (flow && META && META.textContent) {
-    META.textContent = META.textContent.replace(
+    let text = META.textContent.replace(
       /Prints: [^|]+/,
       `Prints: ${(flow.trade_count || 0).toLocaleString()} `,
     );
+    if (flow.total_aggress_final != null) {
+      text = text.replace(
+        /Aggress final: [^|]+/,
+        `Aggress final: ${Number(flow.total_aggress_final).toLocaleString(undefined, { maximumFractionDigits: 0 })} `,
+      );
+    }
+    META.textContent = text;
   }
   restoreHoverBanner();
   setStatus(`Live ${formatEtTime()}.`, "");
@@ -626,6 +882,11 @@ function closeLiveStream() {
     liveSource.close();
     liveSource = null;
   }
+  if (flushTimer !== null) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  pendingPrints = [];
 }
 
 function openLiveStream() {
@@ -835,6 +1096,16 @@ document.querySelectorAll("#aggression-symbols input").forEach((input) => {
       refreshDashboard(false);
     }
   });
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    return;
+  }
+  if (flushTimer !== null) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  flushLive();
 });
 
 updateModeUi();

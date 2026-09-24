@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import bisect
 import logging
-import threading
 from datetime import timezone
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -405,112 +404,6 @@ def apply_hist(stored: Optional[pd.DataFrame], hist: Optional[pd.DataFrame], sym
     else:
         keep = (~matched) & (~is_right.to_numpy())
     return _concat_keep(stored_df, hist_df.loc[keep])
-
-
-def _gap_cuts(s_ts: np.ndarray, i_ts: np.ndarray) -> np.ndarray:
-    """Timestamps that start a gap longer than the match window in the merged timeline.
-
-    No candidate pair can span such a gap, so rows before and after it match independently.
-    """
-    merged = np.sort(np.concatenate([s_ts, i_ts]), kind="stable")
-    if len(merged) < 2:
-        return merged[:0]
-    return merged[1:][np.diff(merged) > _WINDOW_NS]
-
-
-class LiveOverlayCache:
-    """``apply_live`` for a sliding lookback window that re-matches only the window edges.
-
-    The middle of the window, between the first gap cut and the previous call's last safe cut,
-    reuses the previous flags when every row from the window start to that cut is unchanged.
-    Anything else (reordered, inserted or edited rows, sequence ids, bad keys) runs the full match.
-    """
-
-    def __init__(self) -> None:
-        self._memo: Dict[str, Dict[str, object]] = {}
-        self._lock = threading.Lock()
-        self.reused = 0
-        self.full = 0
-
-    def apply_live(self, stored: Optional[pd.DataFrame], live: Optional[pd.DataFrame], symbol: str) -> pd.DataFrame:
-        stored_df = _as_trades(stored)
-        live_df = _as_trades(live)
-        if live_df.empty:
-            return stored_df
-        if stored_df.empty:
-            return live_df.sort_values("ts").reset_index(drop=True)
-        with self._lock:
-            matched = self._matched(stored_df, live_df, symbol)
-        return _concat_keep(stored_df, live_df.loc[~matched])
-
-    def _matched(self, stored: pd.DataFrame, live: pd.DataFrame, symbol: str) -> np.ndarray:
-        s_keys = _match_keys(stored, symbol)
-        i_keys = _match_keys(live, symbol)
-        usable = (
-            s_keys is not None
-            and i_keys is not None
-            and "sequence" not in stored.columns
-            and "sequence" not in live.columns
-            and bool(np.all(np.diff(s_keys[4]) >= 0))
-            and bool(np.all(np.diff(i_keys[4]) >= 0))
-        )
-        if not usable:
-            self._memo.pop(symbol, None)
-            self.full += 1
-            return _matched_incoming(stored, live, symbol)
-        memo = self._memo.get(symbol)
-        matched = self._reuse(memo, len(live), s_keys, i_keys) if memo else None
-        if matched is None:
-            self.full += 1
-            matched = _match_on_keys(s_keys, i_keys)
-        else:
-            self.reused += 1
-        cuts = _gap_cuts(s_keys[4], i_keys[4])
-        limit = min(int(s_keys[4][-1]), int(i_keys[4][-1])) - 2 * _WINDOW_NS
-        safe = cuts[cuts <= limit]
-        self._memo[symbol] = {
-            "s": s_keys,
-            "i": i_keys,
-            "matched": matched,
-            "cut": int(safe[-1]) if len(safe) else None,
-        }
-        return matched
-
-    @staticmethod
-    def _reuse(memo, n_live: int, s_keys, i_keys) -> Optional[np.ndarray]:
-        tail_cut = memo["cut"]
-        if tail_cut is None:
-            return None
-        cuts = _gap_cuts(s_keys[4], i_keys[4])
-        if not len(cuts) or int(cuts[0]) >= tail_cut:
-            return None
-        head_cut = int(cuts[0])
-        start = min(int(s_keys[4][0]), int(i_keys[4][0]))
-        bounds = {}
-        for name, cur in (("s", s_keys), ("i", i_keys)):
-            prev = memo[name]
-            p_lo, p_hi = np.searchsorted(prev[4], [start, tail_cut], side="left")
-            c_hi = int(np.searchsorted(cur[4], tail_cut, side="left"))
-            if p_hi - p_lo != c_hi:
-                return None
-            if not all(np.array_equal(p[p_lo:p_hi], c[:c_hi]) for p, c in zip(prev, cur)):
-                return None
-            c_head = int(np.searchsorted(cur[4], head_cut, side="left"))
-            bounds[name] = (c_head, c_hi, int(p_lo))
-        s_head, s_tail, _ = bounds["s"]
-        i_head, i_tail, i_prev_lo = bounds["i"]
-        matched = np.zeros(n_live, dtype=bool)
-        matched[:i_head] = _match_on_keys(
-            tuple(k[:s_head] for k in s_keys),
-            tuple(k[:i_head] for k in i_keys),
-        )
-        prev_matched = memo["matched"]
-        matched[i_head:i_tail] = prev_matched[i_prev_lo + i_head:i_prev_lo + i_tail]
-        matched[i_tail:] = _match_on_keys(
-            tuple(k[s_tail:] for k in s_keys),
-            tuple(k[i_tail:] for k in i_keys),
-        )
-        return matched
 
 
 def reconcile_symbol(

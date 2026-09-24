@@ -21,7 +21,6 @@ Complete I/O contracts for the code-mode MCP system.
 | ensure_beta_ref.bucket_stale | Output | bool | True when last-good tod_bucket ≠ current 5-min ET bucket | Rebuild still kicks; held chip sets return the cached entry and do not re-trigger a rebuild |
 | _kick_beta_ref | Internal | (price_symbol, aggression_symbols, dv01_adjust, trades_window=None) -> Thread \| None | None when a compute for the key is already running | `offer_history()` only after a fresh OK beta; key then joins `_BETA_HELD_KEYS` (beta held until restart) |
 | CATCH_UP_BATCH | Constant | int | 2000 | V3 `_catch_up_live` applies newer live prints in batches this size so the lock is released between batches |
-| LIVE_OVERLAY_MIN_WINDOW | Constant | timedelta | 30 min | V3 `_live_display_trades` uses `LiveOverlayCache` only for windows at least this long (short catch-up windows use plain `apply_live`) |
 | MATCH_WINDOW | Constant | Timedelta | 1ms | Live/hist one-to-one match window in `print_reconcile.py` |
 | REBUILD_MIN_INTERVAL_SEC | Constant | float | 60.0 | V3 publisher: minimum gap between rebuild starts once a snapshot exists; offers inside it fold into one rebuild |
 | V3_GOLDEN_DIR | EnvVar | path | default `C:\dev\mdp_golden\v3\20260923` | `tests/test_v3_reconcile_golden.py` fixture dir (hist_/live_*.parquet, expected_*.npz, manifest.json); golden tests skip if absent |
@@ -2208,6 +2207,14 @@ Complete I/O contracts for the code-mode MCP system.
 | panels.p1_states.data | Output | list[dict] | `{x0,x1,state,headline,color}` READY runs only | Compact six-state strip under V3 Panel 1; WARMING/UNAVAILABLE omitted |
 | aggression_v3.banner.state | Output | str | `QUIET`, `BALANCED`, `AGGRESS_DOMINANT`, `IMPLIED_PASSIVE_DOMINANT`, `JOINTLY_DRIVEN`, `CONTESTED`, `WARMING`, `UNAVAILABLE` | Top banner headline |
 | aggression_v3.beta_ref | Output | float \| None | Price-unit mean of last 10 completed-session `ΔP` on `ΔA` slopes | Banner, Panel 4, Panel 5 |
+| aggression_v3.total_aggress | Output | float | Session-to-date sum of `sign*size*$DV01` from the first print after 18:00 ET; lookback clips the charts only (2026-09-24) | Panel 1/3 level, `meta.flow.total_aggress_final`, per-print `trade` deltas |
+| aggression_v3.flow.trade_count | Output | int | Session prints so far (not the 2-hour window) | Page header `Prints:` |
+| _BACKFILL.covered_end | Internal | datetime \| None | Earliest of the symbols' last fetched Databento prints; unchanged if nothing arrived (was wall-clock `now`) | Next incremental fetch starts `covered_end - 15 min`, inside Databento's available range |
+| PREFIX_TOLERANCE | Constant | float | `0.5` $DV01 | `live_publisher._prefix_changed`: smaller TotalAggress differences are float noise, not a `history` revision |
+| session_labels | Internal | (DatetimeIndex) -> ndarray[object] | Same output as `strftime("%Y-%m-%dT18:00")`, formatted once per distinct date; NaT -> NaN | `core.build_print_frame`, `app._tag_sessions` |
+| LIVE_FLUSH_MS | Constant | int (JS) | `1000` | `dashboard.js`: live prints queue; charts redraw at most once per flush |
+| LIVE_MAX_POINTS | Constant | int (JS) | `80000` rows per panel | `dashboard.js` live trim (plus lookback start) |
+| aggression_v3.chart_decimation | Internal | JS | Per ~pixel bucket keep first/last plus min/max of each plotted field; full detail when zoomed in | `decimateRows` in `dashboard.js`; every drawn point is a real print |
 | aggression_v3.beta_display_yield_bp_per_1m | Output | float \| None | `-β_price * 1e6 * point_value / DV01_c` | Banner reference-beta line |
 | aggression_v3.tau | Constant | float | TU `1/256`, FV `1/128`, TY `1/64`, US `1/32` | Selected price-symbol tick |
 | aggression_v3.live_store | Output | directory | Isolated writes; old logs kept | `workspace/analysis/aggression_v3_live/` |
