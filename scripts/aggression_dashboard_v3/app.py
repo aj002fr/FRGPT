@@ -47,11 +47,12 @@ from scripts.aggression_dashboard_v3.core import (
     normalize_symbol,
     parse_dashboard_datetime,
     prune_trades_cache,
+    session_labels,
     trading_day_start,
 )
 from scripts.aggression_dashboard_v3.live_buffer import LiveTradeBuffer
 from scripts.aggression_dashboard_v3.live_publisher import HEARTBEAT_SEC, LivePublisher
-from scripts.aggression_dashboard_v3.print_reconcile import apply_live, reconcile_by_symbol
+from scripts.aggression_dashboard_v3.print_reconcile import reconcile_by_symbol
 from scripts.aggression_dashboard_v3.panels import build_dashboard_payload, build_state_timeline_panel
 
 logging.basicConfig(
@@ -90,8 +91,6 @@ _TENDAY: Dict[str, Any] = {
     "session_start": None,
     "error": None,
 }
-_SESSION_TICKS_LOCK = threading.Lock()
-_SESSION_TICKS: Dict[str, Any] = {"session_start": None, "trades": {}}
 _LIVE_REBUILD_LOCK = threading.Lock()
 _LIVE_RESULT_CACHE: Dict[Tuple[Any, ...], Dict[str, Any]] = {}
 _BACKFILL_THREAD: threading.Thread | None = None
@@ -358,59 +357,6 @@ def _copy_trade_window(
     return out
 
 
-def _append_session_ticks(
-    session_start: datetime,
-    *,
-    live: Optional[Dict[str, pd.DataFrame]] = None,
-    historical: Optional[Dict[str, pd.DataFrame]] = None,
-) -> None:
-    start_ts = _as_utc_ts(session_start)
-    live = live or {}
-    historical = historical or {}
-    touch = tuple(dict.fromkeys([*live.keys(), *historical.keys()]))
-    with _SESSION_TICKS_LOCK:
-        if _SESSION_TICKS.get("session_start") != session_start:
-            _SESSION_TICKS.update({"session_start": session_start, "trades": {}})
-        stored = dict(_SESSION_TICKS.get("trades") or {})
-    updated = reconcile_by_symbol(stored, touch, live=live, historical=historical)
-    trimmed: Dict[str, pd.DataFrame] = {}
-    for symbol, frame in updated.items():
-        if frame is None or frame.empty:
-            trimmed[symbol] = frame if frame is not None else pd.DataFrame()
-            continue
-        work = frame.copy()
-        work["ts"] = pd.to_datetime(work["ts"], utc=True)
-        work = work.loc[work["ts"] >= start_ts].copy()
-        work.sort_values("ts", inplace=True)
-        work.reset_index(drop=True, inplace=True)
-        trimmed[symbol] = work
-    with _SESSION_TICKS_LOCK:
-        if _SESSION_TICKS.get("session_start") != session_start:
-            return
-        current = dict(_SESSION_TICKS.get("trades") or {})
-        current.update(trimmed)
-        _SESSION_TICKS["trades"] = current
-
-
-def _snapshot_session_ticks(symbols: Tuple[str, ...]) -> Dict[str, pd.DataFrame]:
-    with _SESSION_TICKS_LOCK:
-        return {
-            symbol: df.copy()
-            for symbol, df in (_SESSION_TICKS.get("trades") or {}).items()
-            if symbol in symbols
-        }
-
-
-def _snapshot_session_window(
-    symbols: Tuple[str, ...],
-    start: datetime,
-    end: datetime,
-) -> Dict[str, pd.DataFrame]:
-    with _SESSION_TICKS_LOCK:
-        raw = dict(_SESSION_TICKS.get("trades") or {})
-    return _copy_trade_window(raw, symbols, start, end)
-
-
 def _peek_backfill_window(
     symbols: Tuple[str, ...],
     start: datetime,
@@ -438,16 +384,17 @@ def _live_display_trades(
     start: datetime,
     end: datetime,
 ) -> Tuple[Dict[str, pd.DataFrame], Dict[str, str], Dict[str, Any]]:
-    """Lookback-only live tape: overlay recent live on a sliced store/backfill copy."""
+    """Tape for [start, end]: live prints first, then Databento fills the holes."""
     historical, errors, state = _peek_backfill_window(symbols, start, end)
     live = LIVE_BUFFER.get_trades(symbols, start, end)
-    stored = _snapshot_session_window(symbols, start, end)
-    trades: Dict[str, pd.DataFrame] = {}
-    for symbol in symbols:
-        base = stored.get(symbol)
-        if base is None or base.empty:
-            base = historical.get(symbol)
-        trades[symbol] = apply_live(base, live.get(symbol), symbol)
+    trades = _merge_historical_and_live(historical, live, symbols)
+    for symbol, df in trades.items():
+        if df is None or df.empty:
+            continue
+        source = historical.get(symbol)
+        if source is None or source.empty:
+            source = live.get(symbol)
+        df.attrs["front_contracts"] = source.attrs.get("front_contracts", []) if source is not None else []
     return trades, errors, state
 
 
@@ -495,6 +442,19 @@ def _get_background_backfill(req: AggressionRequest) -> Tuple[Dict[str, pd.DataF
                 trades_snapshot[symbol] = combined
         errors.update(extra_errors)
     return trades_snapshot, errors, state
+
+
+def _backfill_covered_end(
+    merged: Dict[str, pd.DataFrame],
+    previous: Optional[datetime],
+) -> Optional[datetime]:
+    """Earliest of the symbols' last fetched prints, so the next fetch restarts inside Databento's range."""
+    ends = [
+        pd.Timestamp(df["ts"].max()).to_pydatetime()
+        for df in merged.values()
+        if df is not None and not df.empty and "ts" in df.columns
+    ]
+    return min(ends) if ends else previous
 
 
 def _backfill_refresher() -> None:
@@ -551,11 +511,10 @@ def _backfill_refresher() -> None:
                     "errors": errors,
                     "front_contracts": front_contracts,
                     "covered_start": session_start,
-                    "covered_end": end,
+                    "covered_end": _backfill_covered_end(merged, covered_end),
                     "fetched_at": datetime.now(timezone.utc),
                     "error": None,
                 })
-            _append_session_ticks(session_start, historical=merged)
             if _PUBLISHER is not None:
                 _PUBLISHER.offer_history()
         except Exception as exc:
@@ -619,7 +578,7 @@ def _tag_sessions(frame: pd.DataFrame) -> pd.DataFrame:
     et = et.tz_convert(EASTERN)
     start_dates = et.normalize()
     start_dates = start_dates.where(et.hour >= 18, start_dates - pd.Timedelta(days=1))
-    out["session_id"] = pd.DatetimeIndex(start_dates).strftime("%Y-%m-%dT18:00")
+    out["session_id"] = session_labels(pd.DatetimeIndex(start_dates))
     return out
 
 

@@ -55,6 +55,8 @@ NO_EARLIER_PRINT = "No print yet at the 15-minute-earlier endpoint since the ses
 SESSION_RESET = "Banner window reset after a session boundary."
 SUBSCRIBER_QUEUE_MAX = 128
 TIP_SLACK_MIN = 1.0
+PREFIX_TOLERANCE = 0.5
+SERIES_MARGIN = pd.Timedelta(minutes=2 * WINDOW_MIN)
 EMPTY_WINDOW_REASON = "No print yet at the 15-minute-earlier endpoint since the session or configuration reset."
 
 
@@ -151,20 +153,52 @@ def _keep_newer_tail(rebuilt: pd.DataFrame, live: pd.DataFrame) -> pd.DataFrame:
     rebuilt_idx = pd.DatetimeIndex(pd.to_datetime(rebuilt.index, utc=True))
     if live_idx.max() <= rebuilt_idx.max():
         return rebuilt
-    tail = live.loc[live_idx > rebuilt_idx.max()]
+    tail = live.loc[live_idx > rebuilt_idx.max()].copy()
     if tail.empty:
         return rebuilt
-    return pd.concat([rebuilt, tail]).sort_index()
+    return pd.concat([rebuilt, _continue_session_sum(rebuilt, tail)]).sort_index()
+
+
+def _continue_session_sum(rebuilt: pd.DataFrame, tail: pd.DataFrame) -> pd.DataFrame:
+    """Re-accumulate tail TotalAggress from the rebuilt frame's last print, per session."""
+    if "delta_a" not in tail.columns or "total_aggress" not in rebuilt.columns:
+        return tail
+    last_total = _finite_num(rebuilt["total_aggress"].iloc[-1])
+    if last_total is None:
+        return tail
+    last_session = rebuilt["session_id"].iloc[-1] if "session_id" in rebuilt.columns else None
+    sessions = (
+        tail["session_id"].to_numpy()
+        if "session_id" in tail.columns
+        else np.full(len(tail), last_session, dtype=object)
+    )
+    deltas = pd.to_numeric(tail["delta_a"], errors="coerce").fillna(0.0)
+    running = deltas.groupby(sessions, dropna=False).cumsum().to_numpy(dtype=float)
+    tail["total_aggress"] = running + np.where(sessions == last_session, last_total, 0.0)
+    return tail
+
+
+def _clip_with_margin(frame: pd.DataFrame, display: pd.DataFrame, margin: pd.Timedelta) -> pd.DataFrame:
+    """Frame rows from `margin` before the display start: enough for 15-minute endpoints."""
+    if frame is None or frame.empty or display is None or display.empty:
+        return frame
+    return frame.loc[frame.index >= display.index.min() - margin]
 
 
 def _prefix_changed(
     old: Tuple[Tuple[int, float], ...],
     new: Tuple[Tuple[int, float], ...],
 ) -> bool:
-    old_map = dict(old)
     new_map = dict(new)
-    for ts, value in old_map.items():
-        if ts in new_map and new_map[ts] != value:
+    for ts, value in dict(old).items():
+        if ts not in new_map:
+            continue
+        other = new_map[ts]
+        if value is None or other is None:
+            if value is not other:
+                return True
+            continue
+        if abs(other - value) > PREFIX_TOLERANCE:
             return True
     return False
 
@@ -231,6 +265,7 @@ class LivePublisher:
         self._pending_rows: List[Dict[str, Any]] = []
         self._recent_points: Deque[Dict[str, Any]] = deque(maxlen=50_000)
         self._snapshot_through_ns = 0
+        self._session_prints = 0
         self._dv01: Optional[Dict[str, float]] = None
         self._beta_bucket: Optional[str] = None
         self._beta_peek_mono = 0.0
@@ -349,15 +384,17 @@ class LivePublisher:
                 logger.exception("V3 live rebuild failed")
 
     def rebuild(self) -> Optional[Dict[str, Any]]:
-        """Assemble the shared snapshot. Empty-tape WARMING is not stored."""
+        """Assemble the shared snapshot from the session open. Empty-tape WARMING is not stored.
+
+        TotalAggress and the implied path run from 18:00 ET; lookback only clips the charts.
+        """
         now = datetime.now(timezone.utc)
         session_start = default_start_time(now)
         lookback_start = now - timedelta(hours=self.lookback_hours)
-        window_start = now - timedelta(minutes=WINDOW_MIN)
-        trades, errors, backfill_state = self.assemble_trades(lookback_start, now)
-        frame, flow_meta = self._frame_from_trades(trades, lookback_start)
+        trades, errors, backfill_state = self.assemble_trades(session_start, now)
+        frame, flow_meta = self._frame_from_trades(trades, session_start)
         if not frame_has_window_print(frame, pd.Timestamp(now)):
-            cached = self.load_cached_window(min(window_start, lookback_start), now)
+            cached = self.load_cached_window(session_start, now)
             merged = dict(trades)
             for symbol, extra in cached.items():
                 existing = merged.get(symbol)
@@ -376,7 +413,7 @@ class LivePublisher:
                     both.reset_index(drop=True, inplace=True)
                     merged[symbol] = both
             trades = merged
-            frame, flow_meta = self._frame_from_trades(trades, lookback_start)
+            frame, flow_meta = self._frame_from_trades(trades, session_start)
         dv01_table = self.load_dv01()
         beta_payload = self.peek_beta(now)
         if not beta_payload.get("ok") or beta_payload.get("bucket_stale"):
@@ -385,9 +422,11 @@ class LivePublisher:
         with self._lock:
             live_tail = self._pending_frame()
         frame = _keep_newer_tail(frame, live_tail)
+        display = clip_print_lookback(frame, self.lookback_hours)
+        recent = _clip_with_margin(frame, display, SERIES_MARGIN)
         banner_as_of = frame.index.max() if frame is not None and not frame.empty else now
         banner = build_banner(
-            frame,
+            recent,
             beta_payload,
             price_symbol=self.price_symbol,
             as_of=banner_as_of,
@@ -411,7 +450,6 @@ class LivePublisher:
         tenday_frame = self.tenday_path(float(beta_ref) if beta_ref else None)
         if tenday_frame.empty and beta_ref:
             self.kick_tenday(float(beta_ref), dv01_table)
-        display = clip_print_lookback(frame, self.lookback_hours)
         display_path = clip_print_lookback(session_path, self.lookback_hours)
         meta = {
             "request": {
@@ -444,7 +482,7 @@ class LivePublisher:
         }
         response = build_dashboard_payload(display, display_path, tenday_frame, meta)
         series = build_banner_series(
-            frame,
+            recent,
             beta_payload,
             price_symbol=self.price_symbol,
             as_of_index=display.index if not display.empty else None,
@@ -492,7 +530,7 @@ class LivePublisher:
             "lookback_start": _to_et_iso(datetime.now(timezone.utc) - timedelta(hours=self.lookback_hours)),
             "meta": {
                 "flow": {
-                    "trade_count": len(self._ts),
+                    "trade_count": self._session_prints,
                     "total_aggress_final": prints[-1].get("total_aggress"),
                 }
             },
@@ -585,7 +623,7 @@ class LivePublisher:
             flow = meta.setdefault("flow", {})
             if prints:
                 flow["time_end"] = prints[-1].get("x")
-                flow["trade_count"] = len(self._ts)
+                flow["trade_count"] = self._session_prints
                 flow["total_aggress_final"] = prints[-1].get("total_aggress")
             for key in ("p1", "p2", "p3", "p4"):
                 panel = panels.get(key) or {}
@@ -622,6 +660,8 @@ class LivePublisher:
         if last_session is not None and last_session != session_id:
             last_aggress = 0.0
             self._path_anchor = None
+            self._session_prints = 0
+        self._session_prints += 1
         total_aggress = last_aggress + delta_a
         denom = buy + sell
         raw = (100.0 * delta_a / denom) if denom else float("nan")
@@ -812,12 +852,12 @@ class LivePublisher:
     ) -> None:
         p2 = ((response.get("panels") or {}).get("p2") or {}).get("data") or []
         last_p2 = p2[-1] if p2 else None
-        priced = display["price"].dropna() if not display.empty and "price" in display.columns else pd.Series(dtype=float)
-        aggress = display["total_aggress"] if not display.empty and "total_aggress" in display.columns else pd.Series(dtype=float)
         anchor = None
-        if not priced.empty and not aggress.empty:
-            first = display.loc[display["price"].notna()].iloc[0]
-            anchor = (float(first["price"]), float(first["total_aggress"]))
+        if frame is not None and not frame.empty and {"price", "total_aggress"} <= set(frame.columns):
+            priced = frame.loc[frame["price"].notna()]
+            if not priced.empty:
+                first = priced.iloc[0]
+                anchor = (float(first["price"]), float(first["total_aggress"]))
         encoded = encode_sse("snapshot", response)
         through_ns = 0
         if frame is not None and not frame.empty:
@@ -836,7 +876,7 @@ class LivePublisher:
             self._snapshot_through_ns = through_ns
             self._loading = None
             self._frame = frame
-            self._index_tape(frame)
+            self._index_tape(display)
             for row in kept_rows:
                 self._push_tape(
                     int(row["ts_ns"]),
@@ -845,6 +885,7 @@ class LivePublisher:
                     str(row.get("session_id") or ""),
                 )
             self._pending_rows = kept_rows
+            self._session_prints = int(len(frame)) + len(kept_rows) if frame is not None else len(kept_rows)
             self._display = display
             self._path = session_path
             self._beta = beta_payload
@@ -855,7 +896,11 @@ class LivePublisher:
             if last_p2:
                 self._buysell_ewm = last_p2.get("buysell_ratio")
                 try:
-                    self._buysell_ts = pd.Timestamp(str(last_p2.get("x")).replace(" ", "T"))
+                    self._buysell_ts = (
+                        pd.Timestamp(str(last_p2.get("x")).replace(" ", "T"))
+                        .tz_localize("America/New_York")
+                        .tz_convert("UTC")
+                    )
                 except Exception:
                     self._buysell_ts = display.index.max() if not display.empty else None
             else:
@@ -924,7 +969,9 @@ class LivePublisher:
             prev = prev.tz_localize("UTC")
         dt = (ts - prev).total_seconds()
         half = BUYSELL_DISPLAY_HALFLIFE.total_seconds()
-        if dt <= 0 or half <= 0:
+        if dt <= 0:
+            return self._buysell_ewm
+        if half <= 0:
             self._buysell_ewm = float(raw)
         else:
             decay = 0.5 ** (dt / half)

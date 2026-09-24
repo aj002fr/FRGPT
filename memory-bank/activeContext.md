@@ -2,6 +2,30 @@
 
 ## Recent Changes (2026-09-24)
 
+### V3 page freeze fix (live) and day-so-far running sum (restart pending)
+
+- Symptom (12:07 ET): Chrome "page isn't responding" on 5053 and the banner "as of 12:02:25". The server was idle (0.05 CPU-s per 10 s); all five SSE writer threads were blocked because the browsers had stopped reading.
+- Page fix, live now (`dashboard.js` is served `no-store`; a reload picks it up):
+  - Trade deltas are queued; charts redraw at most once per second with one `Plotly.react` per panel and `uirevision`.
+  - Min/max decimation per pixel bucket (every drawn point is a real print; full detail when zoomed).
+  - Panel 3 buy/sell are WebGL spikes; their values show on the TotalAggress hover.
+  - Measured in the browser against the running V3: redraw ~155 ms per flush (was ~734 ms), main thread ~12% busy, banner lag 0–1 s.
+- Server fix, on disk and tested (55 pass), **needs a V3 restart**:
+  - Rebuilds run from `session_start` (18:00 ET). TotalAggress is session-to-date and the Panel 4 path starts from the session's first price. Lookback clips the charts only.
+  - The old 2-hour rebase shifted every value, forced a 41 MB `history` resend each rebuild, and left a visible step at the live tail (seen at 12:42, about −4M).
+  - `_prefix_changed` has a 0.5 $DV01 tolerance. The rebuild-time tail is re-accumulated onto the rebuilt sum.
+  - `_live_display_trades` is the live-first merge (hist fills holes); the unused hist-only session store was removed.
+  - Backfill `covered_end` is the earliest symbol's last fetched print, not `now`, which fixes the repeating `422 data_start_after_available_end` gaps.
+  - `build_print_frame` sign/session labels are computed once per distinct value; `_tag_sessions` uses `session_labels` too.
+  - The BuySell live smoothing ignores same-timestamp prints (it used to reset to ±100) and reads the last Panel 2 time as ET, not UTC.
+  - The template is bumped to `dashboard.js?v=live3`.
+- Blocked: Cursor's shell failed with `EMFILE: too many open files` on its terminal files (a subagent failed the same way). V3 PID 19800, started 11:47 ET under cmd 34424, is still running the pre-change server code. To apply: close that V3 window (or `taskkill /PID 34424 /T /F`), then run `Y:\Aastha\SOD\run_aggression_monitor_v3.bat`.
+- After the restart, check:
+  - `history` events are rare (hole-fills only).
+  - The Panel 1 left edge shows the session-to-date level with no step at the right edge.
+  - The console shows `data_end_after_available_end ... Retrying` instead of repeated `data_start_after_available_end` 422s.
+  - Each rebuild costs ~15–20 CPU-s every ~4 minutes.
+
 ### V3 5053 CPU spin quick fix (restarted 11:47 ET)
 
 - Symptom: 5053 was delayed and not responding. The 9/23 21:07 process (PID 34760) had used one full core for 14 hours (~52k CPU-s, ~3 GB). `py-spy dump --nonblocking` showed `v3-live-rebuild` holding the GIL in `print_reconcile._matched_incoming`, called from `apply_live` in `_live_display_trades`.

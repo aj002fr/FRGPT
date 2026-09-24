@@ -895,6 +895,21 @@ def build_aggression_dataset(
     return flow_df, price_df, meta
 
 
+def _aggressor_signs(side: pd.Series) -> pd.Series:
+    """`side.apply(classify_aggressor)`, evaluated once per distinct side value."""
+    lookup = {value: classify_aggressor(value) for value in pd.unique(side)}
+    return side.map(lookup).fillna(0).astype("int64")
+
+
+def session_labels(session_dates: pd.DatetimeIndex) -> np.ndarray:
+    """`session_dates.strftime('%Y-%m-%dT18:00')`, formatted once per distinct date."""
+    codes, uniques = pd.factorize(session_dates)
+    labels = np.asarray(pd.DatetimeIndex(uniques).strftime("%Y-%m-%dT18:00"), dtype=object)
+    if not len(labels):
+        return np.full(len(codes), np.nan, dtype=object)
+    return np.where(codes >= 0, labels[np.maximum(codes, 0)], np.nan)
+
+
 def build_print_frame(
     trades_by_symbol: Dict[str, pd.DataFrame],
     *,
@@ -922,7 +937,7 @@ def build_print_frame(
             else:
                 start_ts = start_ts.tz_convert("UTC")
             df = df.loc[df["ts"] >= start_ts].copy()
-        df["sign"] = df["side"].apply(classify_aggressor)
+        df["sign"] = _aggressor_signs(df["side"])
         unit = float(dv01_table.get(symbol, 1.0)) if dv01_adjust else 1.0
         size = df["size"].astype(float)
         df["buy_aggress"] = ((df["sign"] == 1).astype(float) * size * unit)
@@ -976,7 +991,7 @@ def build_print_frame(
     et = ts_index.tz_convert(EASTERN)
     session_dates = et.normalize()
     session_dates = session_dates.where(et.hour >= 18, session_dates - pd.Timedelta(days=1))
-    all_tr["session_id"] = pd.DatetimeIndex(session_dates).strftime("%Y-%m-%dT18:00")
+    all_tr["session_id"] = session_labels(pd.DatetimeIndex(session_dates))
     all_tr["total_aggress"] = all_tr.groupby("session_id", sort=False)["delta_a"].cumsum()
     denom = all_tr["buy_aggress"] + all_tr["sell_aggress"]
     raw = (100.0 * all_tr["delta_a"] / denom).where(denom != 0)
