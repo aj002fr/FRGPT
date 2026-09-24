@@ -2,7 +2,14 @@
 
 ## Recent Changes (2026-09-24)
 
-### Dashboard reliability plan: Release 0 (R0.3–R0.4 for the 17:00 ET window; R0.2 held)
+### Dashboard reliability plan: Release 0 deployed 2026-09-24 17:12–17:20 ET
+
+- 17:12 R0.3 V1 (no ten-day persist): V1 restarted through its launcher loop, 5050 HTTP 200.
+- 17:13–17:17 R0.4 5064/5065 events from Postgres: 5064 now headless task `MDP R0 flow 5064`, 5065 task restarted; both `events.ok`, 2,124 rows from 172.30.86.68; Y: `keys.env` has the read-only DSN, Y: `.cursorrules` calendar note updated.
+- 17:17–17:20 V3 exchange-time history (`-Item v3core -ReleaseRef r0-v3core`, user-approved): only `core.py` changed; V3 now headless task `MDP R0 v3 5053` (log `%LOCALAPPDATA%\market_data_puller\logs\v3_5053.log`), first snapshot 136 s after start (cold `trades_v3` fetch, Databento cost $0). Production session TotalAggress at 16:59:59.899 ET −23,000,471 vs AccessAPI-only recompute −23,002,060 (0.007%). The parallel session's V3 edits were already live from its 15:11 restart.
+- Backups for all three under `C:\dev\mdp_backups\release0_20260924\<item>`; rollback `ops\release0\deploy_release0.ps1 -Item <item> -Action restore` (v3core needs `-ReleaseRef r0-v3core`).
+
+### Release 0 staging notes (morning)
 
 - Plan: `c:\Users\aasth\.cursor\plans\dashboard_reliability_fixes_4e8509b6.plan.md`. This work lives in the C: checkout `C:\dev\market_data_puller`, branch `ops/local-runtime` (Y: history, snapshot commit `6715631` of the 11:05 Y: tree, parallel V3 fix merged in `ae0cd42`). Y: stays read-only except Release 0 deploys through `ops\release0\deploy_release0.ps1`, which refuses if a Y: file changed since the `yshare-sync` merge base.
 - R0.1 done 10:58: v27 (5063) and supply weeks (5065) run headless from tasks `MDP R0 v27 5063` / `MDP R0 supply 5065` (logs `%LOCALAPPDATA%\market_data_puller\logs\`); `:8445`/`:8447` answer.
