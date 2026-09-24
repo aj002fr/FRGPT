@@ -633,7 +633,63 @@ function renderPredictionPanel(elementId, panel) {
   Plotly.react(elementId, traces, baseLayout(panel), { responsive: true });
 }
 
+const TAPE_PANEL_FIELDS = {
+  p1: ["total_aggress", "price"],
+  p3: ["buy_aggress", "sell_aggress", "total_aggress", "price"],
+  p4: ["price", "implied_price"],
+};
+
+function isoFromUs(us) {
+  const ms = Math.floor(us / 1000);
+  return new Date(ms).toISOString().slice(0, 23) + String(us - ms * 1000).padStart(3, "0");
+}
+
+function compactRows(block, fields) {
+  const dt = (block && block.dt) || [];
+  const cols = (block && block.cols) || {};
+  const names = fields || Object.keys(cols);
+  const rows = new Array(dt.length);
+  let us = block ? block.x0 : 0;
+  for (let i = 0; i < dt.length; i += 1) {
+    us += dt[i];
+    const row = { x: isoFromUs(us) };
+    names.forEach((field) => {
+      const col = cols[field];
+      row[field] = col ? col[i] : null;
+    });
+    rows[i] = row;
+  }
+  return rows;
+}
+
+// Compact live snapshots carry columns and decimated history (panels.py); rebuild the row format.
+function expandCompactPayload(payload) {
+  const panels = payload && payload.panels;
+  if (!panels) {
+    return;
+  }
+  const tape = payload.tape;
+  Object.entries(panels).forEach(([key, panel]) => {
+    if (!panel) {
+      return;
+    }
+    if (panel.compact) {
+      panel.data = compactRows(panel.compact).concat(panel.data || []);
+      panel.compact = null;
+    } else if (tape && panel.from_tape && TAPE_PANEL_FIELDS[key]) {
+      panel.data = compactRows(tape, TAPE_PANEL_FIELDS[key]).concat(panel.data || []);
+      panel.from_tape = false;
+    }
+    if (panel.large_residuals_compact) {
+      panel.large_residuals = compactRows(panel.large_residuals_compact, ["price"]).map((row) => ({ x: row.x, y: row.price }));
+      panel.large_residuals_compact = null;
+    }
+  });
+  payload.tape = null;
+}
+
 function renderPayload(payload) {
+  expandCompactPayload(payload);
   currentPanels = payload.panels || {};
   const p1Rows = payload.panels && payload.panels.p1 && payload.panels.p1.data;
   if (p1Rows && p1Rows.length) {

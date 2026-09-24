@@ -39,9 +39,11 @@ from scripts.aggression_dashboard_v3.panels import (
     READY_STATE_COLORS,
     STATE_HEADLINE,
     _to_et_iso,
-    build_dashboard_payload,
+    build_compact_dashboard_payload,
     build_state_timeline_panel,
     collapse_ready_state_runs,
+    last_panel_row,
+    slim_banner_series,
 )
 from scripts.totalaggress_vs_price_chart import classify_aggressor as _classify_aggressor
 
@@ -556,7 +558,7 @@ class LivePublisher:
             "live_status": live_status,
             "label": "PROVISIONAL / RESEARCH-ONLY / TRADE-TO-TRADE / NON-EXECUTABLE",
         }
-        response = build_dashboard_payload(display, display_path, tenday_frame, meta)
+        response = build_compact_dashboard_payload(display, display_path, tenday_frame, meta)
         series = build_banner_series(
             recent,
             beta_payload,
@@ -564,7 +566,7 @@ class LivePublisher:
             as_of_index=display.index if not display.empty else None,
         )
         response["flow_dominance"] = banner
-        response["flow_dominance_series"] = series
+        response["flow_dominance_series"] = slim_banner_series(series)
         response["panels"]["p1_states"] = build_state_timeline_panel(series)
         prefix = _aggress_prefix(display)
         event = self._revision_event(prefix, beta_payload)
@@ -908,8 +910,7 @@ class LivePublisher:
         prefix: Tuple[Tuple[int, float], ...],
     ) -> Dict[str, Any]:
         """Everything a rebuild swap needs that does not read live state. Runs off the lock."""
-        p2 = ((response.get("panels") or {}).get("p2") or {}).get("data") or []
-        last_p2 = p2[-1] if p2 else None
+        last_p2 = last_panel_row((response.get("panels") or {}).get("p2") or {})
         anchor = None
         if frame is not None and not frame.empty and {"price", "total_aggress"} <= set(frame.columns):
             priced = frame.loc[frame["price"].notna()]
@@ -1013,13 +1014,14 @@ class LivePublisher:
             self._loading = None
             self._frame = frame
             self._ts, self._px, self._ag, self._sid, self._gap_ns = prepared["tape"]
+            drift = 0.0
             for row in kept_rows:
-                self._push_tape(
-                    int(row["ts_ns"]),
-                    row.get("price"),
-                    row.get("total_aggress"),
-                    str(row.get("session_id") or ""),
-                )
+                session = str(row.get("session_id") or "")
+                carried = self._ag[-1] if self._ag and self._sid and self._sid[-1] == session else None
+                total = (carried if carried is not None else 0.0) + float(row.get("delta_a") or 0.0)
+                drift = max(drift, abs(total - float(row.get("total_aggress") or 0.0)))
+                row["total_aggress"] = total
+                self._push_tape(int(row["ts_ns"]), row.get("price"), total, session)
             self._pending_rows = kept_rows
             self._session_prints = int(len(frame)) + len(kept_rows) if frame is not None else len(kept_rows)
             self._display = display
@@ -1034,6 +1036,16 @@ class LivePublisher:
             self._seen_set = prepared["seen_set"]
             for key in kept_seen:
                 self._remember(key)
+            if drift > PREFIX_TOLERANCE:
+                # Prints applied during the rebuild carried the old tape's base (e.g. the warming
+                # tape, which starts at 0); subscribers must redraw from the rebuilt picture.
+                if len(kept_points) == len(kept_rows):
+                    for point, row in zip(kept_points, kept_rows):
+                        point["total_aggress"] = row["total_aggress"]
+                        point["implied_price"] = self._implied_price(row["total_aggress"], point.get("price"), self._beta_ref)
+                else:
+                    logger.warning("V3 rebuild: %s kept rows vs %s kept points; replay not re-based", len(kept_rows), len(kept_points))
+                event = event or "history"
             if prepared["beta_bucket"] is not None:
                 self._beta_bucket = prepared["beta_bucket"]
             if kept_points:

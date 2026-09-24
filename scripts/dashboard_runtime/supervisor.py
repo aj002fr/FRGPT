@@ -190,6 +190,7 @@ class Supervisor:
         state.proc = self.launcher(spec)
         state.started_at = self.clock()
         state.failures = 0
+        state.last_detail = "started"
         logger.info("started %s (pid %s)", spec.name, getattr(state.proc, "pid", None))
 
     def stop(self, spec: AppSpec) -> None:

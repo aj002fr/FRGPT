@@ -17,6 +17,7 @@ from scripts.aggression_dashboard_v3.live_publisher import (
     frame_has_window_print,
 )
 from scripts.aggression_dashboard_v3.banner import build_banner
+from scripts.aggression_dashboard_v3.panels import expand_payload
 
 
 @pytest.fixture(autouse=True)
@@ -334,7 +335,7 @@ def test_lookback_clips_the_chart_but_not_the_session_sum():
     pub = _publisher(_tape(_recent_start(20), minutes=20, n=40, side="B"), lookback_hours=0.1)
     snapshot = pub.rebuild()
     assert snapshot and snapshot.get("success")
-    p1 = snapshot["panels"]["p1"]["data"]
+    p1 = expand_payload(snapshot)["panels"]["p1"]["data"]
     assert 0 < len(p1) < 40
     assert p1[0]["total_aggress"] == 40 - len(p1) + 1
     assert p1[-1]["total_aggress"] == 40
@@ -359,8 +360,8 @@ def test_longer_tape_keeps_values_and_sends_no_history():
     pub.assemble_trades = lambda _s, _e: (longer, {}, {})
     second = pub.rebuild()
     assert q.empty()
-    before = {row["x"]: row["total_aggress"] for row in first["panels"]["p1"]["data"]}
-    after = {row["x"]: row["total_aggress"] for row in second["panels"]["p1"]["data"]}
+    before = {row["x"]: row["total_aggress"] for row in expand_payload(first)["panels"]["p1"]["data"]}
+    after = {row["x"]: row["total_aggress"] for row in expand_payload(second)["panels"]["p1"]["data"]}
     shared = set(before) & set(after)
     assert shared
     assert all(before[x] == after[x] for x in shared)
@@ -395,3 +396,56 @@ def test_same_timestamp_print_keeps_buysell_ewm():
     after = pub._update_buysell_ewm(later, -100.0)
     assert after == pytest.approx(0.0)
     assert pub._update_buysell_ewm(later, 100.0) == after
+
+
+def test_prints_applied_during_a_rebuild_continue_the_rebuilt_sum():
+    """Warming prints sum from 0; a print applied mid-rebuild must be re-based onto the rebuilt tape."""
+    start = _recent_start(30)
+    hist = _tape(start, minutes=20, n=80, side="A", size=10)["TY"]
+    last_ts = hist["ts"].iloc[-1]
+    live_rows: list = []
+    state = {"hist": False}
+
+    def trade(sec: float, side: str = "B") -> Dict[str, Any]:
+        return {"ts": last_ts + pd.Timedelta(seconds=sec), "price": 111.0, "size": 2, "side": side, "dashboard_symbol": "TY"}
+
+    def assemble(_s, _e):
+        parts = ([hist] if state["hist"] else []) + ([pd.DataFrame(live_rows)] if live_rows else [])
+        ty = pd.concat(parts, ignore_index=True) if parts else _empty_symbol("TY")
+        if len(ty):
+            ty["ts"] = pd.to_datetime(ty["ts"], utc=True)
+            ty = ty.sort_values("ts").reset_index(drop=True)
+        return {"TY": ty, "FV": _empty_symbol("FV"), "TU": _empty_symbol("TU"), "US": _empty_symbol("US")}, {}, {}
+
+    pub = _publisher({"TY": hist}, lookback_hours=1.0)
+    pub.assemble_trades = assemble
+
+    def live(sec: float) -> None:
+        tr = trade(sec)
+        live_rows.append({**tr, "instrument_id": "1", "raw_symbol": "TYM6"})
+        pub.apply_trades([tr])
+
+    for sec in range(1, 6):
+        live(sec)
+    assert pub._ag[-1] == 10.0
+    state["hist"] = True
+    prepare = pub._prepare_picture
+
+    def prepare_with_a_print_arriving(*args, **kwargs):
+        prepared = prepare(*args, **kwargs)
+        pub.apply_trades([trade(6.5)])
+        return prepared
+
+    pub._prepare_picture = prepare_with_a_print_arriving
+    q = pub.subscribe()
+    pub.rebuild()
+    pub._prepare_picture = prepare
+    rebuilt = float(pub._frame["total_aggress"].iloc[-1])
+    assert pub._ag[-1] == rebuilt + 2.0
+    live(8)
+    assert pub._ag[-1] == rebuilt + 4.0
+    replay = pub.subscribe()
+    replay.get_nowait()
+    prints = json.loads(replay.get_nowait().split("data: ", 1)[1])["prints"]
+    assert [p["total_aggress"] for p in prints] == [rebuilt + 2.0, rebuilt + 4.0]
+    del q
