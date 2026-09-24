@@ -81,12 +81,12 @@ def _validate_market_data_agent_params(params: Dict[str, Any]) -> bool:
         if not isinstance(sym, str) or not sym:
             return False
     elif template == "by_date":
-        date_str = inner.get("file_date")
+        date_str = inner.get("date")
         if not isinstance(date_str, str) or len(date_str) < 8:
             return False
     elif template == "by_symbol_and_date":
         sym = inner.get("symbol_pattern")
-        date_str = inner.get("file_date")
+        date_str = inner.get("date")
         if not (isinstance(sym, str) and sym):
             return False
         if not (isinstance(date_str, str) and len(date_str) >= 8):

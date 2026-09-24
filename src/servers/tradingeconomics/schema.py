@@ -7,8 +7,9 @@ validating Trading Economics API responses.
 """
 
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # =============================================================================
 # API Configuration
@@ -90,29 +91,31 @@ IMPORTANCE_MAP = {
 
 # Map short codes to full country names for API
 COUNTRY_CODE_MAP = {
-    "US": "united states",
-    "GB": "united kingdom",
-    "UK": "united kingdom",
-    "EU": "euro area",
-    "DE": "germany",
-    "FR": "france",
-    "JP": "japan",
-    "CN": "china",
-    "CA": "canada",
-    "AU": "australia",
-    "CH": "switzerland",
-    "NZ": "new zealand",
-    "ES": "spain",
-    "IT": "italy",
-    "KR": "south korea",
-    "IN": "india",
-    "BR": "brazil",
-    "MX": "mexico",
-    "RU": "russia",
-    "TR": "turkey",
+    "US": "United States",
+    "GB": "United Kingdom",
+    "UK": "United Kingdom",
+    "EU": "Euro Area",
+    "DE": "Germany",
+    "FR": "France",
+    "JP": "Japan",
+    "CN": "China",
+    "CA": "Canada",
+    "AU": "Australia",
+    "CH": "Switzerland",
+    "NZ": "New Zealand",
+    "ES": "Spain",
+    "IT": "Italy",
+    "KR": "South Korea",
+    "IN": "India",
+    "BR": "Brazil",
+    "MX": "Mexico",
+    "RU": "Russia",
+    "TR": "Turkey",
 }
 
 MAJOR_COUNTRIES = list(COUNTRY_CODE_MAP.keys())
+
+
 
 
 def normalize_country(country: str) -> str:
@@ -143,7 +146,6 @@ def normalize_country(country: str) -> str:
 MAX_CALENDAR_RESULTS = 1000
 DEFAULT_CALENDAR_RESULTS = 100
 DEFAULT_LOOKBACK_DAYS = 20
-DEFAULT_WINDOW_HOURS = 12
 
 # =============================================================================
 # WebSocket Configuration
@@ -231,50 +233,77 @@ def format_event_result(event: Dict[str, Any]) -> Dict[str, Any]:
 
 def _parse_event_date(raw_date: Any) -> str:
     """
-    Parse event date from various formats to ISO format.
+    Parse event date from various formats and convert to US/Eastern local time.
+    
+    Trading Economics API returns UTC timestamps. This function converts them
+    to US/Eastern time (EST/EDT) automatically based on DST rules.
     
     Args:
         raw_date: Raw date value (string, timestamp, or datetime)
         
     Returns:
-        ISO format date string (YYYY-MM-DDTHH:MM:SSZ)
+        ISO format local time string (YYYY-MM-DDTHH:MM:SS) in US/Eastern timezone
     """
     if not raw_date:
         return ""
     
+    # US/Eastern timezone for DST-aware conversion
+    eastern_tz = ZoneInfo("America/New_York")
+    
     if isinstance(raw_date, datetime):
-        return raw_date.isoformat()
+        # If datetime is timezone-aware, convert to Eastern
+        if raw_date.tzinfo is not None:
+            local_dt = raw_date.astimezone(eastern_tz)
+        else:
+            # Assume UTC if naive
+            local_dt = raw_date.replace(tzinfo=timezone.utc).astimezone(eastern_tz)
+        return local_dt.strftime("%Y-%m-%dT%H:%M:%S")
     
     if isinstance(raw_date, (int, float)):
-        # Unix timestamp
+        # Unix timestamp - assume UTC
         try:
             dt = datetime.fromtimestamp(raw_date, tz=timezone.utc)
-            return dt.isoformat()
+            local_dt = dt.astimezone(eastern_tz)
+            return local_dt.strftime("%Y-%m-%dT%H:%M:%S")
         except (ValueError, OSError):
             return str(raw_date)
     
     # String parsing
-    raw_str = str(raw_date)
-    
-    # Try various date formats
-    formats = [
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%dT%H:%M:%SZ",
-        "%Y-%m-%dT%H:%M:%S.%f",
-        "%Y-%m-%dT%H:%M:%S.%fZ",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d",
-        "%m/%d/%Y %H:%M:%S",
-        "%m/%d/%Y",
-    ]
-    
-    for fmt in formats:
+    raw_str = str(raw_date).strip()
+    if not raw_str:
+        return ""
+
+    # Normalize common ISO variants for fromisoformat()
+    s = raw_str.replace(" ", "T")
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+
+    # 1) Prefer fromisoformat if it looks like ISO datetime
+    if "T" in s:
         try:
-            dt = datetime.strptime(raw_str.replace("Z", ""), fmt.replace("Z", ""))
-            return dt.replace(tzinfo=timezone.utc).isoformat()
+            dt = datetime.fromisoformat(s)
+            if dt.tzinfo is None:
+                # TradingEconomics API timestamps are UTC if no offset is included
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(eastern_tz).strftime("%Y-%m-%dT%H:%M:%S")
+        except ValueError:
+            pass
+
+    # 2) Date-only ISO
+    try:
+        dt = datetime.strptime(raw_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        return dt.astimezone(eastern_tz).strftime("%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        pass
+
+    # 3) Legacy/alt formats (assume UTC)
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%m/%d/%Y"):
+        try:
+            dt = datetime.strptime(raw_str, fmt).replace(tzinfo=timezone.utc)
+            return dt.astimezone(eastern_tz).strftime("%Y-%m-%dT%H:%M:%S")
         except ValueError:
             continue
-    
+
     # Return original if can't parse
     return raw_str
 
@@ -363,41 +392,6 @@ def normalize_importance(importance: Any) -> str:
         Normalized importance string (low/medium/high)
     """
     return IMPORTANCE_MAP.get(importance, IMPORTANCE_MEDIUM)
-
-
-def calculate_event_window(
-    event_date: str,
-    window_hours: int = DEFAULT_WINDOW_HOURS
-) -> tuple:
-    """
-    Calculate time window around an event for correlation queries.
-    
-    Args:
-        event_date: ISO format event date
-        window_hours: Hours before and after event
-        
-    Returns:
-        Tuple of (start_datetime, end_datetime) as ISO strings
-    """
-    from datetime import timedelta
-    
-    try:
-        # Parse the event date
-        if "T" in event_date:
-            dt = datetime.fromisoformat(event_date.replace("Z", "+00:00"))
-        else:
-            dt = datetime.fromisoformat(event_date)
-            dt = dt.replace(tzinfo=timezone.utc)
-        
-        # Calculate window
-        delta = timedelta(hours=window_hours)
-        start_dt = dt - delta
-        end_dt = dt + delta
-        
-        return (start_dt.isoformat(), end_dt.isoformat())
-        
-    except (ValueError, TypeError):
-        return ("", "")
 
 
 def build_api_url(
@@ -499,3 +493,44 @@ CREATE INDEX IF NOT EXISTS idx_live_received_at ON live_event_stream(received_at
 CREATE INDEX IF NOT EXISTS idx_live_event_date ON live_event_stream(event_date);
 """
 
+# =============================================================================
+# Date Tags Table (Trader Notes/Annotations)
+# =============================================================================
+CREATE_DATE_TAGS_TABLE = """
+CREATE TABLE IF NOT EXISTS date_tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tag_date TEXT NOT NULL,
+    tag_datetime TEXT,
+    has_time INTEGER DEFAULT 0,
+    comment TEXT NOT NULL,
+    hashtags TEXT,
+    created_by TEXT,
+    created_at TEXT NOT NULL
+);
+"""
+
+CREATE_DATE_TAGS_INDICES = """
+CREATE INDEX IF NOT EXISTS idx_date_tags_date ON date_tags(tag_date);
+CREATE INDEX IF NOT EXISTS idx_date_tags_datetime ON date_tags(tag_datetime);
+CREATE INDEX IF NOT EXISTS idx_date_tags_created_by ON date_tags(created_by);
+"""# =============================================================================
+# Event Tags Table (Non-Economic Events / Event Windows)
+# =============================================================================
+CREATE_EVENT_TAGS_TABLE = """
+CREATE TABLE IF NOT EXISTS event_tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    start_timestamp TEXT NOT NULL,
+    end_timestamp TEXT,
+    exact_event_time_known INTEGER NOT NULL DEFAULT 0,
+    event_comments TEXT,
+    tags TEXT,
+    market_impact TEXT,
+    created_at TEXT NOT NULL
+);
+"""
+
+CREATE_EVENT_TAGS_INDICES = """
+CREATE INDEX IF NOT EXISTS idx_event_tags_start_ts ON event_tags(start_timestamp);
+CREATE INDEX IF NOT EXISTS idx_event_tags_end_ts ON event_tags(end_timestamp);
+CREATE INDEX IF NOT EXISTS idx_event_tags_tags ON event_tags(tags);
+"""

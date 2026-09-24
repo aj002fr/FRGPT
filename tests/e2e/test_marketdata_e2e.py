@@ -29,7 +29,7 @@ class TestMarketDataE2E:
         # Run query
         output_path = agent.run(
             template="by_symbol",
-            params={"symbol_pattern": "%.C"}
+            params={"symbol_pattern": "ZN%"}
         )
         
         # Assert output file exists
@@ -53,8 +53,8 @@ class TestMarketDataE2E:
         
         # Assert SQL contains LIKE for symbol pattern
         sql = metadata["query"]
-        assert "LIKE" in sql, "SQL should use LIKE for pattern matching"
-        assert "market_data" in sql, "SQL should query market_data table"
+        assert "ILIKE" in sql, "SQL should use ILIKE for pattern matching"
+        assert "ohlcv_1m" in sql, "SQL should query ohlcv_1m table"
         
         # Assert manifest incremented
         manifest = Manifest(agent.workspace)
@@ -91,10 +91,10 @@ class TestMarketDataE2E:
         agent = MarketDataAgent()
         
         # Query with specific columns
-        columns = ["symbol", "bid", "ask", "price"]
+        columns = ["timestamp", "symbol", "open", "close", "volume"]
         output_path = agent.run(
             template="by_symbol",
-            params={"symbol_pattern": "XCME.OZN.%"},
+            params={"symbol_pattern": "ZN%"},
             columns=columns
         )
         
@@ -113,7 +113,7 @@ class TestMarketDataE2E:
         # Assert data matches filter (all symbols should match pattern)
         for record in data:
             symbol = record.get("symbol", "")
-            assert symbol.startswith("XCME.OZN."), f"Symbol {symbol} should match pattern"
+            assert symbol.startswith("ZN"), f"Symbol {symbol} should match pattern"
     
     def test_consumer(self, clean_workspace):
         """
@@ -128,7 +128,7 @@ class TestMarketDataE2E:
         producer = MarketDataAgent()
         producer_output = producer.run(
             template="by_symbol",
-            params={"symbol_pattern": "%.C"},
+            params={"symbol_pattern": "ZN%"},
             limit=10
         )
         
@@ -177,20 +177,20 @@ class TestMarketDataE2E:
         # Run 1
         output1 = agent.run(
             template="by_symbol",
-            params={"symbol_pattern": "%.C"},
+            params={"symbol_pattern": "ZN%"},
             limit=5
         )
         
         # Run 2
         output2 = agent.run(
             template="by_symbol",
-            params={"symbol_pattern": "%.P"},
+            params={"symbol_pattern": "ZF%"},
             limit=5
         )
         
         # Run 3
         output3 = agent.run(
-            template="all_valid",
+            template="all",
             limit=5
         )
         
@@ -224,7 +224,7 @@ class TestMarketDataE2E:
         # Run query
         output_path = agent.run(
             template="by_date",
-            params={"file_date": "2025-07-21"}
+            params={"date": "2025-07-21"}
         )
         
         # Check logs directory
@@ -258,8 +258,8 @@ class TestMarketDataE2E:
         assert log_data["agent"] == "market-data-agent"
         assert log_data["sql"] != "", "SQL should not be empty"
         assert log_data["output_path"] == str(output_path)
-        assert "file_date" in log_data["params"]
-        assert log_data["params"]["file_date"] == "2025-07-21"
+        assert "date" in log_data["params"]
+        assert log_data["params"]["date"] == "2025-07-21"
         
         # Assert duration is reasonable (> 0, < 10 seconds)
         assert log_data["duration_ms"] > 0
@@ -279,7 +279,7 @@ class TestMarketDataE2E:
         
         # Test invalid limit
         with pytest.raises(ValueError, match="Limit must be positive"):
-            agent.run(template="all_valid", limit=-1)
+            agent.run(template="all", limit=-1)
     
     def test_full_pipeline(self, clean_workspace):
         """
@@ -291,14 +291,14 @@ class TestMarketDataE2E:
         producer = MarketDataAgent()
         producer_output1 = producer.run(
             template="by_symbol",
-            params={"symbol_pattern": "XCME.OZN.%"},
-            columns=["symbol", "bid", "ask", "price"],
+            params={"symbol_pattern": "ZN%"},
+            columns=["timestamp", "symbol", "open", "close"],
             limit=20
         )
         
         producer_output2 = producer.run(
             template="by_date",
-            params={"file_date": "2025-07-21"},
+            params={"date": "2025-07-21"},
             limit=15
         )
         

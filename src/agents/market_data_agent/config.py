@@ -17,33 +17,36 @@ def get_workspace_path() -> Path:
 OUT_DIR = "out"
 LOGS_DIR = "logs"
 
-# Default column whitelist
+# Default column whitelist (logical names exposed by run_query)
 DEFAULT_COLUMNS = [
-    "symbol",
-    "bid",
-    "ask",
-    "price",
     "timestamp",
-    "file_date"
+    "symbol",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
 ]
 
-# Query templates available
+# Query templates available (TimescaleDB / PostgreSQL ohlcv_1m)
 AVAILABLE_TEMPLATES = [
     "by_symbol",
     "by_date",
     "by_symbol_and_date",
-    "all_valid",
-    "custom"
+    "by_filters",
+    "all",
+    "custom",
 ]
 
 # Validation rules
 MAX_ROWS = 10000  # Maximum rows per query
 REQUIRED_PARAMS = {
     "by_symbol": ["symbol_pattern"],
-    "by_date": ["file_date"],
-    "by_symbol_and_date": ["symbol_pattern", "file_date"],
-    "all_valid": [],
-    "custom": ["conditions"]  # conditions is required, values is optional
+    "by_date": ["date"],
+    "by_symbol_and_date": ["symbol_pattern", "date"],
+    "by_filters": [],  # validated separately to require at least one filter
+    "all": [],
+    "custom": ["conditions"],  # conditions required; values optional
 }
 
 

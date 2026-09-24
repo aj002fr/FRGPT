@@ -1,0 +1,2 @@
+"""Static, versioned hypothesis registry."""
+

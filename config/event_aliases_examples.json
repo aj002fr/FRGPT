@@ -1,0 +1,84 @@
+{
+  "description": "Example aliases for common economic events. Add these to event_dictionary.json under each event's details.",
+  "note": "To add aliases to an event, add an 'aliases' field (list of strings) to the event details",
+  "examples": {
+    "United States": {
+      "Consumer Price Index": {
+        "aliases": ["CPI", "Inflation", "Price Index"]
+      },
+      "Non Farm Payrolls": {
+        "aliases": ["NFP", "Jobs Report", "Employment Report", "Payrolls"]
+      },
+      "Federal Funds Rate": {
+        "aliases": ["FOMC Rate Decision", "Fed Rate", "Interest Rate Decision", "Fed Decision"]
+      },
+      "Core CPI": {
+        "aliases": ["Core Inflation", "Core Price Index"]
+      },
+      "GDP Growth Rate": {
+        "aliases": ["GDP", "Gross Domestic Product", "Economic Growth"]
+      },
+      "Initial Jobless Claims": {
+        "aliases": ["Jobless Claims", "Unemployment Claims", "Claims"]
+      },
+      "ISM Manufacturing PMI": {
+        "aliases": ["ISM PMI", "Manufacturing PMI", "PMI"]
+      },
+      "Retail Sales": {
+        "aliases": ["Retail", "Consumer Spending"]
+      },
+      "Personal Consumption Expenditures": {
+        "aliases": ["PCE", "Core PCE"]
+      },
+      "JOLTS Job Openings": {
+        "aliases": ["JOLTS", "Job Openings"]
+      },
+      "Producer Price Index": {
+        "aliases": ["PPI", "Wholesale Inflation"]
+      },
+      "ADP Employment Change": {
+        "aliases": ["ADP", "ADP Jobs"]
+      },
+      "University of Michigan Consumer Sentiment": {
+        "aliases": ["UMich", "Consumer Sentiment", "Michigan Sentiment"]
+      }
+    },
+    "Euro Area": {
+      "ECB Interest Rate Decision": {
+        "aliases": ["ECB Rate", "Euro Rate", "ECB Decision"]
+      },
+      "Harmonised Index of Consumer Prices": {
+        "aliases": ["HICP", "Euro Inflation", "Eurozone CPI"]
+      }
+    },
+    "United Kingdom": {
+      "BoE Interest Rate Decision": {
+        "aliases": ["BOE Rate", "Bank of England Rate", "UK Rate"]
+      }
+    },
+    "Japan": {
+      "BoJ Interest Rate Decision": {
+        "aliases": ["BOJ Rate", "Bank of Japan Rate"]
+      }
+    },
+    "China": {
+      "Caixin Manufacturing PMI": {
+        "aliases": ["Caixin PMI", "China PMI"]
+      }
+    }
+  },
+  "instructions": [
+    "1. Open config/event_dictionary.json",
+    "2. Find the event you want to add aliases to",
+    "3. Add an 'aliases' field with a list of alternative names",
+    "4. Example format:",
+    "   \"Consumer Price Index\": {",
+    "     \"category\": \"Inflation Rate\",",
+    "     \"importance\": 3,",
+    "     \"ticker\": \"USCPI\",",
+    "     \"example_date\": \"2023-01-12\",",
+    "     \"aliases\": [\"CPI\", \"Inflation\", \"Price Index\"]",
+    "   }"
+  ]
+}
+

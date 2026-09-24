@@ -1,0 +1,189 @@
+# experiments.yaml
+registry_path: workspace/analysis/aggression_v2_move_exhaustion/manifests/experiment_registry.csv
+order:
+  - E00_data_causality_audit
+  - E01_event_detector_comparison
+  - E02_price_only_baselines
+  - E03_v2_residual_baseline
+  - E17_interaction_only_exhaustion_rules
+  - E18_multivariate_exhaustion_classification
+  - E19_discrete_time_exhaustion_hazard
+  - E20_competing_risks_model
+  - E21_additional_extension_quantile_model
+  - E22_reversal_magnitude_model
+  - E23_mbp1_refill
+  - E24_mbp10_book_shape
+  - E25_mbo_queue_hidden_liquidity
+  - E27_abstention_selective_prediction
+  - E28_feature_family_ablation
+  - E26_trading_policy_simulation
+  - E29_placebo_falsification
+  - E30_stability_and_drift
+status:
+  E00_data_causality_audit: passed
+  E01_event_detector_comparison: completed
+  E02_price_only_baselines: completed
+  E03_v2_residual_baseline: completed
+  E04_flow_dominance_categories: completed
+  E05_dv01_per_tick: completed
+  E06_impact_efficiency_decay: completed
+  E07_state_dependent_impact_shortfall: completed
+  E08_flow_persistence_and_termination: completed
+  E09_large_versus_small_trade_composition: completed
+  E10_tbbo_apparent_absorption_at_extreme: completed
+  E11_liquidity_conditioned_exhaustion: completed
+  E12_microprice_and_book_imbalance_confirmation: completed
+  E13_fair_value_and_residual_dynamics: completed
+  E14_cross_tenor_price_confirmation: completed
+  E15_cross_tenor_flow_confirmation: completed
+  E16_time_of_day_and_session_regimes: completed
+  E17_interaction_only_exhaustion_rules: completed
+  E18_multivariate_exhaustion_classification: completed
+  E19_discrete_time_exhaustion_hazard: completed
+  E20_competing_risks_model: completed
+  E21_additional_extension_quantile_model: completed
+  E22_reversal_magnitude_model: completed
+  E23_mbp1_refill: unavailable
+  E24_mbp10_book_shape: completed
+  E25_mbo_queue_hidden_liquidity: unavailable
+  E26_trading_policy_simulation: completed
+  E27_abstention_selective_prediction: completed
+  E28_feature_family_ablation: completed
+  E29_placebo_falsification: completed
+  E30_stability_and_drift: completed
+e05_hypothesis_supported: false
+e05_note: >
+  After removing forward-path leakage, no strict success. Start-time
+  dv01/contracts-per-tick AUC~0.51; soft lead flow_since_last_extreme is
+  unstable. Hypothesis not supported at event-start on this sample.
+e06_hypothesis_supported: false
+e06_note: >
+  Primary still-extending landmark (t+5m) sample: decay hypothesis NOT
+  supported (regime direction wrong / underpowered; ablation ΔAUC negative).
+  Level impact_efficiency_5m remains an in-sample lead (lower efficiency →
+  higher exhaustion) but is not the decay claim. Holdout locked.
+e07_hypothesis_supported: false
+e07_provisional_lead: true
+e07_note: >
+  Boosted expected-impact best by OOS RMSE. Start-time shortfall is nearly
+  collinear with -actual progress (r~-0.92); only +1.8pp AUC vs actual.
+  Provisional vs residual/fixed on eval (n_resolved=64); cum shortfall
+  excluded as path-contaminated. Holdout locked.
+e08_hypothesis_supported: false
+e08_note: >
+  No strict successes. Soft leads: max_same_side_run, intensity_acceleration,
+  sign_entropy (entropy direction opposite mixing→exhaustion). Only
+  intensity_peak_passed clears 8pp flag spread. Persistence bundle AUC 0.55
+  vs intensity 0.51. Hawkes unavailable on 1m panel. Holdout locked.
+e09_hypothesis_supported: false
+e09_note: >
+  No continuous successes. Eval large_led n_resolved=3 so hypothesis contrast
+  underpowered. Descriptive: large_flow_disappearance exhaustion ~69% vs
+  opposite_large ~37% on eval. Holdout locked.
+e10_hypothesis_supported: false
+e10_opposite_stable_lead: true
+e10_note: >
+  Absorption→exhaustion NOT supported. Stable opposite: more directional
+  DV01 at extreme without advance associates with CONTINUATION (score
+  spearman -0.38, coef negative, survives controls ΔAUC~+1.8pp). Carry as
+  falsified-direction candidate. Holdout locked.
+e11_hypothesis_supported: true
+e11_note: >
+  Liquidity interactions supported in-sample and on eval (bundle ΔAUC
+  +1.3pp / +5.3pp eval, n_resolved_eval=64). Useful: shortfall×depth,
+  decay×depth (landmark subset), flowtick×spread. Wide-spread exhaustion
+  ~66% vs tight ~55%. Boosted AUCs diagnostic-only (overfit). Holdout locked.
+e12_hypothesis_supported: true
+e12_note: >
+  Microprice/imbalance confirmation supported: ΔAUC +10.4pp vs price-only.
+  All continuous features succeed with hypothesized direction (supportive
+  book → less exhaustion). Pattern flags ~+7pp (just under 8pp cut).
+  Note: microprice_dev and size_imbalance are collinear (r=1) on this panel.
+  Holdout locked.
+e13_hypothesis_supported: true
+e13_note: >
+  Dynamics beat static |residual_z| by +9.5pp AUC (price/FV velocity).
+  Attractive extreme+price-revert+stable-FV flag fired n=0 at thresholds.
+  Category fade PnL: gap-widening best (+0.67), FV-chasing (+0.45),
+  price-reverting (+0.24) — secondary fade-category claim not supported.
+  Multi-model FV disagreement unavailable (single ridge). Holdout locked.
+e14_hypothesis_supported: false
+e14_note: >
+  Neighbour mid prices unavailable on frozen TY panel; flow-proxy only.
+  Price breadth/PCA not tested. Alone-vs-all contrast underpowered/wrong
+  sign. Descriptive: target_is_last_tenor_to_move exhaustion 82.6% (n=23).
+  Curve features add AUC vs TY flow alone but direction unstable. Holdout locked.
+e15_hypothesis_supported: true
+e15_note: >
+  Duration-norm curve_directional_flow_factor succeeds (AUC 0.54, coef<0,
+  sign-stable): more curve-wide DV01 → less exhaustion. Bundle ΔAUC +6.2pp
+  vs target flow alone. Residual→exhaustion NOT supported (coef≈0 / wrong
+  sign). Target-only vs curve-wide contrast underpowered (n_resolved=1).
+  Breadth/n_confirming AUC 0.57 with correct direction but discrete mono
+  undefined. Holdout locked.
+e16_hypothesis_supported: true
+e16_note: >
+  Recommend do-not-signal in opening_period and roll_period (exclusion
+  ΔAUC +3.6pp / +5.5pp). Interactions beat plain pooled (+7.2pp eval AUC)
+  but absolute AUCs remain weak (~0.49). Separate models do not beat
+  pooled+interactions. Scheduled-macro overlap n=0 on this sample.
+  Roll flag is calendar proxy only. Holdout locked.
+e17_hypothesis_supported: false
+e17_note: >
+  Shallow trees depth 2/3 on 1m grid. Eval top-leaf lift +49pp but n=3
+  (need n>=15) — rejected. Rules extracted to extracted_rules.csv.
+  Holdout locked.
+e18_hypothesis_supported: true
+e18_note: >
+  F7 all-eligible HistGBM/logistic: eval Brier 0.134 vs F0 0.252 (~47%
+  relative improvement), PR-AUC 0.78, top-10% precision 0.50. GAM/LightGBM
+  skipped. Target leakage columns excluded from F7. Holdout locked.
+e19_hypothesis_supported: false
+e19_note: >
+  Primary hazard bin=1m (5/15/30s unavailable). Pooled logistic interval
+  hazard: PR-AUC 0.08 on rare positive bins; verdict rejected despite low
+  Brier (class imbalance). Horizon Brier within_5m=0.017. Holdout locked.
+e20_hypothesis_supported: false
+e20_note: >
+  Unresolved rate 68%. Cause-specific hazards weak (PR-AUC ~0.05);
+  does not beat resolved-only E18 on eval. Cum incidence exhaustion_15m
+  14.5%. Verdict rejected. Holdout locked.
+e21_hypothesis_supported: true
+e21_note: >
+  Linear quantile 80% coverage 85.8% OOS (passes ~80% gate). Pinball
+  at q=0.8 = 0.77. HGB q=0.8 coverage 79.5%. Holdout locked.
+e22_hypothesis_supported: true
+e22_note: >
+  Exhaustion-only eval n=31. Best 5m Ridge MAE 1.10 ticks (mean actual
+  2.29). 15m/30m MAE higher as expected. Holdout locked.
+e23_status: unavailable
+e23_note: >
+  MBP-1 folder exists but 0 parquet files. No refill features fabricated.
+e24_hypothesis_supported: false
+e24_note: >
+  Overlap 19 dates / 78 resolved. Causal MBP-10 depth proxies vs F7:
+  delta AUC=0 / delta Brier=0. Not supported. Holdout locked.
+e25_status: unavailable
+e25_note: >
+  No historical MBO store. Unavailable.
+e26_hypothesis_supported: false
+e26_note: >
+  Val-selected P4 thr=0.60; primary eval mean net -0.54 ticks after
+  bid/ask + 0.5-tick costs; date concentration flag. Holdout NOT opened.
+e27_hypothesis_supported: true
+e27_note: >
+  Top-decile precision 0.67 vs all 0.51 (n=6). Research-promising but
+  sparse. Holdout locked.
+e28_note: >
+  Drop-one: cross_tenor largest Brier harm. Sequential F7 Brier 0.126
+  vs F0 0.251. Holdout locked.
+e29_verdict: pass
+e29_note: >
+  5/6 placebos passed (flow-shuffle incremental did not fully vanish).
+  Holdout locked.
+e30_verdict: unstable
+e30_note: >
+  High PSI, week AUC spread, prediction drift, E26 date concentration.
+  Holdout locked.
+final_report: docs/aggression_v2_move_exhaustion_final_report.md
+holdout_opened: false

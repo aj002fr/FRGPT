@@ -1,0 +1,6 @@
+# features_mbp10.yaml
+enabled: true
+reason: >
+  E24 uses overlapping event dates vs ZN_outrights_mbp10 (~26 days) and
+  read-only aggression_v2_depth depth_feature_matrix causal columns.
+  research_features ZNM6 covers a subset. Never write to D:\FRDBs.

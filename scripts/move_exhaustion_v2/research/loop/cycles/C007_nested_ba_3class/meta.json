@@ -1,0 +1,36 @@
+{
+  "cycle": "C007",
+  "slug": "nested_ba_3class",
+  "tier": "EXPLORATORY",
+  "status": "REVIEWED",
+  "opened_utc": "2026-08-13T16:48:00Z",
+  "closed_utc": "2026-08-13T17:05:00Z",
+  "backlog_ref": "BL-6",
+  "parent_cycle": "C006",
+  "data_window_used": {
+    "start": "2022-01-05",
+    "end": "2022-04-25"
+  },
+  "dates_used_source": "workspace/analysis/move_exhaustion_v2/experiments/X1_20260813T143427Z/manifest.json",
+  "holdout_opened": false,
+  "artifact_paths": [
+    "workspace/analysis/move_exhaustion_v2/loop/C007_nested_ba_3class/run_c007.py",
+    "workspace/analysis/move_exhaustion_v2/loop/C007_nested_ba_3class/metrics.json",
+    "workspace/analysis/move_exhaustion_v2/loop/C007_nested_ba_3class/oos_predictions_c007.csv"
+  ],
+  "advisor_decision": "PARKED",
+  "worker_model": "composer-2.5 (in-IDE fallback; Codex sandbox cannot access Y: share)",
+  "worker_agent_id": null,
+  "advisor_models": ["gpt-5.6-sol-max"],
+  "solo_review_reason": "Human waived the Fable 5 seat on 2026-08-13. Solo reviews may not PROMOTE_REQUEST.",
+  "headline_metrics": {
+    "delta_brier_multiclass": "-0.00102 [95% CI: -0.00559, +0.00247]",
+    "delta_auc_REVERSAL_pp": -0.12,
+    "delta_auc_CONTINUATION_pp": 0.002,
+    "delta_auc_OSCILLATORY_UNRESOLVED_pp": -0.82,
+    "n_oos": 1062,
+    "n_floor_pass": true,
+    "holdout_opened": false
+  },
+  "wall_clock_minutes": 0
+}

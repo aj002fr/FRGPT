@@ -27,12 +27,11 @@ from .config import (
     get_workspace_path,
     OUT_DIR,
     LOGS_DIR,
-    DEFAULT_WINDOW_HOURS,
     DEFAULT_LOOKBACK_DAYS,
     DEFAULT_MAX_RESULTS,
     AVAILABLE_ACTIONS,
+    REQUIRED_ANY_OF_PARAMS,
     MAX_RESULTS,
-    MAX_WINDOW_HOURS,
     VALID_IMPORTANCE_LEVELS,
 )
 
@@ -46,10 +45,9 @@ class EventDataPullerAgent:
     This is a producer agent that:
     1. Updates economic calendar from Trading Economics API
     2. Queries historical event data
-    3. Finds correlated events within time windows
-    4. Manages WebSocket stream for live events
-    5. Writes output with incremented filename
-    6. Logs each run with action and parameters
+    3. Manages WebSocket stream for live events
+    4. Writes output with incremented filename
+    5. Logs each run with action and parameters
     """
     
     def __init__(self):
@@ -68,8 +66,6 @@ class EventDataPullerAgent:
         country: Optional[str] = None,
         lookback_timestamp: Optional[str] = None,
         lookback_days: Optional[int] = None,
-        window_hours: float = DEFAULT_WINDOW_HOURS,
-        target_event_date: Optional[str] = None,
         importance: Optional[str] = None,
         keyword: Optional[str] = None,
         category: Optional[str] = None,
@@ -78,7 +74,6 @@ class EventDataPullerAgent:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         full_refresh: bool = False,
-        include_correlations: bool = True,
         apply_filters: bool = True,
         highlight_only: bool = False,
     ) -> Path:
@@ -86,14 +81,12 @@ class EventDataPullerAgent:
         Execute action and write to file bus.
         
         Args:
-            action: Action to perform (update_calendar, query_event, find_correlations, etc.)
+            action: Action to perform (update_calendar, query_event, search_events, etc.)
             event_id: Event ID/ticker from Trading Economics
             event_name: Event name for search
             country: Country code filter (e.g., 'US', 'GB')
             lookback_timestamp: Only return events after this date (ISO format)
             lookback_days: Days to look back (alternative to lookback_timestamp)
-            window_hours: Hours before/after for correlation analysis
-            target_event_date: Specific date for target event in correlation
             importance: Importance filter (low/medium/high)
             keyword: Search keyword for events
             category: Event category filter
@@ -102,7 +95,6 @@ class EventDataPullerAgent:
             start_date: Start date for calendar fetch (YYYY-MM-DD)
             end_date: End date for calendar fetch (YYYY-MM-DD)
             full_refresh: If true, refreshes entire calendar history
-            include_correlations: If true, includes correlated events with query_event
             apply_filters: If true, applies event exclusion/inclusion filters (default: True)
             highlight_only: If true, only returns high-importance events (default: False)
             
@@ -120,7 +112,7 @@ class EventDataPullerAgent:
         
         try:
             # Validate inputs
-            self._validate_inputs(action, event_id, event_name, window_hours, limit)
+            self._validate_inputs(action, event_id, event_name, limit)
             
             # Auto-update calendar if requested
             if update_calendar or action == "update_calendar":
@@ -150,13 +142,10 @@ class EventDataPullerAgent:
                 country=country,
                 lookback_timestamp=lookback_timestamp,
                 lookback_days=lookback_days,
-                window_hours=window_hours,
-                target_event_date=target_event_date,
                 importance=importance,
                 keyword=keyword,
                 category=category,
                 limit=limit,
-                include_correlations=include_correlations,
                 apply_filters=apply_filters,
                 highlight_only=highlight_only,
             )
@@ -198,7 +187,6 @@ class EventDataPullerAgent:
         action: str,
         event_id: Optional[str],
         event_name: Optional[str],
-        window_hours: float,
         limit: int
     ) -> None:
         """Validate inputs."""
@@ -209,18 +197,16 @@ class EventDataPullerAgent:
                 f"Available: {', '.join(AVAILABLE_ACTIONS)}"
             )
         
-        # For query_event and find_correlations, need at least one identifier
-        if action in ("query_event", "find_correlations"):
-            if not event_id and not event_name:
-                raise ValueError(
-                    f"Action '{action}' requires either event_id or event_name"
-                )
-        
-        # Validate window_hours
-        if window_hours <= 0:
-            raise ValueError("window_hours must be positive")
-        if window_hours > MAX_WINDOW_HOURS:
-            raise ValueError(f"window_hours exceeds maximum: {MAX_WINDOW_HOURS}")
+        # Some actions require at least one of a set of parameters
+        required_any_of = REQUIRED_ANY_OF_PARAMS.get(action)
+        if required_any_of:
+            provided = {
+                "event_id": event_id,
+                "event_name": event_name,
+            }
+            if not any(provided.get(k) for k in required_any_of):
+                human = " or ".join(sorted(required_any_of))
+                raise ValueError(f"Action '{action}' requires {human}")
         
         # Validate limit
         if limit <= 0:
@@ -276,13 +262,10 @@ class EventDataPullerAgent:
         country: Optional[str],
         lookback_timestamp: Optional[str],
         lookback_days: Optional[int],
-        window_hours: float,
-        target_event_date: Optional[str],
         importance: Optional[str],
         keyword: Optional[str],
         category: Optional[str],
         limit: int,
-        include_correlations: bool,
         apply_filters: bool = True,
         highlight_only: bool = False,
     ) -> Dict[str, Any]:
@@ -290,7 +273,7 @@ class EventDataPullerAgent:
         
         if action == "query_event":
             
-            # Query event history (try local DB first)
+            # Query event history - tool handles fuzzy matching internally
             event_result = self.mcp_client.call_tool(
                 "query_event_history",
                 arguments={
@@ -330,7 +313,7 @@ class EventDataPullerAgent:
                     full_refresh=False
                 )
                 
-                # Query again
+                # Query again - tool handles fuzzy matching internally
                 event_result = self.mcp_client.call_tool(
                     "query_event_history",
                     arguments={
@@ -361,73 +344,7 @@ class EventDataPullerAgent:
                     ]
                     event_result["count"] = len(event_result["events"])
             
-            # Optionally add correlations for each event instance
-            if include_correlations and event_result.get("success") and event_result.get("events"):
-                event_result["correlations"] = []
-                
-                # Find correlations for recent instances (max 5)
-                recent_events = event_result["events"][:5]
-                
-                for event in recent_events:
-                    corr_result = self.mcp_client.call_tool(
-                        "find_correlated_events",
-                        arguments={
-                            "target_event_id": event.get("event_id"),
-                            "target_event_date": event.get("event_date"),
-                            "window_hours": window_hours,
-                            "exclude_same_event": True,
-                            "limit": 20,
-                        }
-                    )
-                    
-                    if corr_result.get("success"):
-                        # Filter correlated events too
-                        corr_events = corr_result.get("correlated_events", [])
-                        if apply_filters:
-                            corr_events = filter_events(corr_events, apply_exclusions=True)
-                        
-                        event_result["correlations"].append({
-                            "event_date": event.get("event_date"),
-                            "correlated_count": len(corr_events),
-                            "correlated_events": corr_events[:10],
-                        })
-            
             return event_result
-        
-        elif action == "find_correlations":
-            # Find correlated events for a specific date
-            corr_result = self.mcp_client.call_tool(
-                "find_correlated_events",
-                arguments={
-                    "target_event_id": event_id,
-                    "target_event_name": event_name,
-                    "target_event_date": target_event_date,
-                    "window_hours": window_hours,
-                    "exclude_same_event": True,
-                    "min_importance": importance,
-                    "country": country,
-                    "limit": limit,
-                }
-            )
-            
-            # Apply event filters to correlated events
-            if corr_result.get("success") and corr_result.get("correlated_events"):
-                if apply_filters:
-                    corr_result["correlated_events"] = filter_events(
-                        corr_result["correlated_events"],
-                        apply_exclusions=True
-                    )
-                    corr_result["count"] = len(corr_result["correlated_events"])
-                
-                # Filter to highlight only if requested
-                if highlight_only:
-                    corr_result["correlated_events"] = [
-                        e for e in corr_result["correlated_events"]
-                        if e.get("is_highlight", False)
-                    ]
-                    corr_result["count"] = len(corr_result["correlated_events"])
-            
-            return corr_result
         
         elif action == "search_events":
             # Search for events
@@ -618,8 +535,6 @@ class EventDataPullerAgent:
         event_id: Optional[str] = None,
         event_name: Optional[str] = None,
         lookback_days: Optional[int] = None,
-        include_correlations: bool = True,
-        window_hours: float = DEFAULT_WINDOW_HOURS
     ) -> Path:
         """
         Convenience method to query event history.
@@ -628,8 +543,6 @@ class EventDataPullerAgent:
             event_id: Event ID/ticker
             event_name: Event name
             lookback_days: Days to look back
-            include_correlations: Include correlated events
-            window_hours: Window for correlation analysis
             
         Returns:
             Path to output file
@@ -639,34 +552,5 @@ class EventDataPullerAgent:
             event_id=event_id,
             event_name=event_name,
             lookback_days=lookback_days,
-            include_correlations=include_correlations,
-            window_hours=window_hours
-        )
-    
-    def find_correlations(
-        self,
-        event_id: Optional[str] = None,
-        event_name: Optional[str] = None,
-        target_event_date: Optional[str] = None,
-        window_hours: float = DEFAULT_WINDOW_HOURS
-    ) -> Path:
-        """
-        Convenience method to find correlated events.
-        
-        Args:
-            event_id: Target event ID
-            event_name: Target event name
-            target_event_date: Specific event date
-            window_hours: Hours before/after to search
-            
-        Returns:
-            Path to output file
-        """
-        return self.run(
-            action="find_correlations",
-            event_id=event_id,
-            event_name=event_name,
-            target_event_date=target_event_date,
-            window_hours=window_hours
         )
 

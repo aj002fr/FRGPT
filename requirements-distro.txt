@@ -1,0 +1,18 @@
+# Optional dependencies for DistroDashboard analytics tools
+# Install with: pip install -r requirements-distro.txt
+#
+# These are required for:
+# - compute_returns_distribution
+# - compute_volatility_distribution
+# - compute_probability_matrix
+# - compute_event_distribution
+
+pandas>=2.0.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+scipy>=1.10.0
+numpy>=1.24.0
+pyarrow>=12.0.0
+tzlocal>=5.0
+psycopg2-binary>=2.9.9  # PostgreSQL driver for ohlcv_1m table
+

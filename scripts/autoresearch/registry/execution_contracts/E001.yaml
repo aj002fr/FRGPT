@@ -1,0 +1,38 @@
+schema_version: 1
+experiment_id: E001
+base_spec_hash: 2fdf32f13566c854bcbb0058030789f52369975583d302c64e468fb0406e61d3
+kind: predictive
+candidate:
+  response: price - day_open_price
+  predictors: [agg_cum_daily, TY_agg_5m, FV_agg_5m, TU_agg_5m, US_agg_5m]
+  intercept: true
+  imputation: discovery_median
+  scaling: discovery_mean_std_unit_for_constant
+  ridge_lambda: 0.000001
+  session_reset: 18:00 America/New_York
+  warmup_minutes: 60
+  outputs: [flip_count, absolute_residual, residual_age, residual_change, recent_price_momentum]
+evaluator:
+  baseline_features: [absolute_residual, residual_age, residual_change, recent_price_momentum, realized_vol, trade_intensity, spread_mean, session_sin, session_cos, event_blackout, roll_flag]
+  augmented_features: [flip_count]
+  imputation: discovery_median
+  scaling: discovery_mean_std_unit_for_constant
+  logit_l2: 0.000001
+selection:
+  outer_folds:
+    - {train_end: "2024-12-31", score_start: "2025-01-01", score_end: "2025-02-28"}
+    - {train_end: "2025-02-28", score_start: "2025-03-01", score_end: "2025-04-30"}
+    - {train_end: "2025-04-30", score_start: "2025-05-01", score_end: "2025-06-30"}
+    - {train_end: "2025-06-30", score_start: "2025-07-01", score_end: "2025-08-31"}
+  embargo_minutes: 30
+  positive_folds_required: 3
+  ranking: pooled_equal_date_brier_improvement_desc
+  tie_break: [window_minutes_asc, deadband_ticks_desc, dwell_minutes_asc]
+outcome:
+  horizon_minutes: 30
+  bound_ticks: 4
+  tick_size: 0.015625
+  boundary: exact_touch_is_zero
+  anchor_spacing_minutes: 30
+  minimum_future_coverage: 0.8
+  endpoint_tolerance_minutes: 2

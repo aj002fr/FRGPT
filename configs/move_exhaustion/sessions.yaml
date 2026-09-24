@@ -1,0 +1,21 @@
+# sessions.yaml — freeze to legacy V2 convention
+session_convention: legacy_v2_01_et
+session_start_et: "01:00"
+session_end_et: "17:00"
+day_open_rule: first_ty_price_in_session
+minutes_since_open_zero_at: "01:00"
+rth_window_et:
+  start: "08:00"
+  end: "15:00"
+regimes:
+  - overnight
+  - pre_us
+  - us_morning
+  - us_afternoon
+  - settlement_window
+  - roll_period
+  - scheduled_macro_window
+  - treasury_auction_window
+note: >
+  Do not silently redefine day_open_price. Macro/auction flags are optional
+  when calendar data is unavailable; report missing dependency.

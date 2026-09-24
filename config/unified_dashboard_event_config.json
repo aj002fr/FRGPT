@@ -1,0 +1,77 @@
+{
+  "version": "2026-02-03",
+  "default_event_type": "NFP",
+  "event_time_by_type": {
+    "NFP": "08:30",
+    "CPI": "08:30",
+    "PPI": "08:30",
+    "JOLTS": "10:00"
+  },
+  "default_windows_by_type": {
+    "NFP": {"pre_start_hhmm": "15:00", "post_end_hhmm": "17:00"},
+    "CPI": {"pre_start_hhmm": "15:00", "post_end_hhmm": "17:00"},
+    "PPI": {"pre_start_hhmm": "15:00", "post_end_hhmm": "17:00"},
+    "JOLTS": {"pre_start_hhmm": "15:00", "post_end_hhmm": "17:00"}
+  },
+  "default_start_year": 2023,
+  "supported_resolutions": ["1m", "5m"],
+  "outlier_rule_default": "p5_p95",
+  "event_types": ["NFP", "CPI", "PPI", "JOLTS"],
+  "components_by_type": {
+    "NFP": [
+      {"key": "nfp_headline", "label": "NFP Headline", "supports_stddev": true, "supports_actual_consensus": true, "unit": "K", "default_stddev": 39.320655},
+      {"key": "unemployment_rate", "label": "Unemployment Rate (UER)", "supports_stddev": true, "supports_actual_consensus": true, "unit": "%", "default_stddev": 0.061527}
+    ],
+    "CPI": [
+      {"key": "cpi_mom", "label": "CPI MoM", "supports_stddev": true, "supports_actual_consensus": true, "unit": "%", "default_stddev": 0.0587535},
+      {"key": "core_cpi_mom", "label": "Core CPI MoM", "supports_stddev": true, "supports_actual_consensus": true, "unit": "%", "default_stddev": 0.050085},
+      {"key": "cpi_yoy", "label": "CPI YoY", "supports_stddev": true, "supports_actual_consensus": true, "unit": "%", "default_stddev": 0.076829},
+      {"key": "core_cpi_yoy", "label": "Core CPI YoY", "supports_stddev": true, "supports_actual_consensus": true, "unit": "%", "default_stddev": 0.062315}
+    ],
+    "PPI": [
+      {"key": "ppi_mom", "label": "PPI MoM", "supports_stddev": true, "supports_actual_consensus": true, "unit": "%", "default_stddev": 0.259831},
+      {"key": "core_ppi_mom", "label": "Core PPI MoM", "supports_stddev": true, "supports_actual_consensus": true, "unit": "%", "default_stddev": 0.148021},
+      {"key": "ppi_yoy", "label": "PPI YoY", "supports_stddev": true, "supports_actual_consensus": true, "unit": "%", "default_stddev": 3.46194},
+      {"key": "core_ppi_yoy", "label": "Core PPI YoY", "supports_stddev": true, "supports_actual_consensus": true, "unit": "%", "default_stddev": 2.431966}
+    ],
+    "JOLTS": [
+      {"key": "jolts_job_openings", "label": "JOLTS Job Openings", "supports_stddev": true, "supports_actual_consensus": true, "unit": "M", "default_stddev": 1668476.762424},
+      {"key": "jolts_job_quits", "label": "JOLTS Job Quits", "supports_stddev": true, "supports_actual_consensus": true, "unit": "M", "default_stddev": 1668476.762424}
+    ]
+  },
+  "default_components_by_type": {
+    "NFP": ["nfp_headline", "unemployment_rate"],
+    "CPI": ["cpi_mom", "core_cpi_mom"],
+    "PPI": ["ppi_mom", "core_ppi_mom"],
+    "JOLTS": ["jolts_job_openings"]
+  },
+  "component_input_constraints_by_type": {
+    "NFP": {
+      "nfp_headline": {"stddev": {"type": "float", "min": 5.0, "max": 200.0, "unit": "K", "default": 39.320655, "step": 1.0}, "actual_consensus": {"type": "float", "unit": "K", "example": 180}},
+      "unemployment_rate": {"stddev": {"type": "float", "min": 0.01, "max": 1.0, "unit": "%", "default": 0.061527, "step": 0.01}, "actual_consensus": {"type": "float", "unit": "%", "example": 3.8}}
+    },
+    "CPI": {
+      "cpi_mom": {"stddev": {"type": "float", "min": 0.01, "max": 1.0, "unit": "%", "default": 0.0587535, "step": 0.01}, "actual_consensus": {"type": "float", "unit": "%", "example": 0.2}},
+      "core_cpi_mom": {"stddev": {"type": "float", "min": 0.01, "max": 1.0, "unit": "%", "default": 0.050085, "step": 0.01}, "actual_consensus": {"type": "float", "unit": "%", "example": 0.2}},
+      "cpi_yoy": {"stddev": {"type": "float", "min": 0.01, "max": 1.0, "unit": "%", "default": 0.076829, "step": 0.01}, "actual_consensus": {"type": "float", "unit": "%", "example": 3.2}},
+      "core_cpi_yoy": {"stddev": {"type": "float", "min": 0.01, "max": 1.0, "unit": "%", "default": 0.062315, "step": 0.01}, "actual_consensus": {"type": "float", "unit": "%", "example": 3.5}}
+    },
+    "PPI": {
+      "ppi_mom": {"stddev": {"type": "float", "min": 0.01, "max": 1.5, "unit": "%", "default": 0.259831, "step": 0.01}, "actual_consensus": {"type": "float", "unit": "%", "example": 0.2}},
+      "core_ppi_mom": {"stddev": {"type": "float", "min": 0.01, "max": 1.5, "unit": "%", "default": 0.148021, "step": 0.01}, "actual_consensus": {"type": "float", "unit": "%", "example": 0.2}},
+      "ppi_yoy": {"stddev": {"type": "float", "min": 0.01, "max": 10.0, "unit": "%", "default": 3.46194, "step": 0.01}, "actual_consensus": {"type": "float", "unit": "%", "example": 2.0}},
+      "core_ppi_yoy": {"stddev": {"type": "float", "min": 0.01, "max": 10.0, "unit": "%", "default": 2.431966, "step": 0.01}, "actual_consensus": {"type": "float", "unit": "%", "example": 2.0}}
+    },
+    "JOLTS": {
+      "jolts_job_openings": {"stddev": {"type": "float", "min": 100000, "max": 5000000, "unit": "M", "default": 1668476.762424, "step": 50000}, "actual_consensus": {"type": "float", "unit": "M", "example": 7.2}},
+      "jolts_job_quits": {"stddev": {"type": "float", "min": 100000, "max": 5000000, "unit": "M", "default": 1668476.762424, "step": 50000}, "actual_consensus": {"type": "float", "unit": "M", "example": 3.6}}
+    }
+  },
+  "bucket_schemes_by_type": {
+    "NFP": {"headline_z_bucket_width_sigma": 0.5, "lmh_threshold_sigma": 0.5, "max_components_in_combo": 2},
+    "CPI": {"headline_z_bucket_width_sigma": 0.5, "lmh_threshold_sigma": 0.5, "max_components_in_combo": 2},
+    "PPI": {"headline_z_bucket_width_sigma": 0.5, "lmh_threshold_sigma": 0.5, "max_components_in_combo": 2},
+    "JOLTS": {"headline_z_bucket_width_sigma": 0.5, "lmh_threshold_sigma": 0.5, "max_components_in_combo": 2}
+  }
+}
+

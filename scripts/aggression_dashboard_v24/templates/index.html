@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aggression V2.4 Paper Trade Spec</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v={{ asset_version }}">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Aggression V2.4 &mdash; Paper Trade Spec</h1>
+        <p>Isolated V2 copy. Turns the DISLOCATION alert into a fully specified paper trade with explicit entry, stop, target and time stop. Live V1/V2/V2.2 unchanged.</p>
+      </div>
+      <div id="status">Loading...</div>
+    </section>
+
+    <section class="paper-banner" role="status" aria-live="polite">
+      <strong id="strategy-status">PAPER / NOT VALIDATED / NON-EXECUTABLE</strong>
+      <span id="research-note"></span>
+    </section>
+
+    <section class="live-banner none" id="live-banner">
+      <div>
+        <strong id="live-state">LIVE MODEL</strong>
+        <p id="live-message">Waiting for live TBBO rows and model warmup...</p>
+      </div>
+      <div class="live-side">
+        <div id="live-price">Price: n/a</div>
+        <div id="live-feed-status"></div>
+      </div>
+    </section>
+
+    <section class="books" id="books"></section>
+
+    <section class="grid live-grid">
+      <div class="panel"><div id="live-fair-value-chart" class="chart"></div></div>
+      <div class="panel"><div id="equity-chart" class="chart"></div></div>
+    </section>
+
+    <section class="panel table-panel outcomes-panel">
+      <div class="table-header">
+        <h3>Closed Paper Trades</h3>
+        <div>
+          <select id="trade-book"></select>
+          <select id="trade-scope">
+            <option value="today" selected>Today</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+      </div>
+      <div id="trade-log-stats" class="small-note"></div>
+      <div id="trade-log-table"></div>
+      <details class="stats-glossary">
+        <summary>How to read this</summary>
+        <p><strong>ARMED</strong>: the signal fired on the last completed bar. Paper entry happens at the <em>next</em> bar, never the signal bar &mdash; entering at the signal bar's own price is look-ahead and inflates results.</p>
+        <p><strong>Gross vs net ticks</strong>: net subtracts the round-trip cost shown in the spec. Only net matters. A 0.5-tick assumption is already optimistic for TY, where the resting spread is typically a full tick.</p>
+        <p><strong>Two books</strong>: the offline study found the LIFO gate helped in-sample and hurt out-of-sample. Both books run on the same stream so forward evidence can settle which is right.</p>
+        <p><strong>Exit mix</strong>: how trades ended &mdash; target, stop, or the time stop at the horizon.</p>
+      </details>
+    </section>
+
+    <section class="cards">
+      <div class="card evidence-card">
+        <h3>Evidence Status</h3>
+        <p id="evidence-text">Loading research context...</p>
+      </div>
+      <div class="card">
+        <h3>What This Is</h3>
+        <p>A structured paper book. It gives the alert the entry/exit mechanics it lacked, and accumulates forward out-of-sample evidence that a gate could one day evaluate.</p>
+      </div>
+      <div class="card">
+        <h3>What This Is Not</h3>
+        <p>Not a validated edge, not an executable signal, and not wired to SOD, Tailscale, Telegram or any order path. Do not size real risk from this page.</p>
+      </div>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

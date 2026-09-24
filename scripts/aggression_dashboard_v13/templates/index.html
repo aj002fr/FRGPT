@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aggression V1.3 — Tick TotalAggress</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <nav>
+      <a href="/">V1.3 Tick TotalAggress</a>
+      <a href="#grid">Grid</a>
+    </nav>
+    <div class="flow-dominance-label">PROVISIONAL / RESEARCH-ONLY / TICK-TOTALAGGRESS / NON-EXECUTABLE</div>
+  </header>
+
+  <main>
+    <section class="controls">
+      <div class="control-col">
+        <label for="universe">Select symbol universe:</label>
+        <select id="universe">
+          <option value="US" selected>US</option>
+        </select>
+
+        <label for="price-symbol">Select symbol for price:</label>
+        <select id="price-symbol">
+          {% for symbol in symbols %}
+          <option value="{{ symbol }}" {% if symbol == "TY" %}selected{% endif %}>{{ symbol }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="short-price-symbol">Select symbol for price (short):</label>
+        <select id="short-price-symbol" disabled>
+          <option selected>Select...</option>
+        </select>
+      </div>
+
+      <div class="control-col wide">
+        <label>Select symbol(s) for aggression:</label>
+        <div class="chips" id="aggression-symbols">
+          {% for symbol in symbols %}
+          <label class="chip">
+            <input type="checkbox" value="{{ symbol }}" checked>
+            <span>{{ symbol }}</span>
+          </label>
+          {% endfor %}
+        </div>
+
+        <label>Select symbol(s) for aggression (short):</label>
+        <select id="short-aggression-symbols" disabled>
+          <option selected>Select...</option>
+        </select>
+
+        <div class="dv01-help">
+          DV01 table:
+          {% for symbol, dv01 in dv01_table.items() %}
+          <span>{{ symbol }}={{ "%.0f"|format(dv01) }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="control-col actions">
+        <button id="refresh-btn">Refresh Data</button>
+        <button id="pause-btn" type="button">Pause Live</button>
+        <label for="mode-select">Data mode:</label>
+        <select id="mode-select">
+          <option value="live" selected>Live</option>
+          <option value="historical">Historical</option>
+        </select>
+        <label for="lookback">Chart lookback:</label>
+        <select id="lookback">
+          <option value="2" selected>2 hours</option>
+          <option value="6">6 hours</option>
+          <option value="12">12 hours</option>
+          <option value="24">1 day</option>
+        </select>
+        <label class="inline">
+          <input type="checkbox" id="auto-refresh" checked>
+          Auto Refresh
+        </label>
+        <label class="inline">
+          <input type="checkbox" id="banner-on-hover" checked>
+          Banner on hover
+        </label>
+
+        <label for="start-time">Start Time in New York (Eastern) time:</label>
+        <input id="start-time" type="datetime-local" value="{{ default_start }}">
+
+        <div id="end-time-group" class="hidden">
+          <label for="end-time">End Time in New York (Eastern) time:</label>
+          <input id="end-time" type="datetime-local">
+        </div>
+
+        <label class="inline">
+          <input type="checkbox" id="dv01-adjust" checked>
+          DV01 Adjust
+        </label>
+
+        <label class="inline disabled" title="Yield conversion is planned for V2.">
+          <input type="checkbox" id="show-yield" disabled>
+          Show Yield
+        </label>
+      </div>
+    </section>
+
+    <section class="status-row">
+      <div id="status">Ready.</div>
+      <div id="meta"></div>
+    </section>
+    <section id="freshness-banner" class="freshness-banner historical">
+      HISTORICAL
+    </section>
+    <section
+      id="flow-dominance-banner"
+      class="flow-dominance-banner unavailable"
+      aria-live="polite"
+    >
+      <div id="flow-dominance-main" class="flow-dominance-main">FLOW DOMINANCE UNAVAILABLE</div>
+      <div id="flow-dominance-detail" class="flow-dominance-detail">
+        Waiting for the intraday fair-value model.
+      </div>
+      <div id="flow-dominance-label" class="flow-dominance-label">
+        DESCRIPTIVE / IMPLIED PASSIVE / NON-DIRECTIONAL / NOT RANGE-TREND VALIDATED
+      </div>
+    </section>
+    <section
+      id="flow-dominance-hover"
+      class="flow-dominance-banner flow-dominance-hover warming"
+      aria-live="off"
+    >
+      <div id="flow-dominance-hover-asof" class="flow-dominance-hover-asof">HOVER A TIMESTAMP</div>
+      <div id="flow-dominance-hover-main" class="flow-dominance-main">FLOW DOMINANCE</div>
+      <div id="flow-dominance-hover-detail" class="flow-dominance-detail">
+        Hover any chart timestamp to see the completed-bar banner at that time.
+      </div>
+      <div id="flow-dominance-hover-label" class="flow-dominance-label">
+        DESCRIPTIVE / IMPLIED PASSIVE / NON-DIRECTIONAL / NOT RANGE-TREND VALIDATED
+      </div>
+    </section>
+
+    <section id="grid" class="chart-grid">
+      <div class="chart-card"><div id="panel-p1" class="chart"></div></div>
+      <div class="chart-card"><div id="panel-p2" class="chart"></div></div>
+      <div class="chart-card tall"><div id="panel-p3" class="chart"></div></div>
+      <div class="chart-card"><div id="panel-p4" class="chart"></div></div>
+      <div class="chart-card"><div id="panel-p5" class="chart"></div></div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>
+

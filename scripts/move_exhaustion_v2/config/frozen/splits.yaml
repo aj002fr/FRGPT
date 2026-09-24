@@ -1,0 +1,57 @@
+# Move Exhaustion V2 chronological splits
+# Source of truth: research/PROGRAM.md §3.
+# STATUS: windows/rule approved by the user on 2026-08-11; X0 freezes the
+# realized eligible-date lists before any episode is inspected.
+# The HOLDOUT LOCK below is binding NOW regardless of the proposed status.
+schema_version: 2
+frozen_utc: "2026-08-12"
+status: approved_pending_X0_freeze
+
+splits:
+  discovery:
+    start: "2022-01-01"
+    end: "2024-12-31"
+    role: "all exploration, parameter selection, model fitting (walk-forward only)"
+  validation:
+    start: "2025-01-01"
+    end: "2025-12-31"
+    role: "one-shot evaluation of discovery-frozen choices; no refitting"
+  final_holdout:
+    start: "2026-01-01"
+    end: "2026-04-01"
+    end_rule: "last Q3-passing fully covered session on or before 2026-04-01"
+    role: "LOCKED; opened only after validation passes preregistered gates AND explicit user approval"
+    locked: true
+
+holdout_opened: false
+
+embargo_trading_days: 5
+embargo_policy: "symmetric: remove the final 5 eligible dates of the earlier split and the first 5 eligible dates of the later split at each boundary"
+embargo_explicit_user_approval_utc: "2026-08-12"
+
+grouping:
+  same_episode_same_fold: true
+  same_date_same_fold: true
+  inference_clustering: date
+
+era_slices:
+  - {name: hiking,      start: "2022-01-01", end: "2023-12-31"}
+  - {name: current,     start: "2024-01-01", end: "2026-12-31"}
+
+eligibility:
+  years_2022_2023:
+    min_expected_session_coverage: 0.95
+    min_q1_q6_day_pass_rate: 0.95
+  q7_q8_scope: "global overlap gates against frozen TBBO matrix"
+
+prior_program_holdout_dates_excluded_entirely:
+  - "2026-05-21"
+  - "2026-05-22"
+  - "2026-05-25"
+  - "2026-05-26"
+  - "2026-05-28"
+  - "2026-06-01"
+  - "2026-06-02"
+  - "2026-06-03"
+  - "2026-06-04"
+  - "2026-06-05"

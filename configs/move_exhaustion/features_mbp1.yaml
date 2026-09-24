@@ -1,0 +1,5 @@
+# features_mbp1.yaml
+enabled: false
+reason: >
+  E23 UNAVAILABLE — D:\FRDBs\FutMBP\GLBX-20260403-CBPK5YKK7C-mbp1 exists
+  but contains 0 parquet files. No refill features fabricated.

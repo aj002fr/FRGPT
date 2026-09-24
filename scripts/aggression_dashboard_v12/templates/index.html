@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aggression V1.2 — RANGE Caution</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-block">
+      <span class="brand">Aggression V1.2</span>
+      <span class="badge provisional">PROVISIONAL / RESEARCH-ONLY</span>
+    </div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="#caution">Caution</a>
+      <a href="#grid">Grid</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="controls">
+      <div class="control-col">
+        <label for="universe">Select symbol universe:</label>
+        <select id="universe">
+          <option value="US" selected>US</option>
+        </select>
+
+        <label for="price-symbol">Select symbol for price:</label>
+        <select id="price-symbol">
+          {% for symbol in symbols %}
+          <option value="{{ symbol }}" {% if symbol == "TY" %}selected{% endif %}>{{ symbol }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="short-price-symbol">Select symbol for price (short):</label>
+        <select id="short-price-symbol" disabled>
+          <option selected>Select...</option>
+        </select>
+      </div>
+
+      <div class="control-col wide">
+        <label>Select symbol(s) for aggression:</label>
+        <div class="chips" id="aggression-symbols">
+          {% for symbol in symbols %}
+          <label class="chip">
+            <input type="checkbox" value="{{ symbol }}" checked>
+            <span>{{ symbol }}</span>
+          </label>
+          {% endfor %}
+        </div>
+
+        <label>Select symbol(s) for aggression (short):</label>
+        <select id="short-aggression-symbols" disabled>
+          <option selected>Select...</option>
+        </select>
+
+        <div class="dv01-help">
+          DV01 table:
+          {% for symbol, dv01 in dv01_table.items() %}
+          <span>{{ symbol }}={{ "%.0f"|format(dv01) }}</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="control-col actions">
+        <button id="refresh-btn">Refresh Data</button>
+        <button id="pause-btn" type="button">Pause Live</button>
+        <label for="mode-select">Data mode:</label>
+        <select id="mode-select">
+          <option value="live" selected>Live</option>
+          <option value="historical">Historical</option>
+        </select>
+        <label for="lookback">Chart lookback:</label>
+        <select id="lookback">
+          <option value="2" selected>2 hours</option>
+          <option value="6">6 hours</option>
+          <option value="12">12 hours</option>
+          <option value="24">1 day</option>
+        </select>
+        <label class="inline">
+          <input type="checkbox" id="auto-refresh" checked>
+          Auto Refresh
+        </label>
+
+        <label for="start-time">Start Time in New York (Eastern) time:</label>
+        <input id="start-time" type="datetime-local" value="{{ default_start }}">
+
+        <div id="end-time-group" class="hidden">
+          <label for="end-time">End Time in New York (Eastern) time:</label>
+          <input id="end-time" type="datetime-local">
+        </div>
+
+        <label class="inline">
+          <input type="checkbox" id="dv01-adjust" checked>
+          DV01 Adjust
+        </label>
+
+        <label class="inline disabled" title="Yield conversion is planned for V2.">
+          <input type="checkbox" id="show-yield" disabled>
+          Show Yield
+        </label>
+      </div>
+    </section>
+
+    <section class="status-row">
+      <div id="status">Ready.</div>
+      <div id="meta"></div>
+    </section>
+    <section id="freshness-banner" class="freshness-banner historical">
+      HISTORICAL
+    </section>
+
+    <section id="lifo-alert" class="lifo-alert hidden" role="status" aria-live="polite">
+      <strong id="lifo-alert-title">LIFO FRIENDLY</strong>
+    </section>
+
+    <section id="caution" class="caution-grid caution-grid-3">
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <span class="eyebrow">RANGE CAUTION</span>
+            <h2>Large + widening residual</h2>
+          </div>
+          <span id="caution-state" class="badge">Loading</span>
+        </div>
+        <div class="stat-grid">
+          <div><span>Residual z</span><strong id="caution-z">—</strong></div>
+          <div><span>|z| ≥ 1</span><strong id="caution-large">—</strong></div>
+          <div><span>Widening 15m</span><strong id="caution-widen">—</strong></div>
+          <div><span>Price</span><strong id="caution-price">—</strong></div>
+        </div>
+        <div id="caution-reasons" class="flags"></div>
+        <p class="caveat">
+          <strong>PROVISIONAL / RANGE-CAUTION / NON-DIRECTIONAL.</strong>
+          Path-efficiency provisional only (+8pp validation, discovery flat, FDR fail).
+          Under ATR + 8bps breakout labels, large+widening had no useful edge.
+          Not a long/short signal.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <span class="eyebrow">ALERT</span>
+            <h2>LIFO FRIENDLY</h2>
+          </div>
+          <span id="lifo-state" class="badge">Loading</span>
+        </div>
+        <p class="caveat">
+          <strong>PROVISIONAL / LIFO-FRIENDLY / RANGE-LEAN / NON-DIRECTIONAL.</strong>
+          Display-only environment alert. Not a long/short signal.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <div>
+            <span class="eyebrow">SOFT BREAKOUT LEAN</span>
+            <h2>B=4 restrictive PASS factors</h2>
+          </div>
+          <span id="soft-bo-state" class="badge">Loading</span>
+        </div>
+        <div class="stat-grid">
+          <div><span>Persist age</span><strong id="soft-bo-age">—</strong></div>
+          <div><span>Persist ≥10/20</span><strong id="soft-bo-persist">—</strong></div>
+          <div><span>|z| ≥ 1.5</span><strong id="soft-bo-z15">—</strong></div>
+          <div><span>Fast 15m</span><strong id="soft-bo-fast">—</strong></div>
+        </div>
+        <div id="soft-bo-factors" class="flags"></div>
+        <div id="soft-bo-reasons" class="flags"></div>
+        <p class="caveat">
+          <strong>PROVISIONAL / SOFT-BREAKOUT-LEAN / B4-ONLY / NON-DIRECTIONAL.</strong>
+          Explicit: the factor sweep’s <em>18 restrictive PASSes</em> were all soft
+          <strong>4bps</strong> breakouts (mostly k=0.5). Primary
+          <strong>(30m, 8bps, k=1) = 0 PASS</strong>. Persistence / speed / large residual
+          only — not directional, not an 8bps signal.
+        </p>
+      </div>
+    </section>
+
+    <section class="card" style="margin-bottom: 18px;">
+      <div class="card-title">
+        <div>
+          <span class="eyebrow">LIVE WEEK STATS</span>
+          <h2>Observational outcomes</h2>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div><span>Caution finalized</span><strong id="stat-n">0</strong></div>
+        <div><span>Caution RANGE</span><strong id="stat-range">—</strong></div>
+        <div><span>Caution TREND</span><strong id="stat-trend">—</strong></div>
+        <div><span>Caution ambiguous</span><strong id="stat-amb">—</strong></div>
+        <div><span>Caution active</span><strong id="stat-active">0</strong></div>
+        <div><span>Research RANGE baseline</span><strong id="stat-baseline">53.9%</strong></div>
+        <div><span>LIFO finalized</span><strong id="lifo-stat-n">0</strong></div>
+        <div><span>LIFO RANGE</span><strong id="lifo-stat-range">—</strong></div>
+        <div><span>LIFO TREND</span><strong id="lifo-stat-trend">—</strong></div>
+        <div><span>LIFO ambiguous</span><strong id="lifo-stat-amb">—</strong></div>
+        <div><span>LIFO active</span><strong id="lifo-stat-active">0</strong></div>
+      </div>
+      <p class="caveat">
+        Live rates are observational only. Soft-breakout stays display-only.
+        A higher rate this week does not authorize production promotion.
+      </p>
+    </section>
+
+    <section class="card">
+      <div class="card-title">
+        <h2>Recent alert episodes</h2>
+        <select id="log-scope">
+          <option value="today">Today</option>
+          <option value="all">All</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Lock (UTC)</th>
+              <th>Alert</th>
+              <th>Phase</th>
+              <th>z</th>
+              <th>Outcome</th>
+              <th>Net ticks</th>
+            </tr>
+          </thead>
+          <tbody id="episode-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="grid" class="chart-grid">
+      <div class="chart-card"><div id="panel-p1" class="chart"></div></div>
+      <div class="chart-card"><div id="panel-p2" class="chart"></div></div>
+      <div class="chart-card tall"><div id="panel-p3" class="chart"></div></div>
+      <div class="chart-card"><div id="panel-p4" class="chart"></div></div>
+      <div class="chart-card"><div id="panel-p5" class="chart"></div></div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>

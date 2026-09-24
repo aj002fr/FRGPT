@@ -1,0 +1,39 @@
+{
+  "cycle": "C008",
+  "slug": "oscillatory_structure",
+  "tier": "EXPLORATORY",
+  "status": "REVIEWED",
+  "opened_utc": "2026-08-13T16:50:00Z",
+  "closed_utc": "2026-08-13T16:51:09Z",
+  "backlog_ref": "BL-15",
+  "parent_cycle": null,
+  "data_window_used": {
+    "start": "2022-01-05",
+    "end": "2022-04-25"
+  },
+  "dates_used_source": "workspace/analysis/move_exhaustion_v2/experiments/X1_20260813T143427Z/manifest.json",
+  "holdout_opened": false,
+  "artifact_paths": [
+    "workspace/analysis/move_exhaustion_v2/loop/C008_oscillatory_structure/"
+  ],
+  "advisor_decision": "PARKED",
+  "worker_model": "composer-2.5 (in-IDE fallback; Codex sandbox cannot access Y: share)",
+  "worker_agent_id": null,
+  "advisor_models": ["gpt-5.6-sol-max"],
+  "solo_review_reason": "Human waived the Fable 5 seat on 2026-08-13. Solo reviews may not PROMOTE_REQUEST.",
+  "headline_metrics": {
+    "n_osc": 390,
+    "holdout_opened": false,
+    "bucket_shares": {
+      "both_near": 0.0,
+      "near_cont": 0.0,
+      "near_rev": 0.0,
+      "tight_range": 1.0,
+      "other": 0.0
+    },
+    "largest_bucket": "tight_range",
+    "largest_bucket_share": 1.0,
+    "largest_bucket_ci95": [1.0, 1.0]
+  },
+  "wall_clock_minutes": 2
+}

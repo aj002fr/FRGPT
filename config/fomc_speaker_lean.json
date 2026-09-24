@@ -1,0 +1,18 @@
+{
+  "source": "Seed manually from https://www.itcmarkets.com/cheat-sheet/ FOMC section. Values are intentionally conservative placeholders until manually reviewed.",
+  "scale": {
+    "min": -2,
+    "max": 2,
+    "meaning": "-2 very hawkish, -1 hawkish, 0 neutral/flexible, 1 dovish, 2 very dovish"
+  },
+  "members": {
+    "Powell": {"lean": 0, "voter": true, "role": "Chair", "confidence": "placeholder"},
+    "Williams": {"lean": 0, "voter": true, "role": "New York Fed", "confidence": "placeholder"},
+    "Barr": {"lean": 0, "voter": true, "role": "Board", "confidence": "placeholder"},
+    "Bowman": {"lean": -1, "voter": true, "role": "Board", "confidence": "placeholder"},
+    "Cook": {"lean": 0, "voter": true, "role": "Board", "confidence": "placeholder"},
+    "Jefferson": {"lean": 0, "voter": true, "role": "Vice Chair", "confidence": "placeholder"},
+    "Kugler": {"lean": 0, "voter": true, "role": "Board", "confidence": "placeholder"},
+    "Waller": {"lean": -1, "voter": true, "role": "Board", "confidence": "placeholder"}
+  }
+}

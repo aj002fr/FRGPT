@@ -5,7 +5,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from src.bus.manifest import Manifest
 from src.bus.file_bus import write_atomic, ensure_dir
@@ -34,7 +34,7 @@ from .planner_stage2 import PlannerStage2, create_planners_for_paths
 from .coder import Coder
 from .worker_executor import WorkerExecutor, save_script
 from .workers_db import WorkersDB
-from ..reasoning_agent.run import RunnerAgent
+from ..runner_agent.run import RunnerAgent
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class OrchestratorAgent:
             metadata = plan['metadata']
             task_dependency_paths = metadata.get("task_dependency_paths", {})
             
-            logger.info(f"✓ Plan created:")
+            logger.info("Plan created:")
             logger.info(f"  - {metadata['total_tasks']} tasks ({metadata['mappable_tasks']} mappable)")
             logger.info(f"  - {len(dependency_paths)} dependency paths")
             logger.info(f"  - Max depth: {metadata['max_depth']}")
@@ -134,7 +134,10 @@ class OrchestratorAgent:
                     summary="Planner1 produced 0 mappable tasks",
                     data_pointer=planner1_path,
                 )
-                raise Exception("No mappable tasks in plan")
+                raise Exception(
+                    "No mappable tasks in plan. Your query may not be a valid financial/market data request. "
+                    "Please ask a specific question about market data, economic events, or analytics."
+                )
 
             # Persist Planner 1 view of the task plan
             planner1_path = write_run_artifact(
@@ -155,23 +158,20 @@ class OrchestratorAgent:
                 data_pointer=planner1_path,
             )
             
-            # Persist initial planning table (Planner 1 view)
-            logger.info("\n[STAGE 1b] Persisting planning table (task_plan)")
+            # Persist unified planning tasks (Planner 1 base data + dependency paths)
+            logger.info("\n[STAGE 1b] Persisting unified planning tasks (planner1_tasks)")
             with WorkersDB(self.db_path) as db:
                 for task in subtasks:
                     task_id = task["id"]
-                    agent_name = task.get("assigned_agent")
-                    # Agent description from capabilities (if any)
-                    agent_config = AGENT_CAPABILITIES.get(agent_name or "", {})
-                    agent_description = agent_config.get("description", "")
                     # Dependency path for this task (root → task); fall back to [task_id]
                     dependency_path = task_dependency_paths.get(task_id) or [task_id]
-                    db.insert_task_plan_row(
+
+                    # Insert unified task row (Planner 1 data + dependency path).
+                    # Planner 2 will later enrich this row with tools & tool_params.
+                    db.insert_planner1_task(
                         run_id=run_id,
-                        task_id=task_id,
-                        agent_name=agent_name,
-                        agent_description=agent_description,
-                        dependency_path=dependency_path,
+                        task=task,
+                        dependency_path=dependency_path
                     )
             
             # ==================== STAGE 2: Tool Discovery Per Path ====================
@@ -182,11 +182,15 @@ class OrchestratorAgent:
             
             path_plans = []
             for planner2 in planner2_instances:
-                path_plan = planner2.discover_tools_and_params(subtasks, user_query=query)
+                path_plan = planner2.discover_tools_and_params(
+                    subtasks,
+                    user_query=query,
+                    run_id=run_id,
+                )
                 path_plans.append(path_plan)
                 
                 logger.info(
-                    "✓ %s: %s tools, %s tasks",
+                    "%s: %s tools, %s tasks",
                     path_plan["path_id"],
                     len(path_plan["tools_loaded"]),
                     len(path_plan["mappable_tasks"]),
@@ -229,15 +233,16 @@ class OrchestratorAgent:
                         data_pointer=planner2_path,
                     )
 
-            # Enrich planning table with tools & parameters (Planner 2 view)
-            logger.info("\n[STAGE 2c] Updating planning table with tools & parameters")
+            # Enrich unified planning tasks with tools & parameters (Planner 2 enrichment)
+            logger.info("\n[STAGE 2c] Updating unified planning tasks with tools & parameters")
+            
             with WorkersDB(self.db_path) as db:
                 for path_plan in path_plans:
                     for task_plan in path_plan.get("execution_plan", []):
                         task_id = task_plan["task_id"]
                         tools = task_plan.get("tools", [])
                         tool_params = task_plan.get("tool_params", {})
-                        db.update_task_plan_tools(
+                        db.update_planner1_task_tools(
                             run_id=run_id,
                             task_id=task_id,
                             tools=tools,
@@ -297,7 +302,7 @@ class OrchestratorAgent:
                     'code': script_code
                 })
                 
-                logger.info(f"✓ Generated script for {path_plan['path_id']}: {script_path}")
+                logger.info(f"Generated script for {path_plan['path_id']}: {script_path}")
             
             # ==================== STAGE 4: Worker Execution ====================
             logger.info(f"\n[STAGE 4] Worker Execution")
@@ -308,7 +313,7 @@ class OrchestratorAgent:
                 run_summary = executor.get_run_summary()
                 failed_tasks = executor.get_failed_tasks()
                 
-                logger.info(f"✓ Execution complete:")
+                logger.info("Execution complete:")
                 logger.info(f"  - Total: {run_summary['total_tasks']}")
                 logger.info(f"  - Successful: {run_summary['successful']}")
                 logger.info(f"  - Failed: {run_summary['failed']}")
@@ -316,10 +321,10 @@ class OrchestratorAgent:
             # ==================== STAGE 5: Runner Agent Consolidation ====================
             logger.info(f"\n[STAGE 5] Final consolidation via RunnerAgent")
 
-            # Load worker outputs and planning table for final consolidation.
+            # Load worker outputs and unified planning tasks for final consolidation.
             with WorkersDB(self.db_path) as db:
                 worker_outputs = db.get_all_task_outputs(run_id)
-                planning_table = db.get_task_plan(run_id)
+                planning_table = db.get_planner1_tasks(run_id)
                 run_summary = db.get_run_summary(run_id)
 
             runner_agent = RunnerAgent()
@@ -338,7 +343,7 @@ class OrchestratorAgent:
             reasoning_record = reasoning_data[0] if reasoning_data else {}
             answer = reasoning_record.get("final_answer", "")
 
-            logger.info("✓ RunnerAgent consolidation complete")
+            logger.info("RunnerAgent consolidation complete")
 
             # ==================== STAGE 6: Output & Logging ====================
             logger.info(f"\n[STAGE 6] Output & Logging")
@@ -394,7 +399,7 @@ class OrchestratorAgent:
             # Update central run status
             update_run_status(run_id=run_id, status="success")
             
-            logger.info(f"✓ Output written to: {output_path}")
+            logger.info(f"Output written to: {output_path}")
             logger.info(f"\n=== Run {run_id} Complete ({duration_ms:.2f}ms) ===\n")
             
             return result

@@ -1,0 +1,34 @@
+{
+  "cycle": "C001",
+  "slug": "depth_norm_flow_continuation",
+  "tier": "EXPLORATORY",
+  "status": "REVIEWED",
+  "opened_utc": "2026-08-13T15:44:00Z",
+  "closed_utc": "2026-08-13T16:10:00Z",
+  "backlog_ref": "BL-1",
+  "parent_cycle": null,
+  "data_window_used": {
+    "start": "2022-01-05",
+    "end": "2022-04-25"
+  },
+  "dates_used_source": "workspace/analysis/move_exhaustion_v2/experiments/X1_20260813T143427Z/manifest.json",
+  "holdout_opened": false,
+  "artifact_paths": [
+    "workspace/analysis/move_exhaustion_v2/loop/C001_depth_norm_flow_continuation/metrics.json",
+    "workspace/analysis/move_exhaustion_v2/loop/C001_depth_norm_flow_continuation/episodes_c001.csv"
+  ],
+  "advisor_decision": "PARKED",
+  "worker_model": "composer-2.5 (in-IDE fallback; Codex sandbox cannot access Y: share)",
+  "worker_agent_id": "705a3cdb-b556-4caa-96d8-db79997e6c44",
+  "advisor_models": ["gpt-5.6-sol-max"],
+  "solo_review_reason": "Human waived the Fable 5 seat on 2026-08-13 after two resource_exhausted failures. GPT Sol readiness opinion stands. Solo reviews may not PROMOTE_REQUEST.",
+  "headline_metrics": {
+    "n_scored": 1244,
+    "q5_minus_q1_continuation_pp": -2.01,
+    "q5_minus_q1_ci95_pp": [-9.73, 6.78],
+    "q1_n": 249,
+    "q5_n": 249,
+    "x1_p_continuation": 0.3336
+  },
+  "wall_clock_minutes": 4
+}

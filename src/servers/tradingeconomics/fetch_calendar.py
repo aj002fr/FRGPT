@@ -174,10 +174,8 @@ def _fetch_calendar_from_api(
     Returns:
         List of event dictionaries
     """
-    # Normalize country name for API (e.g., "US" -> "united states")
     normalized_country = normalize_country(country) if country else None
     
-    # Validate and correct event name using dictionary (if available)
     normalized_events = [] 
     if event_name:
         try:
@@ -258,7 +256,6 @@ def _fetch_calendar_from_api(
         logger.info(f"Fetching upcoming events for {len(normalized_events)} indicators...")
         
         for i, event_name in enumerate(normalized_events):
-            # /calendar/indicator/{event}
             indicator_endpoint = f"/calendar/indicator/{event_name}"
             url = build_api_url(indicator_endpoint, api_key, params)
             
@@ -272,15 +269,11 @@ def _fetch_calendar_from_api(
                     data = json.loads(response.read().decode("utf-8"))
                     
                     if isinstance(data, list):
-                        # Filter to be safe, ensuring we only get the requested event
-                        # (API usually behaves, but fuzzy matching might have happened upstream)
                         filtered = [
                             e for e in data 
                             if e.get("Event", "").lower() == event_name.lower()
                         ]
                         
-                        # Fallback: if exact name match fails (e.g. API returns slightly different casing/spacing),
-                        # take all results since we queried a specific indicator endpoint.
                         if filtered:
                             all_events.extend(filtered)
                             logger.info(f"  Found {len(filtered)} events for '{event_name}'")
@@ -295,7 +288,6 @@ def _fetch_calendar_from_api(
             except Exception as e:
                 logger.warning(f"Failed to fetch for indicator '{event_name}': {e}")
             
-            # Rate limit
             if i < len(normalized_events) - 1:
                 time.sleep(0.3)
         
@@ -322,7 +314,6 @@ def _fetch_calendar_from_api(
                     if event_countries:
                         countries_to_fetch.update(event_countries)
                         logger.info(f"'{event_name}' found in {len(event_countries)} countries: {event_countries[:5]}{'...' if len(event_countries) > 5 else ''}")
-                        # Track events per country for logging
                         for country in event_countries:
                             if country not in events_by_country:
                                 events_by_country[country] = []
@@ -465,7 +456,7 @@ def _fetch_calendar_from_api(
     logger.info(f"Fetching calendar from: {endpoint}")
     
     try:
-        req = urllib.request.Request(url)
+        req = urllib.request.Request(url) 
         req.add_header("Accept", "application/json")
         req.add_header("User-Agent", "MarketDataPuller/1.0")
         
@@ -738,7 +729,6 @@ def fetch_economic_calendar(
     formatted_events = [format_event_result(e) for e in raw_events]
     
     # Apply filters BEFORE inserting into database
-    # This ensures we only store relevant events (saves space, cleaner DB)
     filtered_events = filter_events_list(formatted_events, apply_exclusions=True)
     
     logger.info(f"Filtered {len(formatted_events)} raw events down to {len(filtered_events)} relevant events")

@@ -1,7 +1,7 @@
 """Script Generation for Task Execution."""
 
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from .config import AGENT_CAPABILITIES
@@ -24,7 +24,7 @@ class Coder:
         logger.info("Coder initialized")
     
     def generate(
-        self,
+        self, 
         path_plan: Dict[str, Any],
         run_id: str,
         db_path: Path
@@ -43,7 +43,12 @@ class Coder:
         path_id = path_plan['path_id']
         execution_plan = path_plan['execution_plan']
         
-        logger.info(f"Generating script for {path_id} with {len(execution_plan)} tasks")
+        # Debug: log the task IDs in execution plan
+        task_ids_in_plan = [t['task_id'] for t in execution_plan]
+        logger.info(f"Generating script for {path_id} with {len(execution_plan)} tasks: {task_ids_in_plan}")
+        
+        # Ensure timestamps are included for charting tasks
+        execution_plan = self._ensure_timestamps_for_charts(execution_plan)
         
         # Build script components
         imports = self._generate_imports(execution_plan)
@@ -72,7 +77,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 RUN_ID = "{run_id}"
-DB_PATH = Path("{db_path}")
+DB_PATH = Path(r"{db_path}")
 
 
 {task_functions}
@@ -90,7 +95,7 @@ if __name__ == "__main__":
     print(f"PATH: {path_id}")
     print("="*60)
     for i, result in enumerate(results, 1):
-        status = "✓ SUCCESS" if result.get('status') == 'success' else "✗ FAILED"
+        status = "SUCCESS" if result.get('status') == 'success' else "FAILED"
         task_id = result.get('task_id', 'unknown')
         print(f"Task {{task_id}}: {{status}}")
         if result.get('error'):
@@ -141,6 +146,7 @@ if __name__ == "__main__":
             tools = task_plan.get('tools', [])
             tool_params = task_plan.get('tool_params', {})
             agent_params = task_plan.get('agent_params', {})
+            dependencies = task_plan.get('dependencies', [])
 
             config = AGENT_CAPABILITIES.get(agent_name, {})
 
@@ -157,26 +163,163 @@ if __name__ == "__main__":
             
             # Generate tool execution code
             tool_calls_code = self._generate_tool_calls(tools, tool_params)
+            dependencies_list = repr(dependencies)
+            
+            # Extract soft dependency task IDs from tool params
+            soft_dep_task_ids = self._extract_soft_dependency_tasks(tool_params)
+            soft_deps_list = repr(soft_dep_task_ids)
             
             function = f'''async def task_{task_id.replace("-", "_")}() -> Dict[str, Any]:
     """
     Task {task_id}: {description}
     Agent: {agent_name}
     Tools: {', '.join(tools)}
+    
+    Handles shared task execution: if multiple parallel scripts try to execute
+    the same task, only one will claim and execute it. Others will wait and
+    reuse the result from the database.
     """
     task_id = "{task_id}"
     agent_name = "{agent_name}"
     
+    # Check if task already completed (shared task optimization)
+    with WorkersDB(DB_PATH) as db:
+        existing_status = db.get_task_status(RUN_ID, task_id)
+        
+        if existing_status == 'success':
+            logger.info(f"Task {{task_id}} already completed by another script, reusing result")
+            existing_output = db.get_task_output(RUN_ID, task_id)
+            if existing_output:
+                return {{
+                    'status': 'success',
+                    'task_id': task_id,
+                    'agent': agent_name,
+                    'output_path': None,
+                    'data': existing_output.get('output_data'),
+                    'duration_ms': 0,
+                    'error': None,
+                    'reused': True
+                }}
+        
+        elif existing_status == 'running':
+            logger.info(f"Task {{task_id}} is being executed by another script, waiting...")
+            # Wait for the other script to complete it
+            waited = await asyncio.get_event_loop().run_in_executor(
+                None,
+                db.wait_for_task_completion,
+                RUN_ID,
+                task_id,
+                300  # 5 minute timeout
+            )
+            if waited:
+                existing_output = db.get_task_output(RUN_ID, task_id)
+                if existing_output:
+                    logger.info(f"Task {{task_id}} completed by other script, reusing result")
+                    return {{
+                        'status': 'success',
+                        'task_id': task_id,
+                        'agent': agent_name,
+                        'output_path': None,
+                        'data': existing_output.get('output_data'),
+                        'duration_ms': 0,
+                        'error': None,
+                        'reused': True
+                    }}
+            else:
+                logger.error(f"Timeout waiting for task {{task_id}} to complete")
+                return {{
+                    'status': 'failed',
+                    'task_id': task_id,
+                    'agent': agent_name,
+                    'error': 'Timeout waiting for shared task completion'
+                }}
+    
+    # Task not started yet - claim it and execute
     logger.info(f"Starting task {{task_id}}: {description[:50]}...")
     logger.info(f"Using tools: {', '.join(tools)}")
     
-    # Record task start in DB
-    with WorkersDB(DB_PATH) as db:
-        db.start_task(RUN_ID, task_id, agent_name)
+    # Try to claim the task (atomic operation via DB constraint)
+    try:
+        with WorkersDB(DB_PATH) as db:
+            db.start_task(RUN_ID, task_id, agent_name)
+    except Exception as e:
+        # Another script claimed it between our check and now
+        logger.info(f"Task {{task_id}} claimed by another script, waiting for result...")
+        with WorkersDB(DB_PATH) as db:
+            waited = await asyncio.get_event_loop().run_in_executor(
+                None,
+                db.wait_for_task_completion,
+                RUN_ID,
+                task_id,
+                300
+            )
+            if waited:
+                existing_output = db.get_task_output(RUN_ID, task_id)
+                if existing_output:
+                    return {{
+                        'status': 'success',
+                        'task_id': task_id,
+                        'agent': agent_name,
+                        'data': existing_output.get('output_data'),
+                        'reused': True
+                    }}
+        return {{'status': 'failed', 'task_id': task_id, 'error': 'Failed to claim or wait for task'}}
     
     start_time = time.time()
     
     try:
+        # Load dependency outputs from DB if this task has dependencies
+        _task_deps = {{}}
+        _soft_dep_notes = []  # Track soft dependency resolution notes
+        dependencies = {dependencies_list}
+        soft_dep_task_ids = {soft_deps_list}  # Tasks that are soft dependencies (graceful degradation)
+        
+        if dependencies:
+            with WorkersDB(DB_PATH) as db:
+                for dep_task_id in dependencies:
+                    dep_output = db.get_task_output(RUN_ID, dep_task_id)
+                    if dep_output:
+                        _task_deps[dep_task_id] = dep_output.get('output_data', {{}})
+                    elif dep_task_id in soft_dep_task_ids:
+                        # Soft dependency - graceful degradation
+                        logger.warning(f"Soft dependency task {{dep_task_id}} output not available, using fallback")
+                        _task_deps[dep_task_id] = {{}}  # Empty dict as fallback
+                        
+                        # Check why it failed
+                        task_status = db.get_task_status(RUN_ID, dep_task_id)
+                        if task_status == 'failed':
+                            _soft_dep_notes.append(f"{{dep_task_id}}: task failed")
+                        elif task_status is None:
+                            _soft_dep_notes.append(f"{{dep_task_id}}: task not executed")
+                        else:
+                            _soft_dep_notes.append(f"{{dep_task_id}}: no output data (status={{task_status}})")
+                    else:
+                        # Hard dependency - fail the task
+                        raise Exception(f"Dependency task {{dep_task_id}} output not found in DB")
+        
+        # Helper function to extract field from array of dicts
+        def extract_field(arr, field):
+            """Extract a field from an array of dicts, filtering out None values.
+            Also handles nested arrays by flattening them first."""
+            if not isinstance(arr, list):
+                return []
+            
+            # Flatten nested arrays first (handles multi-date query results)
+            flat_arr = []
+            for item in arr:
+                if isinstance(item, list):
+                    flat_arr.extend(item)
+                else:
+                    flat_arr.append(item)
+            
+            result = []
+            for item in flat_arr:
+                if isinstance(item, dict) and field in item:
+                    val = item[field]
+                    if val is not None:
+                        result.append(val)
+            return result
+        
         # Initialize MCP client for tool execution
         from src.mcp.discovery import get_tool
         
@@ -197,7 +340,8 @@ if __name__ == "__main__":
             'data': tool_results,
             'metadata': {{
                 'duration_ms': duration_ms,
-                'num_tools': len(tool_results)
+                'num_tools': len(tool_results),
+                'soft_dependency_notes': _soft_dep_notes if _soft_dep_notes else None
             }}
         }}
         
@@ -208,7 +352,7 @@ if __name__ == "__main__":
                 task_id,
                 status='success',
                 duration_ms=duration_ms,
-                output_file_path=None  # Tool-based execution doesn't use file paths
+                output_file_path=None
             )
             db.store_task_output(
                 RUN_ID,
@@ -225,7 +369,8 @@ if __name__ == "__main__":
             'output_path': None,
             'data': output_data,
             'duration_ms': duration_ms,
-            'error': None
+            'error': None,
+            'reused': False
         }}
         
     except Exception as e:
@@ -250,12 +395,333 @@ if __name__ == "__main__":
             'output_path': None,
             'data': None,
             'duration_ms': duration_ms,
-            'error': str(e)
+            'error': str(e),
+            'reused': False
         }}
 '''
             functions.append(function)
         
         return '\n\n'.join(functions)
+    
+    def _extract_soft_dependency_tasks(self, tool_params: Dict[str, Dict[str, Any]]) -> List[str]:
+        """
+        Extract task IDs that are soft dependencies from tool parameters.
+        
+        Args:
+            tool_params: Tool parameters dict
+            
+        Returns:
+            List of task IDs that are soft dependencies
+        """
+        soft_deps = []
+        
+        def find_soft_deps(params: Any):
+            if isinstance(params, dict):
+                if params.get("__soft_dependency__") and "__task_ref__" in params:
+                    soft_deps.append(params["__task_ref__"])
+                for v in params.values():
+                    find_soft_deps(v)
+            elif isinstance(params, list):
+                for item in params:
+                    find_soft_deps(item)
+        
+        find_soft_deps(tool_params)
+        return soft_deps
+    
+    def _has_task_references(self, params: Any) -> bool:
+        """Check if params contain task references that need resolution."""
+        if isinstance(params, dict):
+            if "__task_ref__" in params or "__extract__" in params or "__concat__" in params:
+                return True
+            return any(self._has_task_references(v) for v in params.values())
+        elif isinstance(params, list):
+            return any(self._has_task_references(item) for item in params)
+        elif isinstance(params, str):
+            # Check for task references embedded in strings
+            return "{__task_ref__:" in params or "{ __task_ref__:" in params
+        return False
+    
+    def _resolve_task_references(self, params: Any, deps_var: str = "_task_deps") -> str:
+        """
+        Recursively resolve task references in parameters to Python code.
+        
+        Converts special references like:
+          {"__task_ref__": "task_1", "__field__": "query_event_history.history"}
+        Into Python code like:
+          _task_deps['task_1']['query_event_history']['history']
+          
+        The _task_deps variable is populated by fetching dependency outputs from the database.
+          
+        Args:
+            params: Parameter value (can be dict, list, or primitive)
+            deps_var: Name of the variable holding dependency outputs
+            
+        Returns:
+            Python code string to access the data
+        """
+        if isinstance(params, dict):
+            # Check for extract_field pattern
+            if "__extract__" in params and "__from__" in params:
+                field_name = params["__extract__"]
+                source = params["__from__"]
+                # Recursively resolve the source reference
+                source_code = self._resolve_task_references(source, deps_var)
+                return f"extract_field({source_code}, '{field_name}')"
+            
+            # Check for concat pattern - concatenate multiple arrays
+            elif "__concat__" in params:
+                arrays = params["__concat__"]
+                if isinstance(arrays, list):
+                    # Resolve each array reference
+                    resolved_arrays = []
+                    for arr in arrays:
+                        resolved_arrays.append(self._resolve_task_references(arr, deps_var))
+                    # Generate Python code to concatenate the arrays
+                    return f"({' + '.join(resolved_arrays)})"
+                else:
+                    # Single array - just resolve it
+                    return self._resolve_task_references(arrays, deps_var)
+            
+            # Check for special task reference format
+            elif "__task_ref__" in params and "__field__" in params:
+                task_id = params["__task_ref__"]
+                field_path = params["__field__"]
+                is_soft_dep = params.get("__soft_dependency__", False)
+                fallback = params.get("__fallback__", None)
+                
+                # For soft dependencies, wrap the access in a try/except with fallback
+                if is_soft_dep:
+                    return self._generate_soft_dependency_access(
+                        task_id, field_path, fallback
+                    )
+                
+                # Check for wildcard pattern like "events.*.event_date"
+                # This means: extract 'event_date' from each item in 'events' array
+                path_parts = field_path.split('.')
+                if '*' in path_parts:
+                    # Find where the wildcard is
+                    wildcard_idx = path_parts.index('*')
+                    
+                    # Build path up to the array (before the *)
+                    pre_wildcard = path_parts[:wildcard_idx]
+                    # Field(s) to extract after the *
+                    post_wildcard = path_parts[wildcard_idx + 1:]
+                    
+                    # Build code to access the array
+                    code_parts = [f"{deps_var}['{task_id}']"]
+                    for part in pre_wildcard:
+                        if '[' in part:
+                            field_name, rest = part.split('[', 1)
+                            code_parts.append(f"['{field_name}']")
+                            code_parts.append(f"[{rest}")
+                        else:
+                            code_parts.append(f"['{part}']")
+                    
+                    array_code = ''.join(code_parts)
+                    
+                    # For single field after *, use extract_field helper
+                    if len(post_wildcard) == 1:
+                        return f"extract_field({array_code}, '{post_wildcard[0]}')"
+                    else:
+                        # Multiple nested fields - need to chain extraction
+                        # For now, just extract the first field
+                        return f"extract_field({array_code}, '{post_wildcard[0]}')"
+                
+                # Build Python code to access nested fields (no wildcard)
+                # The dependency data structure is: db_output['output_data'] which contains tool results
+                code_parts = [f"{deps_var}['{task_id}']"]
+                
+                # Parse field path
+                for part in path_parts:
+                    # Handle array indexing like "history[0]"
+                    if '[' in part:
+                        field_name, rest = part.split('[', 1)
+                        code_parts.append(f"['{field_name}']")
+                        # Add the array index
+                        code_parts.append(f"[{rest}")  # rest already contains "]"
+                    else:
+                        code_parts.append(f"['{part}']")
+                
+                return ''.join(code_parts)
+            else:
+                # Regular dict - check if any values need resolution
+                needs_resolution = any(self._has_task_references(v) for v in params.values())
+                
+                if not needs_resolution:
+                    # No task references anywhere - just repr the original dict
+                    return repr(params)
+                
+                # Some values need resolution - process each one
+                items = []
+                for k, v in params.items():
+                    if self._has_task_references(v):
+                        # This value has task refs - resolve it to code
+                        resolved_code = self._resolve_task_references(v, deps_var)
+                        items.append(f"'{k}': {resolved_code}")
+                    else:
+                        # No task refs - use original value
+                        items.append(f"'{k}': {repr(v)}")
+                
+                return f"{{{', '.join(items)}}}"
+        elif isinstance(params, list):
+            # Check if any items need resolution
+            needs_resolution = any(self._has_task_references(item) for item in params)
+            
+            if not needs_resolution:
+                # No task references - just repr the original list
+                return repr(params)
+            
+            # Some items need resolution
+            items = []
+            for item in params:
+                if self._has_task_references(item):
+                    items.append(self._resolve_task_references(item, deps_var))
+                else:
+                    items.append(repr(item))
+            
+            return f"[{', '.join(items)}]"
+        elif isinstance(params, str):
+            # Check for embedded task references in strings
+            if "{__task_ref__:" in params or "{ __task_ref__:" in params:
+                return self._resolve_embedded_references(params, deps_var)
+            return repr(params)
+        else:
+            # Primitive value
+            return repr(params)
+    
+    def _generate_soft_dependency_access(
+        self,
+        task_id: str,
+        field_path: str,
+        fallback: Any,
+        deps_var: str = "_task_deps"
+    ) -> str:
+        """
+        Generate code for accessing soft dependency data with graceful degradation.
+        
+        If the dependency task failed or data is missing, returns the fallback
+        value and logs the reason.
+        
+        Args:
+            task_id: ID of the dependency task
+            field_path: Path to field in task output (e.g., "search_events.events")
+            fallback: Fallback value if access fails
+            deps_var: Variable name for dependency outputs
+            
+        Returns:
+            Python code string that handles access with fallback
+        """
+        # Build the full access path
+        path_parts = field_path.split('.')
+        access_parts = [f"{deps_var}.get('{task_id}', {{}})"]
+        
+        for i, part in enumerate(path_parts):
+            if '[' in part:
+                field_name, rest = part.split('[', 1)
+                access_parts.append(f".get('{field_name}', [])")
+                # For array access, need different handling
+                access_parts.append(f"[{rest}" if rest else "")
+            else:
+                # Use .get() for safe access
+                if i == len(path_parts) - 1:
+                    # Last part - use fallback
+                    access_parts.append(f".get('{part}', {repr(fallback)})")
+                else:
+                    access_parts.append(f".get('{part}', {{}})")
+        
+        access_code = ''.join(access_parts)
+        
+        # Generate code that:
+        # 1. Tries to access the data
+        # 2. Falls back gracefully with a note if it fails
+        code = f'''(lambda: (
+            {access_code} if '{task_id}' in {deps_var} and {deps_var}['{task_id}'] else (
+                logger.warning("Soft dependency '{task_id}' not available, using fallback"),
+                {repr(fallback)}
+            )[-1]
+        ))()'''
+        
+        return code
+    
+    def _resolve_embedded_references(self, text: str, deps_var: str = "_task_deps") -> str:
+        """
+        Resolve task references embedded inside strings.
+        
+        Converts strings like:
+          "timestamp >= {__task_ref__: 'task_1', __field__: 'event_date'}"
+        Into Python f-string code like:
+          f"timestamp >= '{_task_deps['task_1']['event_date']}'"
+        
+        This handles the case where the AI embeds task references directly in SQL
+        or other string parameters instead of using them as standalone dict values.
+        
+        For SQL strings, values are automatically quoted with single quotes to ensure
+        proper SQL syntax (e.g., timestamp >= '2024-12-08').
+        
+        Args:
+            text: String containing embedded task references
+            deps_var: Name of the variable holding dependency outputs
+            
+        Returns:
+            Python code that builds the string with resolved references
+        """
+        import re
+        
+        # Pattern to find embedded task references
+        # Matches: {__task_ref__: 'task_id', __field__: 'field.path'}
+        # or:      { __task_ref__: 'task_id', __field__: 'field.path' }
+        pattern = r"\{\s*__task_ref__:\s*['\"](\w+)['\"]\s*,\s*__field__:\s*['\"]([^'\"]+)['\"]\s*\}"
+        
+        # Find all matches
+        matches = list(re.finditer(pattern, text))
+        
+        if not matches:
+            # No embedded references found, return as-is
+            return repr(text)
+        
+        # Build the f-string by replacing each reference with a Python expression
+        result_parts = []
+        last_end = 0
+        ref_vars = []  # Track generated variable names
+        
+        for i, match in enumerate(matches):
+            task_id = match.group(1)
+            field_path = match.group(2)
+            
+            # Add the text before this match
+            result_parts.append(text[last_end:match.start()])
+            
+            # Build the reference code
+            ref_code_parts = [f"{deps_var}['{task_id}']"]
+            for part in field_path.split('.'):
+                # Handle array indexing like "events[0]"
+                if '[' in part:
+                    field_name, rest = part.split('[', 1)
+                    ref_code_parts.append(f"['{field_name}']")
+                    ref_code_parts.append(f"[{rest}")
+                else:
+                    ref_code_parts.append(f"['{part}']")
+            
+            ref_code = ''.join(ref_code_parts)
+            
+            # For SQL strings, we need to quote the value with single quotes
+            # Add placeholder with SQL-safe quoting (wrapped in single quotes)
+            result_parts.append(f"'{{_ref_{i}}}'")
+            ref_vars.append(ref_code)
+            
+            last_end = match.end()
+        
+        # Add remaining text after last match
+        result_parts.append(text[last_end:])
+        
+        # Build the final string template
+        template = ''.join(result_parts)
+        
+        # Generate the f-string code
+        # We need to use .format() since we're building code, not an actual f-string
+        format_args = ', '.join([f"_ref_{i}={ref_vars[i]}" for i in range(len(ref_vars))])
+        
+        return f'"{template}".format({format_args})'
     
     def _generate_tool_calls(
         self,
@@ -269,6 +735,11 @@ if __name__ == "__main__":
         including unified tools like search_polymarket_with_history that combine
         multiple operations into a single call.
         
+        Handles special task references in parameters (e.g., {"__task_ref__": "task_1", "__field__": "data.history"})
+        and converts them to Python code that accesses previous task outputs.
+        
+        Filters parameters at runtime to match tool signatures to prevent errors from invalid parameters.
+        
         Args:
             tools: List of tool names selected by Planner 2
             tool_params: Dict mapping tool_name -> parameters
@@ -280,8 +751,9 @@ if __name__ == "__main__":
         
         for tool_name in tools:
             params = tool_params.get(tool_name, {})
-            # Use repr() instead of json.dumps() to get valid Python literals
-            params_str = repr(params)
+            
+            # Resolve any task references in parameters to Python code
+            params_str = self._resolve_task_references(params)
             
             tool_call = f'''        # Call tool: {tool_name}
         logger.info(f"Calling tool: {tool_name}")
@@ -289,7 +761,23 @@ if __name__ == "__main__":
         if tool_func is None:
             raise Exception(f"Tool not found: {tool_name}")
         
-        tool_params_{tool_name.replace('-', '_')} = {params_str}
+        # Filter parameters to match tool signature (prevents errors from invalid params)
+        import inspect
+        tool_params_raw_{tool_name.replace('-', '_')} = {params_str}
+        if tool_func:
+            try:
+                sig = inspect.signature(tool_func)
+                valid_params = set(sig.parameters.keys())
+                tool_params_{tool_name.replace('-', '_')} = {{k: v for k, v in tool_params_raw_{tool_name.replace('-', '_')}.items() if k in valid_params}}
+                removed = set(tool_params_raw_{tool_name.replace('-', '_')}.keys()) - valid_params
+                if removed:
+                    logger.warning(f"Filtered out invalid parameters for {tool_name}: {{removed}}")
+            except Exception:
+                # If signature inspection fails, use params as-is
+                tool_params_{tool_name.replace('-', '_')} = tool_params_raw_{tool_name.replace('-', '_')}
+        else:
+            tool_params_{tool_name.replace('-', '_')} = tool_params_raw_{tool_name.replace('-', '_')}
+        
         result_{tool_name.replace('-', '_')} = tool_func(**tool_params_{tool_name.replace('-', '_')})
         tool_results["{tool_name}"] = result_{tool_name.replace('-', '_')}
         logger.info(f"Tool {tool_name} completed")
@@ -297,6 +785,78 @@ if __name__ == "__main__":
             tool_calls.append(tool_call)
         
         return '\n'.join(tool_calls)
+    
+    def _ensure_timestamps_for_charts(
+        self,
+        execution_plan: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Ensure that run_query calls include 'timestamp' column when data is used for charting.
+        
+        This fixes the issue where Planner 2 sometimes omits 'timestamp' from columns,
+        causing charts to show indices instead of actual timestamps on the x-axis.
+        
+        Args:
+            execution_plan: List of task execution plans
+            
+        Returns:
+            Modified execution plan with timestamps ensured for charting tasks
+        """
+        # Charting tools that require timestamps
+        charting_tools = {
+            'generate_candlestick_chart',
+            'generate_multi_candlestick_charts',
+            'generate_line_chart',
+            'generate_histogram',
+            'generate_scatter_plot',
+            'generate_bar_chart'
+        }
+        
+        # Build a map of task_id -> task_plan for quick lookup
+        task_map = {task['task_id']: task for task in execution_plan}
+        
+        # Find all tasks that use charting tools
+        charting_tasks = []
+        for task in execution_plan:
+            tools = task.get('tools', [])
+            if any(tool in charting_tools for tool in tools):
+                charting_tasks.append(task)
+        
+        # For each charting task, check its dependencies
+        for chart_task in charting_tasks:
+            dependencies = chart_task.get('dependencies', [])
+            
+            # Check each dependency to see if it uses run_query
+            for dep_task_id in dependencies:
+                dep_task = task_map.get(dep_task_id)
+                if not dep_task:
+                    continue
+                
+                # Check if this dependency uses run_query or run_multi_date_query
+                dep_tools = dep_task.get('tools', [])
+                query_tools = ['run_query', 'run_multi_date_query']
+                
+                for query_tool in query_tools:
+                    if query_tool in dep_tools:
+                        # Get the tool parameters for the query tool
+                        tool_params = dep_task.get('tool_params', {})
+                        query_params = tool_params.get(query_tool, {})
+                        
+                        # Check if columns are specified
+                        columns = query_params.get('columns', [])
+                        
+                        # If timestamp is not in columns, add it
+                        if isinstance(columns, list) and 'timestamp' not in columns:
+                            columns.append('timestamp')
+                            query_params['columns'] = columns
+                            tool_params[query_tool] = query_params
+                            dep_task['tool_params'] = tool_params
+                            logger.info(
+                                f"Added 'timestamp' to {query_tool} columns for task {dep_task_id} "
+                                f"(used by charting task {chart_task['task_id']})"
+                            )
+        
+        return execution_plan
     
     def _generate_main_function(
         self,
@@ -345,6 +905,20 @@ if __name__ == "__main__":
         path_plan: Dict[str, Any]
     ) -> str:
         """Generate main function with dependency handling."""
+        # Filter out tasks with orchestrator_direct execution mode
+        # These are handled by the orchestrator directly (Stage 5), not worker scripts
+        worker_tasks = []
+        for task_plan in execution_plan:
+            agent_name = task_plan.get('agent', '')
+            config = AGENT_CAPABILITIES.get(agent_name, {})
+            if config.get("execution_mode") != "orchestrator_direct":
+                worker_tasks.append(task_plan)
+            else:
+                logger.debug(f"Excluding task {task_plan['task_id']} from main() (orchestrator_direct)")
+        
+        # Determine which task IDs are in this path (workers only)
+        task_ids_in_path = {t['task_id'] for t in worker_tasks}
+        
         execution_code = []
         execution_code.append('    logger.info("Starting dependency-aware execution")')
         execution_code.append('    all_results = []')
@@ -352,7 +926,7 @@ if __name__ == "__main__":
         execution_code.append('')
         
         # Sort tasks by dependencies (topological sort)
-        sorted_tasks = self._topological_sort(execution_plan)
+        sorted_tasks = self._topological_sort(worker_tasks)
         
         for task_plan in sorted_tasks:
             task_id = task_plan['task_id']
@@ -360,12 +934,35 @@ if __name__ == "__main__":
             dependencies = task_plan.get('dependencies', [])
             
             if dependencies:
-                # Add dependency check
-                dep_checks = [f'"{dep}" in task_outputs' for dep in dependencies]
-                dep_check_str = ' and '.join(dep_checks)
+                # Separate local (in-path) and cross-path dependencies
+                local_deps = [dep for dep in dependencies if dep in task_ids_in_path]
+                cross_deps = [dep for dep in dependencies if dep not in task_ids_in_path]
                 
                 execution_code.append(f'    # Task {task_id} (depends on: {", ".join(dependencies)})')
-                execution_code.append(f'    if {dep_check_str}:')
+                
+                # Check local dependencies from task_outputs
+                if local_deps:
+                    local_checks = [f'"{dep}" in task_outputs' for dep in local_deps]
+                    local_check_str = ' and '.join(local_checks)
+                    execution_code.append(f'    local_deps_met = {local_check_str}')
+                else:
+                    execution_code.append(f'    local_deps_met = True')
+                
+                # Wait for cross-path dependencies from database
+                if cross_deps:
+                    execution_code.append(f'    # Wait for cross-path dependencies: {cross_deps}')
+                    execution_code.append(f'    cross_deps_met = True')
+                    execution_code.append(f'    with WorkersDB(DB_PATH) as db:')
+                    for cross_dep in cross_deps:
+                        execution_code.append(f'        # Wait for {cross_dep} from another parallel path')
+                        execution_code.append(f'        waited = db.wait_for_task_completion(RUN_ID, "{cross_dep}", 120)')
+                        execution_code.append(f'        if not waited:')
+                        execution_code.append(f'            logger.error("Timeout waiting for cross-path dependency {cross_dep}")')
+                        execution_code.append(f'            cross_deps_met = False')
+                else:
+                    execution_code.append(f'    cross_deps_met = True')
+                
+                execution_code.append(f'    if local_deps_met and cross_deps_met:')
                 execution_code.append(f'        result = await {task_func}()')
                 execution_code.append(f'        all_results.append(result)')
                 execution_code.append(f'        task_outputs["{task_id}"] = result')
@@ -414,20 +1011,26 @@ if __name__ == "__main__":
         in_degree = {}
         task_map = {}
         
+        # First pass: collect all task IDs in this execution plan
+        task_ids_in_plan = set()
         for task_plan in execution_plan:
             task_id = task_plan['task_id']
             task_map[task_id] = task_plan
+            task_ids_in_plan.add(task_id)
             in_degree[task_id] = 0
         
+        # Second pass: count only dependencies that are IN this execution plan
+        # Cross-path dependencies are handled by the parallel script execution
         for task_plan in execution_plan:
             task_id = task_plan['task_id']
             deps = task_plan.get('dependencies', [])
             
-            in_degree[task_id] = len(deps)
+            # Only count dependencies that are in THIS path's execution plan
+            local_deps = [dep for dep in deps if dep in task_ids_in_plan]
+            in_degree[task_id] = len(local_deps)
             
-            for dep in deps:
-                if dep in task_map:  # Only count valid dependencies
-                    graph[dep].append(task_id)
+            for dep in local_deps:
+                graph[dep].append(task_id)
         
         # Topological sort using Kahn's algorithm
         queue = deque([tid for tid, degree in in_degree.items() if degree == 0])
@@ -441,6 +1044,19 @@ if __name__ == "__main__":
                 in_degree[neighbor] -= 1
                 if in_degree[neighbor] == 0:
                     queue.append(neighbor)
+        
+        # Safety check: ensure all tasks are included
+        if len(sorted_tasks) != len(execution_plan):
+            logger.warning(
+                f"Topological sort only produced {len(sorted_tasks)} of {len(execution_plan)} tasks. "
+                f"Missing: {task_ids_in_plan - {t['task_id'] for t in sorted_tasks}}. "
+                f"Adding remaining tasks in original order."
+            )
+            # Add any missing tasks (may have cross-path deps)
+            sorted_task_ids = {t['task_id'] for t in sorted_tasks}
+            for task_plan in execution_plan:
+                if task_plan['task_id'] not in sorted_task_ids:
+                    sorted_tasks.append(task_plan)
         
         return sorted_tasks
     

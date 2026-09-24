@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aggression V2.1 — Event Flow Paper</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v={{ asset_version }}">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <header>
+    <div>
+      <span class="eyebrow">AGGRESSION V2.1</span>
+      <h1>Event Flow Paper Monitor</h1>
+      <p>V2 fair-value context plus executable T+5 event-flow paper tracking.</p>
+    </div>
+    <div class="badge provisional">PROVISIONAL / RESEARCH-ONLY</div>
+  </header>
+
+  <main>
+    <section class="health">
+      <div><span>Feed</span><strong id="feed-status">Loading</strong></div>
+      <div><span>Events DB</span><strong id="events-status">Loading</strong></div>
+      <div><span>Entry</span><strong>T+5 lock price</strong></div>
+      <div><span>Cost</span><strong>0.5 tick</strong></div>
+    </section>
+
+    <section class="card hero">
+      <div class="card-title">
+        <div><span class="eyebrow">ACTIVE RELEASE</span><h2 id="event-name">No active release</h2></div>
+        <span id="event-phase" class="badge">IDLE</span>
+      </div>
+      <div class="event-grid">
+        <div><span>Release time</span><strong id="event-time">—</strong></div>
+        <div><span>First-5m flow</span><strong id="event-flow">—</strong></div>
+        <div><span>Collection</span><strong id="event-progress">—</strong></div>
+        <div><span>Locked lean</span><strong id="event-lean">—</strong></div>
+        <div><span>Lock price</span><strong id="event-lock-price">—</strong></div>
+        <div><span>Release → lock</span><strong id="event-pre-move">—</strong></div>
+      </div>
+      <div id="quality-flags" class="flags"></div>
+      <p class="caveat">The first five minutes form the signal. Paper PnL begins at the T+5 lock price; release-to-lock movement is diagnostic only.</p>
+    </section>
+
+    <section class="card">
+      <div class="card-title"><h2>Post-lock paper outcomes</h2></div>
+      <div id="outcomes" class="outcomes">
+        <div><span>+5m</span><strong>Pending</strong></div>
+        <div><span>+15m</span><strong>Pending</strong></div>
+        <div><span>+30m</span><strong>Pending</strong></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">
+        <div><span class="eyebrow">ALERT QUALITY CONTEXT</span><h2>Magnitude confidence</h2></div>
+        <span id="magnitude-state" class="badge">Loading</span>
+      </div>
+      <div class="magnitude-grid">
+        <div><span>Prior-window realized vol</span><strong id="magnitude-vol">—</strong></div>
+        <div><span>Prior-window range</span><strong id="magnitude-range">—</strong></div>
+        <div><span>Validated ≥5-tick rate</span><strong id="magnitude-move-rate">—</strong></div>
+        <div><span>Validated resolution rate</span><strong id="magnitude-resolution-rate">—</strong></div>
+      </div>
+      <div id="magnitude-reasons" class="flags"></div>
+      <p class="caveat"><strong>PROVISIONAL / NON-DIRECTIONAL.</strong> Elevated means a real move and residual resolution were more likely historically. It does not say long/short and did not validate after-cost PnL.</p>
+    </section>
+
+    <section class="card">
+      <div class="card-title">
+        <h2>V2 fair-value context</h2>
+        <span id="residual-state" class="badge">Loading</span>
+      </div>
+      <p id="residual-message">Waiting for live model.</p>
+      <div id="fair-value-chart" class="chart"></div>
+    </section>
+
+    <section class="split">
+      <div class="card">
+        <div class="card-title"><h2>Upcoming releases</h2></div>
+        <div id="upcoming-list" class="list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><h2>Recent paper episodes</h2></div>
+        <div id="recent-list" class="list"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-title">
+        <h2>Paper log</h2>
+        <select id="log-scope"><option value="today">Today</option><option value="all">All</option></select>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Release</th><th>Lean</th><th>Lock</th><th>+5m</th><th>+15m</th><th>+30m</th></tr></thead><tbody id="log-body"></tbody></table>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

@@ -1,0 +1,544 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=0.82in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,array,longtable,enumitem,microtype,xcolor,fancyhdr,lastpage}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{caption}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=black}
+
+\definecolor{darkblue}{RGB}{26,54,93}
+
+\titleformat{\section}{\large\bfseries\color{darkblue}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.6em}{}
+
+\setlist[itemize]{leftmargin=1.3em,itemsep=0.2em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.5em,itemsep=0.2em,topsep=0.25em}
+\setlength{\tabcolsep}{3pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{LIFO-zone literature experiments}
+\rhead{Offline register, 8 September 2026}
+\cfoot{\thepage\ / \pageref{LastPage}}
+\setlength{\headheight}{14pt}
+
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\abs}[1]{\lvert #1 \rvert}
+
+\title{\vspace{-1.5cm}\textbf{LIFO-zone follow-ups from the microstructure papers}\\[0.25em]
+\large Frozen experiments on the published TBBO panel}
+\author{}
+\date{Preregistered 8 September 2026. Run the same day. \code{ship\_gate} false.}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+\vspace{-1.2em}
+
+\begin{abstract}
+The 2026-09-07 LIFO-zone study showed that live H5 / LIFO FRIENDLY
+(quiet leftover) \emph{lowers} the rate of 15-minute two-way boxes
+with $\ge 3$ ticks of meat.  The papers below are not TY clip systems.
+They supply four stealable mechanisms.  This note freezes the next
+offline experiments: data, flags, and how a result is scored.
+Nothing here retunes live V1 / V2 / V2.2 / V2.7, writes \code{*_live/},
+or authorizes a banner.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Isolation}
+
+\begin{itemize}
+    \item Reads only
+    \code{workspace/analysis/aggression_v2_tbbo/tbbo_feature_matrix.csv}
+    and \code{workspace/economic_events.db}.
+    \item Writes only
+    \code{workspace/analysis/aggression_v2_lifo_literature/}.
+    \item Does not overwrite the 2026-09-07
+    \code{aggression_v2_lifo_zone/} artifacts or
+    \code{tbbo_feature_matrix.csv}.
+    \item Does not import, edit, restart, or write V1 / V1.2 / V2 /
+    V2.1 / V2.2 / V2.3 / V2.6 / V2.7 / V3, SOD, Tailscale, or Telegram.
+    \item Does not retune H5 (\(\abs{z}\ge 1\), session \(p_{33}\)
+    intensity).
+    \item \code{ship\_gate} stays false even if a cell letter-passes.
+    A later live change needs a separate explicit approval.
+\end{itemize}
+
+The companion live-page note is
+\code{docs/aggression_v27_monitor.tex}.
+The 2026-09-07 run is
+\code{docs/aggression_v2_lifo_zone_experiments.md}.
+
+\section{Shared panel (frozen)}
+
+All four experiments use the same tape, the same label, and the same
+score.  Only the \emph{flag} changes.
+
+\subsection{Data}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Object & Path / columns \\
+\midrule
+Panel & \code{tbbo_feature_matrix.csv} (read-only) \\
+Clock & 1-minute last-print bars, not MBP-1 event time \\
+Price & \code{price} (TY front, session last print) \\
+Signed flow & \code{agg_1m} (DV01-weighted curve aggression) \\
+Print count & \code{trade_intensity} \\
+Contract volume & \code{vol_per_min} \\
+5-minute push & \code{mom_5m} \\
+Depth (diagnostic) & \code{displayed_depth_mean} \\
+Events & \code{workspace/economic_events.db}, same loader as 2026-09-07 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The published matrix does \emph{not} store raw
+\code{buy_flow}/\code{sell_flow}.  Two-sidedness is therefore
+defined from \(\code{agg\_1m}\) itself (L1), not from a reconstructed
+Lee--Ready tape.  True Cont OFI (cancels and queue adds) is
+\textbf{blocked} on this panel.
+
+Tick size is \(1/64\), as in the zone study.
+
+\subsection{Label (Branch 0, unchanged)}
+
+Primary object: \code{lifo\_zone\_15m}.
+A complete 15-minute forward path is a zone if and only if all three
+hold:
+
+\begin{enumerate}
+    \item \textbf{Meat:} forward high$-$low $\ge 3$ ticks.
+    \item \textbf{Contained:} \(\abs{\text{net}} < 8\) ticks.
+    \item \textbf{Two-way:} a 3-tick push, then a 3-tick retrace from
+    that extreme (\code{first_reversal} in
+    \code{scripts/aggression_v2_lifo_zone_research.py}).
+\end{enumerate}
+
+Also score, but do not gate on, \code{path\_15m} (3-tick swing before
+2-tick adverse) and the 30-minute copies.  Incomplete horizons are
+censored.  Minutes inside $\pm 30$ minutes of a known release are
+censored.  H5 is scored as a \emph{negative control} only.
+
+\subsection{Splits}
+
+Same chronological cut as 2026-09-07 / the V1 dispersion work:
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Split & ET dates & Role \\
+\midrule
+Discovery & 2026-01-27 \ldots 2026-04-08 & 43 days; browse sensitivities \\
+Validation & 2026-04-10 \ldots 2026-05-08 & 19 days; \textbf{binding} letter \\
+FINAL & 2026-05-12 \ldots 2026-06-05 & 16 days; locked until validation
+letter-passes \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Do not retune a threshold after seeing FINAL.  Sensitivity cuts listed
+below may be inspected on discovery only; the starred primary flag is
+the only validation letter.
+
+\subsection{How a result is measured}
+
+Let \(B\) be the nonevent, complete-horizon baseline zone rate on that
+split (2026-09-07 validation \(B \approx 8.5\%\) after 15-minute
+decluster; recompute, do not hard-code).
+
+For each flag \(F\):
+
+\begin{enumerate}
+    \item Restrict to nonevent, complete 15-minute rows.
+    \item Decluster at 15 minutes (\code{EPISODE_STRIDE_MIN}, same
+    helper as 2026-09-07).
+    \item \(\widehat{p} = P(\code{lifo\_zone\_15m}=1 \mid F=1)\).
+    \item Lift \(= 100\times(\widehat{p}-B)\) in percentage points.
+    \item Date-clustered bootstrap, \(N=400\), one-sided \(p\) that
+    lift $>0$ (or $<0$ for a veto).  Same
+    \code{aggression_gate_lib} helpers as the zone study.
+\end{enumerate}
+
+\textbf{Letter-pass (validation, primary flag only):}
+\(n \ge 50\), dates \(\ge 8\), lift \(\ge +8\)\,pp, one-sided 95\% CI
+above 0, and discovery lift has the same sign.  FINAL is read only
+after that letter.  A veto letter-passes on lift \(\le -8\)\,pp with
+CI below 0.
+
+Also print the three pieces (meat / contained / two-way) so a lift
+cannot hide as ``more range, no reversal.''  The 2026-09-07 binding
+constraint was two-way (\(\approx 10.3\%\)), not meat (\(51\%\)).
+
+\textbf{Not a pass:} hit rate on an edge clock with \(n<50\); in-sample
+\(R^2\); live dashboard rates.
+
+\section{What H5 already taught (do not repeat)}
+
+H5 = \(\abs{z_{\mathrm{V1}}}\ge 1\) and
+\code{trade\_intensity} \(\le\) session expanding \(p_{33}\).
+Validation zone rate \(4.2\%\) vs \(8.5\%\) ($-4.3$\,pp).  Quiet
+intensity did the damage.  BuySell-ratio flips on that quiet tape
+made it worse.  High intensity was slightly \emph{more} zonal.
+Branch C on H5 had validation \(n=3\).
+
+So the next flags must live in \textbf{moderate or busy} minutes, and
+an edge clock is only scored if it actually fires.
+
+\section{L1 --- moderate two-sided flow
+(Kyle / VPIN / Andersen / Avellaneda arrivals)}
+
+\paragraph{Steal.}
+A clip is a noise-trader / two-sided-volume state, not a quiet leftover.
+Andersen: the two-sided piece must add something after you already
+know intensity.
+
+\paragraph{Causal features, trailing, no future bars.}
+
+Session expanding quantiles use completed minutes on that ET date
+only, warmup 20 minutes (same as 2026-09-07).
+
+\begin{align}
+I_t &= \code{trade\_intensity}_t, \\
+q^{I}_{33,t},\; q^{I}_{67,t}
+ &= \text{expanding } p_{33},\; p_{67}\text{ of }I
+ \text{ on the ET date}, \\
+\text{\code{int\_mid}}_t
+ &= \mathbf{1}\{q^{I}_{33,t} < I_t \le q^{I}_{67,t}\}.
+\end{align}
+
+Two-sidedness over a trailing window \(W=15\) (primary):
+\begin{align}
+A_{t,j} &= \code{agg\_1m}_{t-j}, \qquad
+S_t = \sum_{j=0}^{14} A_{t,j}, \qquad
+D_t = \sum_{j=0}^{14} \abs{A_{t,j}}, \\
+\nu_t &= \abs{S_t}/D_t \quad (D_t>0;\ \text{else NaN}), \\
+\text{\code{twosided}}_t
+ &= \mathbf{1}\{\nu_t \le q^{\nu}_{33,t}\}.
+\end{align}
+\(\nu=0\) is perfectly matched signed flow; \(\nu=1\) is one-sided.
+This is VPIN's imbalance idea on aggression, in clock time, because
+the published panel has no buy/sell contract split.
+
+\paragraph{Primary flag (starred).}
+\[
+\text{\code{mod\_twosided}}_t
+ = \text{\code{int\_mid}}_t \land \text{\code{twosided}}_t.
+\]
+
+\paragraph{Discovery-only sensitivities (do not pick a winner on validation).}
+\(W\in\{5,15\}\); two-sided cut \(p_{25}\) vs \(p_{33}\);
+\code{int\_mid} vs ``not quiet'' (\(I_t > q^{I}_{33,t}\)).
+Volume-clock variant: fill buckets with cumulative
+\code{vol\_per\_min} until \(V^{\ast}=2000\) contracts, then
+\(\nu^{\mathrm{vol}}=\abs{\sum \code{agg\_1m}}/\sum\abs{\code{agg\_1m}}\)
+inside the completed bucket; two-sided = session expanding \(p_{33}\)
+of that \(\nu^{\mathrm{vol}}\).  \(V^{\ast}\) is frozen; do not search it
+on validation.
+
+\paragraph{Andersen control (required print, not a second gate).}
+Inside \code{int\_mid} only, lift of \code{twosided} vs not-twosided.
+If \code{mod\_twosided} beats the baseline only because it dropped the
+quiet tercile, L1 fails the control even if the headline lift is
+positive.
+
+\paragraph{Output table (validation, then discovery; FINAL locked).}
+Flag \(n\), dates, zone rate, lift pp, CI, meat / two-way / path
+rates, and the Andersen within-tercile lift.
+
+\paragraph{Pass / fail.}
+Letter-pass as in the shared gate.  Predicted direction: positive lift
+on \code{mod\_twosided}; H5 remains negative.  A pass does not ship a
+banner.
+
+\section{L2 --- absorption at a swing extreme
+(Cont / Potter)}
+
+\paragraph{Steal.}
+Large flow, small \(\Delta P\), at a level that already moved 3 ticks.
+That is an edge at a \emph{level}, not a day-long zone banner.
+H5 never sat on a 3-tick push (\(n=3\)).  This experiment is allowed
+to fail for \(n\).
+
+\paragraph{Absorption bar (same minute, Cont-style).}
+\begin{align}
+\Delta P^{\mathrm{ticks}}_t
+ &= (\code{price}_t - \code{price}_{t-1}) / (1/64), \\
+\text{\code{absorb\_bar}}_t
+ &= \mathbf{1}\!\left\{
+ \abs{\code{agg\_1m}_t} \ge q^{\abs{A}}_{67,t}
+ \;\land\;
+ \abs{\Delta P^{\mathrm{ticks}}_t} \le 1
+ \right\}.
+\end{align}
+This is a 1-minute signed-flow proxy for OFI-without-\(\Delta P\).
+It is not true L1 OFI.
+
+\paragraph{Extreme (already on the 2026-09-07 panel).}
+\code{trail\_meat\_15m}: completed trailing 15-minute high$-$low
+\(\ge 3\) ticks.  Last-push sign:
+\(\code{fade\_last\_push\_sign}_t = -\mathrm{sign}(\code{mom\_5m}_t)\)
+when \(\abs{\code{mom\_5m}_t}/(1/64)\ge 3\), else 0.
+
+\paragraph{Primary flag.}
+\[
+\text{\code{absorb\_extreme}}_t
+ = \text{\code{absorb\_bar}}_t
+ \land \text{\code{trail\_meat\_15m}}_t
+ \land (\code{fade\_last\_push\_sign}_t \ne 0).
+\]
+Diagnostic (not gated): also require
+\code{displayed\_depth\_mean} \(\ge\) session expanding \(p_{50}\).
+
+\paragraph{Two outputs.}
+
+\begin{enumerate}
+    \item \textbf{Environment:} same zone-rate lift as L1 on
+    \code{absorb\_extreme}.
+    \item \textbf{Edge clock:} when the flag is on, fade the last
+    3-tick / 5-minute push for 10 minutes.  Hit $=1$ if $+3$ ticks in
+    the fade direction prints before $-2$ against
+    (\code{fade_path_hit} from the 2026-09-07 script).  Decluster
+    15 minutes.  Report \(n\), hit rate, and date-clustered CI.
+\end{enumerate}
+
+\paragraph{Pass / fail.}
+Environment letter uses the shared $+8$\,pp gate.  Edge letter
+requires validation \(n\ge 50\) \emph{and} hit rate \(\ge 0.60\) with
+one-sided CI above \(0.50\).  If \(n<50\), write \texttt{FAIL\_N} and
+do not discuss the hit rate.  Do not fall back onto H5 to manufacture
+episodes.
+
+\section{L3 --- sign-run environment
+(Bouchaud / Tsaknaki)}
+
+\paragraph{Steal.}
+Persistent same-sign aggression is the sliced-meta-order state
+(stand aside).  A 3-tick box lives in flippy-but-not-dead flow.
+Do \emph{not} implement BOCPD / MBOC in this pass; the stealable
+object is the run length.
+
+\paragraph{Causal run length.}
+Let \(s_t = \mathrm{sign}(\code{agg\_1m}_t)\), with \(s_t=0\) when
+\(\code{agg\_1m}_t=0\).  On each ET date:
+\begin{align}
+R_t &=
+\begin{cases}
+0 & \text{if } s_t=0, \\
+1 & \text{if } s_t \ne 0 \text{ and } s_t \ne s_{t-1}, \\
+R_{t-1}+1 & \text{if } s_t = s_{t-1} \ne 0.
+\end{cases}
+\end{align}
+
+\paragraph{Primary flags.}
+\begin{align}
+\text{\code{metaorder\_run}}_t
+ &= \mathbf{1}\{R_t \ge 10\}, \\
+\text{\code{flippy\_active}}_t
+ &= \mathbf{1}\{1 \le R_t \le 2\}
+ \land \mathbf{1}\{I_t > q^{I}_{33,t}\}.
+\end{align}
+
+\paragraph{Output.}
+Zone-rate lift for both flags.  Predicted signs:
+\code{flippy\_active} positive, \code{metaorder\_run} negative (veto).
+Also print mean \(\abs{\text{net}}_{15\mathrm{m}}\) and two-way rate
+inside each flag (Tsaknaki diagnostic: long runs should look like
+one-way concave flow, not a box).
+
+\paragraph{Pass / fail.}
+\code{flippy\_active} uses the shared $+8$\,pp letter.
+\code{metaorder\_run} uses the veto letter ($-8$\,pp).
+Either can pass alone.  Discovery-only sensitivity: run cutoff
+\(\{8,10,15\}\).
+
+\section{L4 --- Hasbrouck measurement (no flag, no gate)}
+
+\paragraph{Steal.}
+A trade shock has a permanent piece and a dying piece.  Report whether
+large \(\code{agg\_1m}\) minutes \emph{retrace} over the next 15 minutes.
+This is a measurement, not a banner candidate.
+
+\paragraph{Procedure.}
+On nonevent complete rows, tercile \(\abs{\code{agg\_1m}}\) with the
+session expanding \(p_{33}/p_{67}\).  In each tercile report:
+
+\begin{itemize}
+    \item \(P(\code{lifo\_zone\_15m})\), \(P(\text{two-way})\),
+    \(P(\text{meat})\);
+    \item median \(\abs{\text{endpoint}}_{15\mathrm{m}}\) in ticks;
+    \item retrace share:
+    \(\abs{\text{endpoint}} / \max_k\abs{\text{path}_k}\)
+    (1 $=$ the 15-minute move stayed; 0 $=$ it came all the way back).
+\end{itemize}
+
+Optional VAR-lite (discovery only): residualize \(\code{agg\_1m}\) on
+five lags of itself and of \(\Delta P\), then repeat on the residual
+terciles.  Do not turn those residuals into a live \(z\).
+
+\paragraph{How to read it.}
+If the high-\(\abs{\code{agg}}\) tercile has \emph{lower} two-way and
+higher retrace share, aggression is more permanent --- L2 fades are
+the wrong play on those bars, and L3's long run is the veto.
+If two-way is flat or higher in the busy tercile, that supports L1
+(swings need prints).  No letter-pass.  Print the table and stop.
+
+\section{Order of work}
+
+\begin{enumerate}
+    \item Rebuild Branch 0 labels with the 2026-09-07 functions
+    (parity test against
+    \code{workspace/analysis/aggression_v2_lifo_zone/} rates:
+    15m zone \(\approx 9.9\%\), two-way \(\approx 10.3\%\)).
+    \item Score H5 again as a negative control (must stay negative).
+    \item L1 primary + Andersen control.
+    \item L3 both flags.
+    \item L2 environment + edge; stop at \texttt{FAIL\_N} if needed.
+    \item L4 table last (measurement).
+\end{enumerate}
+
+Do not open FINAL until a starred validation letter exists.
+Do not combine L1\(\land\)L2\(\land\)L3 into a new flag on this pass
+(that is a later preregistration).
+
+\section{Blocked on this panel}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Paper object & Why it is not an experiment here \\
+\midrule
+Cont true OFI & Needs L1 add/cancel/trade events \\
+Potter iceberg / DOM & Needs MBP-1 or MDP 3.0 book \\
+ELO bulk-volume VPIN & No tick classification rebuild;
+Andersen already forbids treating VPIN as an entry \\
+Avellaneda reservation price & Simulation quotes, not a TY detector \\
+Campi--Zabaljauregui HJB & Regime \emph{idea} is L3, not their PDE \\
+Tsaknaki MBOC & Algorithm, not the first steal \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{2026-09-08 run}
+
+Script: \code{scripts/aggression_v2_lifo_literature_research.py}.
+Outputs: \code{workspace/analysis/aggression_v2_lifo_literature/}.
+Label parity held: 15m zone \(9.86\%\), two-way \(10.3\%\), meat \(51.1\%\),
+78 dates / 57{,}125 rows. H5 remained a negative control
+(validation \(-4.3\)\,pp). \code{ship\_gate} false.
+
+\subsection{Which model (Track P vs Track F)}
+
+Same-bar \(R^2\) of \(\Delta P^{\mathrm{ticks}}\sim\code{agg\_1m}\) is
+\(0.22\) / \(0.25\) / \(0.28\) on discovery / validation / FINAL.
+Lead-1 \(R^2\) is \(0.002\) / \(0.001\) / \(0.000\).
+Contemporaneous flow--price fit is real and is \emph{not} a next-bar
+forecast.  That is Cont's object, and V1 leftover already measures it.
+It is the wrong primary model for a 15-minute LIFO box.
+
+Track F: \(P(\)next-15m still two-sided \(\mid\) two-sided now\()\) is
+only \(+2.6\)\,pp on validation (\(36\%\) vs \(34\%\)).
+\code{metaorder\_run} almost never persists (\(n=17\), persist rate 0).
+So L1/L3 states do not lead.  If the environment does not persist,
+those flags cannot be leading zone detectors.
+
+\subsection{Letters}
+
+\begin{center}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+Cell & Val \(n\) & Lift pp & Gate & Read \\
+\midrule
+L1 \code{mod\_twosided} & 426 & \(-2.1\) & FAIL & Middle intensity is anti-zone;
+two-sided alone \(+1.1\)\,pp \\
+L1 Andersen & 426 & \(+1.6\) & FAIL & Two-sidedness adds nothing
+inside the tercile \\
+L2 \code{absorb\_extreme} zone & 191 & \(+8.3\) & PASS & Discovery
+\(+11.8\), FINAL \(+9.8\). Meat \(77\%\). Mostly already-swinging tape \\
+L2 absorb\_bar only & 777 & \(-0.5\) & FAIL & Flat high-agg without
+the trail does nothing \\
+L2 fade clock & 131 & hit \(48\%\) & FAIL & Coin flip; not an edge \\
+L3 \code{flippy\_active} & 803 & \(+1.2\) & FAIL & \\
+L3 \code{metaorder\_run} & 17 & veto \(+8.5\) & PROVISIONAL &
+\(n<50\); zone rate 0 \\
+L4 high \(\abs{\code{agg}}\) & 6233 & zone \(11.1\%\) vs lo \(4.8\%\)
+& --- & Busy minutes have \emph{more} two-way, not less \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+L2's zone letter is not a ship.  The lift sits on
+\code{trail\_meat\_15m} (already a 3-tick box behind you).
+\code{absorb\_bar} alone fails.  The preregistered fade of that push
+does not clear \(60\%\).  Do not put this on 5063 or retune H5.
+
+\subsection{Flow forecast vs two-stage price map}
+
+Script: \code{scripts/aggression_v2_lifo_flow_forecast_research.py}.
+Outputs: \code{workspace/analysis/aggression_v2_lifo_flow_forecast/}.
+Past windows \(W\in\{1,5,15,30\}\), forward \(H\in\{1,5,15\}\).
+\code{ship\_gate} false.
+
+Past signed flow does not forecast future signed flow.  Validation
+flow\(\to\)flow \(R^2\) is at most \(0.003\) (\(W=5\), \(H=5\));
+sign hit is a coin flip at every cell.  Stacking all four lookbacks
+does not help (validation \(H=1\) forecast \(R^2=-0.003\)).
+
+If future flow were known, mapping it to price is easy and gets
+easier as you integrate: oracle \(R^2(\Delta P,\text{future flow})\)
+is \(0.25\) / \(0.40\) / \(0.52\) at \(H=1/5/15\) on validation.
+That is Cont's contemporaneous object over a longer window, not a
+forecast.  Direct past-flow\(\to\)future-\(\Delta P\) and two-stage
+\(\lambda\times\hat F\) are both \(\approx 0\) out of sample.  The
+bottleneck is stage 1.  Predicted flow does not make the price map
+easier because there is no predicted flow.
+
+\subsection{Path follow-up (same day)}
+
+Script: \code{scripts/aggression_v2_lifo\_path\_followup\_research.py}.
+Outputs: \code{workspace/analysis/aggression_v2\_lifo\_path\_followup/}.
+This run used a working US-event reader (the shared \code{file:} URI
+loader returned 0 timestamps on this share).  \code{ship\_gate} false.
+
+Trail meat alone letters meat (\(+15\)\,pp) and fails the zone
+(\(+4\)\,pp).  Last-15m two-way / zone letters on discovery and FINAL
+and fails validation (\(+3.9\)\,pp).  Flow flags inside trail meat
+are all flat or worse.  Fade of any completed 3-tick push is
+\(53\%\) (\(n=109\)).  After a length-10 run ends: \(n<50\), point
+estimate negative.  US morning 08:00--12:00 ET letters the zone on
+all three splits (\(+14.7/+11.3/+8.4\)\,pp).  Globex evening is
+absent from this panel (hours 01--17 ET only).  Event shoulder
+30--90m fails the zone.
+
+\section{Files}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Path & Role \\
+\midrule
+\code{scripts/aggression_v2_lifo_literature_research.py} & Offline L1--L4 runner \\
+\code{scripts/aggression_v2_lifo_flow_forecast_research.py} & Past flow \(\to\) future flow + two-stage \(\Delta P\) \\
+\code{tests/test_v2_lifo_literature.py} & Isolation and unit tests \\
+\code{tests/test_v2_lifo_flow_forecast.py} & Window causality + forecast \(R^2\) \\
+\code{workspace/analysis/aggression_v2_lifo_literature/} & L1--L4 outputs only \\
+\code{workspace/analysis/aggression_v2_lifo_flow_forecast/} & Flow-forecast outputs only \\
+\code{scripts/aggression_v2_lifo_path_followup_research.py} & Trail / clock / session / run-end \\
+\code{workspace/analysis/aggression_v2_lifo_path_followup/} & Path-follow-up outputs only \\
+\code{docs/aggression_v2_lifo_zone_experiments.md} & 2026-09-07 H5 result \\
+\code{docs/aggression_v27_monitor.tex} & Live page; offline copy of this register \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}

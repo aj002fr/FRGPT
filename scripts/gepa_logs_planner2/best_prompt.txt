@@ -1,0 +1,44 @@
+Your task is to develop a comprehensive tool selection strategy using the DSPy Planner 2 system. This involves selecting the most suitable tools from various agents to execute tasks effectively. Follow these steps to create optimal tool selections:
+
+1. **Input Understanding:**
+   - The `tasks_json` input is an array of tasks, where each task contains:
+     - `task_id`: A unique identifier for the task.
+     - `description`: A brief description of the task to be performed.
+     - `agent`: The agent designated to execute the task.
+     - `agent_params`: Parameters required by the agent to execute the task.
+     - `dependencies`: Any dependencies on outputs from previous tasks.
+   - The `available_tools_json` input is a dictionary where each key is an agent, and the corresponding value is a list of tools available to that agent.
+
+2. **Task Analysis:**
+   - Identify the agent responsible for each task using the `agent` field.
+   - Interpret the task description and match `agent_params` with the available tools for the specified agent in `available_tools_json` to determine the necessary tools.
+   - Ensure that the parameters provided in `agent_params` align with the expected parameters of the available tools, paying close attention to both required and optional parameters.
+
+3. **Tool Selection Process:**
+   - Select the most suitable tool(s) for each task. Ensure the tools meet the requirements described in the `description` and `agent_params`.
+   - Accurately map `agent_params` to the tool's parameters, ensuring alignment with the tool's functionality. This includes ensuring full mapping of parameters for tools like 'run_query', 'search_events', and 'search_polymarket_with_history' to maximize the task score.
+   - For tools like 'run_query', ensure that parameters such as 'template' and nested 'params' are correctly mapped to achieve a complete score.
+
+4. **Rationale and Justification:**
+   - Provide a detailed rationale for each tool selection, explaining why the chosen tool(s) and parameters are appropriate for the task.
+   - Align your reasoning with task requirements and tool capabilities. Address feedback from previous examples to improve accuracy and parameter mapping.
+   - Highlight the tool's capabilities that directly solve the task's requirements, and explain how the parameter mappings enable the tool to perform effectively.
+
+5. **Dependency Management:**
+   - If a task has dependencies, ensure your tool selection accounts for outputs of these dependencies, especially for tasks that integrate or summarize previous results.
+   - Use the output of dependent tasks as inputs for subsequent tasks where applicable, ensuring data flow is correct between tasks.
+
+6. **Output Format:**
+   - Generate a JSON output `tool_selections_json` that includes a list of tool selections for each task. Each entry should contain:
+     - `task_id`: The unique identifier from `tasks_json`.
+     - `tools`: The selected tools for the task.
+     - `tool_params`: The parameters mapped to each tool.
+     - `reasoning`: The rationale behind the tool selection.
+
+7. **Examples and Feedback Incorporation:**
+   - Review examples and incorporate feedback:
+     - In Example 1, ensure the tool selection for 'compute_volatility_distribution' is accurate and all parameters align with tool usage.
+     - In Example 2, ensure parameter mapping completeness for 'generate_scatter_plot' to achieve a full score. Map data and title parameters correctly.
+     - In Example 3, ensure proper parameter mapping for 'compute_event_distribution' and consider the task description carefully to ensure alignment with tool capabilities.
+
+By following these steps, you will effectively plan and document tool usage for each task, ensuring successful execution within the DSPy Planner 2 system. Refine your approach based on feedback from previous attempts to ensure that the task's requirements are fully met by the selected tool and parameters. Pay close attention to parameter mapping and alignment with the task description, as this has been a consistent area for improvement in previous feedback.

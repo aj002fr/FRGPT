@@ -1,0 +1,569 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=0.82in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,array,longtable,enumitem,microtype,xcolor,fancyhdr,lastpage}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{caption}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=black}
+
+\definecolor{darkblue}{RGB}{26,54,93}
+
+\titleformat{\section}{\large\bfseries\color{darkblue}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.6em}{}
+
+\setlist[itemize]{leftmargin=1.3em,itemsep=0.2em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.5em,itemsep=0.2em,topsep=0.25em}
+\setlength{\tabcolsep}{3pt}
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Aggression Monitor V1}
+\rhead{Implemented measurement}
+\cfoot{\thepage\ / \pageref{LastPage}}
+\setlength{\headheight}{14pt}
+
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\eps}{\varepsilon}
+
+\title{\vspace{-1.5cm}\textbf{Aggression Monitor V1}\\[0.25em]
+\large What the live page measures, how each chart is drawn, and how the
+dominance banner is classified}
+\author{}
+\date{Implementation as of 22 August 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+\vspace{-1.2em}
+
+\begin{abstract}
+This note describes only Aggression Monitor V1
+(\code{scripts/aggression_dashboard/}, port 5050,
+\url{https://aasthajain.tail174727.ts.net/}).
+The page is a live measurement of curve aggressive flow against a chosen
+Treasury-futures price.  It is not a trading system.  It does not emit
+long or short, RANGE or TREND, alerts, or episode scores.
+
+There \emph{are} two fitted lines labeled fair value.  They are not
+multi-feature forecasts of future price.  Each is a contemporaneous
+ordinary-least-squares fit of price (or same-day price change) on
+cumulative TotalAggress.  The residual of that fit is then reused by the
+flow-dominance banner as ``implied passive.''  Implied passive is
+\(\Delta e\), the change in that residual.  It is not resting-order
+identity.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Goal}
+
+V1 answers a measurement question: how much aggressive buying and selling
+is occurring across the Treasury curve, and how does that stack up
+against the chosen contract's price path in the same minutes?
+
+The five charts and the top banner are different views of that same
+construction:
+
+\begin{itemize}
+    \item Panels 1--3 show the raw flow and price together.
+    \item Panels 4--5 draw a fitted line of price on TotalAggress and mark
+    large residuals.
+    \item The banner's headline is one of AGGRESS DOMINANT, IMPLIED
+    PASSIVE DOMINANT, BALANCED, or QUIET (or WARMING / UNAVAILABLE).
+    A second line reports z-scores, whether each leg is increasing /
+    slowing / steady, and what the headline just shifted from.
+\end{itemize}
+
+
+\section{Page, controls, and data}
+
+\subsection{What the user selects}
+
+Default live view: price symbol TY, aggression symbols FV, TU, TY, and US
+all on, DV01 adjust on, lookback 2 hours, start time the current trading-day
+open (18:00 ET),
+auto-refresh on, live mode.
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Control & Effect \\
+\midrule
+Price symbol & Which contract's price is drawn on the right-hand axes
+(FV, TU, TY, US; default TY). \\
+Aggression chips & Which of those four roots contribute flow
+(default: all four). \\
+DV01 Adjust & If on, each contract's size is multiplied by a fixed
+dollar DV01 before summing. \\
+Lookback & How much of the built series the charts display:
+2, 6, 12, or 24 hours. \\
+Live vs historical & Live merges the AccessAPI buffer with a session
+backfill.  Historical pulls a fixed window. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The default start is the current trading-day open, 18:00 ET.
+
+\subsection{Sources}
+
+Live trades come from AccessAPI
+(\code{ws://100.79.30.21:8001/ws/live/stream}) into an 18-hour in-memory
+buffer.  If that feed is stale for 30 seconds, a Databento live TBBO
+backup can start; it stops after 60 seconds of primary recovery.
+Historical and backfill trades are Databento parent-symbol trade
+schema pulls for ZF, ZT, ZN, and ZB.  Price is the last PostgreSQL OHLCV
+print in each one-minute bucket, forward-filled, with trade price as
+fallback.
+
+A background thread refreshes session history from the trading-day open every
+240 seconds, overlapping the last 15 minutes.  Trade-cache parquet older
+than 30 days is pruned.  Front-month selection, per UTC calendar date, keeps
+the \code{instrument_id} with the highest traded size that day.
+
+Trades with non-positive size, or price outside \([80,150]\), are dropped.
+
+\subsection{One-minute grid}
+
+All series are resampled to one-minute buckets
+(\code{DEFAULT_BUCKET=1min}).  The latest bucket can still be forming
+except in the dominance banner, which drops it.
+
+\section{How a trade becomes flow}
+
+\subsection{Aggressor sign}
+
+Each trade has a source side.  The mapping is
+
+\begin{equation}
+\operatorname{sign}
+=
+\begin{cases}
++1, & \text{side }\in\{B,\mathrm{BID}\},\\
+-1, & \text{side }\in\{A,\mathrm{ASK}\},\\
+0, & \text{otherwise}.
+\end{cases}
+\end{equation}
+
+\(+1\) is an aggressive buy (lifted the offer).  \(-1\) is an aggressive
+sell (hit the bid).  Unknown sides contribute zero flow and are counted
+in metadata only.  There is no quote-rule fallback.
+
+
+
+\subsection{Bucket sums}
+
+Over one-minute bucket \(t\), summing selected symbols,
+
+\begin{align}
+M_t^b
+&=
+\sum_{i\in t}\mathbf{1}\{\operatorname{sign}_i=+1\}\,\mathrm{size}_i\,\mathrm{DV01}_{c(i)},\\
+M_t^s
+&=
+\sum_{i\in t}\mathbf{1}\{\operatorname{sign}_i=-1\}\,\mathrm{size}_i\,\mathrm{DV01}_{c(i)},\\
+\Delta A_t
+&=
+M_t^b-M_t^s.
+\end{align}
+
+\(M_t^b\) is Buy Aggress.  \(M_t^s\) is Sell Aggress.  \(\Delta A_t\) is
+the signed one-minute increment.
+
+\subsection{TotalAggress}
+
+TotalAggress is the running sum of the one-minute increments
+\(\Delta A_t\), starting at the trading-day open (18:00 ET):
+
+\begin{equation}
+A_t
+=
+\sum_{u=t_{\mathrm{open}}}^{t}\Delta A_u.
+\end{equation}
+
+Lookback only shortens the time axis.  It does not restart the sum, so
+the last two hours still show the session-to-date level.
+
+
+\subsection{BuySell Ratio}
+
+The raw imbalance is a signed percentage, not buy volume divided by sell
+volume:
+
+\begin{equation}
+\mathrm{BuySellRaw}_t
+=
+100\cdot
+\frac{\Delta A_t}{M_t^b+M_t^s}
+\quad\text{when }M_t^b+M_t^s\ne 0.
+\end{equation}
+
+The plotted series is an EMA of that raw ratio with span 10 and
+\code{ignore_na=True}, \code{min_periods=1}.  Empty-volume minutes stay
+missing in the raw series and do not force the EMA to zero.
+
+\section{The five charts}
+
+Times on the \(x\)-axis are Eastern, timezone-naive ISO strings.
+Lookback trims the time axis only.  The TotalAggress level stays
+session-to-date.
+
+\subsection{Panel 1. TotalAggress vs Price/Yield}
+
+Two lines, dual axis.  Left: session TotalAggress (blue).  Right: the
+selected price (red).  Price is last-in-bucket, forward-filled onto the
+flow grid by \code{align_flow_and_price}.
+
+The dual-axis ranges are scaled so the two series occupy the same
+vertical box, with a 5\% margin.  That visual \(\alpha,\beta\) is
+\emph{not} the fair-value OLS.  It is only a Plotly range mapping.
+
+Read: when the blue cumulative flow and the red price travel together,
+aggressive flow and price are moving in the same direction in the
+displayed window.  When they diverge, price is moving for reasons other
+than this cumulative aggression.
+
+\subsection{Panel 2. BuySell Ratio vs Price/Yield}
+
+Left: the EMA BuySell Ratio (green).  Right: the same price (orange).
+Ratio is forward-filled onto the price grid.
+
+Read: a positive ratio means that minute's signed flow was buy-heavy; a
+negative ratio is sell-heavy.  Because of the EMA, a single burst is
+smoothed across nearby minutes.
+
+\subsection{Panel 3. Buy Aggress, Sell Aggress, TotalAggress, and price}
+
+Four traces on three axes:
+
+\begin{itemize}
+    \item green bars: Buy Aggress \(M_t^b\);
+    \item red bars: Sell Aggress, plotted as \(-|M_t^s|\) so sells hang
+    below zero;
+    \item black line: TotalAggress on a third axis;
+    \item brown line: price on the second axis.
+\end{itemize}
+
+Read: the bars are the one-minute activity; the black line is the
+running sum; the brown line is price.  This is the only panel that shows
+buys and sells separately.
+
+\subsection{Panel 4. Intraday Fair Value (fit once per session)}
+
+Same axis: actual price (solid blue) and fitted price (dashed red).
+Grey markers sit on actual price where \(|z|\ge 2\).
+
+This is the first of the two ``fair value'' charts.  \textbf{It is a
+contemporaneous fit, not a forecast}.  After at least 30 aligned minutes
+with a non-constant session TotalAggress \(A_t\),
+
+\begin{equation}
+P_t=\alpha+\beta A_t+e_t.
+\end{equation}
+
+The dashed line is \(\widehat{P}_t=\alpha+\beta A_t\).
+The residual is \(e_t=P_t-\widehat{P}_t\).  The displayed z-score is
+
+\begin{equation}
+z_t^{\mathrm{V1,live}}=e_t/s_e,
+\end{equation}
+
+where \(s_e\) is the sample standard deviation of residuals in the
+currently aligned frame.  The residual mean is not subtracted.
+A point is marked large when \(|z_t^{\mathrm{V1,live}}|\ge 2\).
+
+The first successful fit is cached under the current trading day,
+price symbol, aggression-symbol tuple, DV01 flag, and bucket size.
+Later refreshes reuse \(\alpha,\beta\) until that key changes.
+
+Read: the dashed line is ``where price would sit if it were a linear
+function of this session's cumulative aggression.''  When solid price is
+above the dash, the residual is positive: price is rich relative to that
+line.  That is a description of the current sample, not a prediction
+that price will revert.
+
+\subsection{Panel 5. 10-Business-Day Fair Value}
+
+Same drawing language as panel 4, with red large-residual markers.
+The source window is the last 10 business days from 18:00 ET on
+the first of those dates through now.  That archive is refreshed at most
+once per trading day.
+
+Each trading day first subtracts that session's opening price
+\(P_{\mathrm{open},s}\).  One pooled OLS is then fit:
+
+\begin{equation}
+P_t-P_{\mathrm{open},s}
+=
+\alpha_{10}+\beta_{10}A_t+e_t^{(10)},
+\qquad
+\widehat{P}^{(10)}_t
+=
+P_{\mathrm{open},s}+\alpha_{10}+\beta_{10}A_t.
+\end{equation}
+
+Read: same idea as panel 4, but \(\beta_{10}\) is estimated across ten
+trading days of session-reset flow versus session price change.  It
+is still a contemporaneous line, not a walk-forward forecast.
+
+\section{The flow-dominance banner}
+
+The live banner has three lines.  The first line is the state.  The
+second is a status sentence.  The third is a fixed disclaimer plus an
+as-of time.
+
+The headline states, exactly as drawn, are
+
+\begin{center}
+\textsc{AGGRESS DOMINANT}, \quad
+\textsc{IMPLIED PASSIVE DOMINANT}, \quad
+\textsc{BALANCED}, \quad
+\textsc{QUIET}.
+\end{center}
+
+Implied means leftover price change after the fitted aggression piece
+(\(\Delta e\)), not observed resting-order flow.
+
+Before the classification is ready the headline is WARMING or
+UNAVAILABLE.  Internally those four ready states are
+\code{AGGRESS_DOM}, \code{PASSIVE_DOM}, \code{NEITHER}, and
+\code{QUIET}.
+
+When status is READY, the second line is built as
+
+\begin{center}
+\texttt{shifted from <prior state> <n>m ago} \quad\textrm{or}\quad
+\texttt{holding <n>m}\\
+\texttt{· aggress increasing|slowing|steady (z +x.xx)}\\
+\texttt{· implied passive increasing|slowing|steady (z +x.xx)}.
+\end{center}
+
+The two z values are \(z_A\) and \(z_P\) from the 15-row contribution
+windows, not panel 4's residual z-score.  If the banner is not READY,
+that second line is a reason such as waiting for completed one-minute
+data.
+
+
+The banner uses the \emph{intraday} fit from panel 4, on completed
+one-minute bars only.  The forming bucket is excluded.  If that model is
+missing, the headline is UNAVAILABLE.
+
+\subsection{Contributions}
+
+On each trading day, one-minute contributions are
+
+\begin{align}
+\Delta\mathrm{Aggress}_t
+&=
+\beta\cdot\Delta A_t,\\
+\Delta\mathrm{Passive}_t
+&=
+\Delta e_t,\\
+\Delta P_t
+&=
+\Delta P_t.
+\end{align}
+
+\(\Delta\mathrm{Aggress}\) is the piece of the price change attributed
+to the fitted slope times the change in TotalAggress.
+\(\Delta\mathrm{Passive}\) is the change in the residual.  The page
+calls that second piece implied passive.  It is not observed book
+additions or cancellations.
+
+Each series is then summed over a trailing window of exactly 15
+completed rows on that trading day (not necessarily 15 wall-clock minutes
+if rows are missing):
+
+\begin{equation}
+S^A_t=\sum_{j=0}^{14}\Delta\mathrm{Aggress}_{t-j},
+\qquad
+S^P_t=\sum_{j=0}^{14}\Delta\mathrm{Passive}_{t-j},
+\qquad
+\Delta P_{15,t}=\sum_{j=0}^{14}\Delta P_{t-j}.
+\end{equation}
+
+Those window sums are standardized against earlier valid 15-row windows
+on the same trading day.  Let \(\mu_{t^-}\) and \(\sigma_{t^-}\) be the
+expanding mean and sample standard deviation of earlier windows, needing
+at least 20 prior valid windows.  Then
+
+\begin{equation}
+z_A=(S^A_t-\mu^A_{t^-})/\sigma^A_{t^-},
+\qquad
+z_P=(S^P_t-\mu^P_{t^-})/\sigma^P_{t^-}.
+\end{equation}
+
+These z-scores are not \(z^{\mathrm{V1,live}}\) from panel 4.  Until 20
+prior windows exist, the state is WARMING.
+
+\subsection{State rules}
+
+Fixed parameters: window 15 rows, dominance ratio 1.5, quiet floor 0.5.
+
+\begin{itemize}
+    \item \textsc{quiet} if \(|z_A|<0.5\) and \(|z_P|<0.5\).
+    \item \textsc{aggress dominant} if \(\operatorname{sign}(z_A)=\operatorname{sign}(\Delta P_{15})\ne 0\)
+    and \(|z_A|\ge 1.5\,|z_P|\).
+    \item \textsc{implied passive dominant} if \(|z_P|\ge 1.5\,|z_A|\) and
+    either \(z_P\) and \(z_A\) have opposite nonzero signs, or
+    \(\operatorname{sign}(z_P)=\operatorname{sign}(\Delta P_{15})\ne 0\).
+    \item \textsc{balanced} otherwise (internally \code{NEITHER}).
+\end{itemize}
+
+Displayed names: AGGRESS DOMINANT, IMPLIED PASSIVE DOMINANT, BALANCED,
+QUIET, plus WARMING and UNAVAILABLE.
+
+In words:
+
+\begin{itemize}
+    \item Quiet: both legs are small relative to today so far.
+    \item Aggress dominant: the aggression-attributed piece is the
+    stronger one and it has the same sign as the 15-row price change.
+    \item Implied passive dominant: the residual piece is the stronger
+    one, and it is either fighting the aggression piece or agreeing with
+    the 15-row price change.
+    \item Balanced: neither quiet nor a 1.5-to-1 winner under those
+    sign rules.
+\end{itemize}
+
+\subsection{Dynamics line}
+
+The detail line compares each leg's absolute z with its value five
+minutes earlier (or the latest valid z at or before that timestamp).
+A change larger than \(0.15\) in absolute z is increasing; a change
+smaller than \(-0.15\) is slowing; otherwise steady.  Missing history
+is WARMING.
+
+It also reports whether the classified state just shifted and how many
+completed minutes the current state has lasted.
+
+The banner does not persist episodes, does not score outcomes, and does
+not write a live store.
+
+\section{Parameter register}
+
+\begin{longtable}{@{}p{0.34\linewidth}p{0.20\linewidth}p{0.38\linewidth}@{}}
+\toprule
+Name & Value & Role \\
+\midrule
+\endfirsthead
+\toprule
+Name & Value & Role \\
+\midrule
+\endhead
+Price default & TY & Right-hand price series. \\
+Aggression default & FV, TU, TY, US & Flow contributors. \\
+Bucket & 1 minute & All series. \\
+TotalAggress & sum from 18:00 ET open & Same path on charts and both fits. \\
+DV01 FV/TU/TY/US & 42 / 36 / 85 / 125 & Dollars per bp; default on. \\
+BuySell EMA span & 10 & Displayed ratio smoothing. \\
+Default start & 18:00 ET trading-day open & Current Globex session. \\
+Default lookback & 2 hours & Chart trim. \\
+Live buffer retention & 18 hours & AccessAPI memory. \\
+Backup stale / recover & 30s / 60s & Databento failover. \\
+Backfill period / overlap & 240s / 900s & Session history refresh. \\
+Trade-cache retention & 30 days & Historical parquet. \\
+Trade price filter & \([80,150]\) & Dropped otherwise. \\
+Front-month rule & max size by UTC date & One \code{instrument_id} per root. \\
+Intraday min points & 30 & OLS will not fit before this. \\
+Intraday large residual & \(|z|\ge 2\) & Grey markers on panel 4. \\
+Intraday cache & once per trading day & Reuse \(\alpha,\beta\) until the session rolls. \\
+10-day window & 10 business days from 18:00 ET & Panel 5 source. \\
+10-day refresh & once per trading day & Source refetch hourly if session rolled. \\
+10-day large residual & \(|z|\ge 2\) & Red markers on panel 5. \\
+Banner window & 15 completed rows & Contribution sums. \\
+Banner dominance ratio & 1.5 & Winner threshold. \\
+Banner quiet floor & 0.5 & Both \(|z|\) below this. \\
+Banner z warmup & 20 prior windows & Else WARMING. \\
+Banner dynamics lookback & 5 minutes & Increasing / slowing / steady. \\
+Banner dynamics deadband & 0.15 & Ignore smaller \(|z|\) changes. \\
+Banner completed bars & forming bar dropped & Unlike panels 1--5. \\
+\bottomrule
+\end{longtable}
+
+\section{What we are watching}
+
+The page is for one question: when the chosen contract moves, is that
+move in the aggressive curve flow, or is price doing something the
+prints do not explain?
+
+The page does not mark RANGE or TREND.  The types below are only ways
+to read the same charts and banner.
+
+\subsection{Flow-explained move}
+
+Price and session TotalAggress travel together (panel 1), and the banner
+is AGGRESS DOMINANT with aggress increasing.  The dashed fair-value line
+stays close to solid price.  The working idea: the move is in the
+aggressive flow.
+
+\subsection{Aggress-led breakout}
+
+Price leaves a recent range while TotalAggress has been rising or
+falling for many minutes, BuySell stays one-sided, and the banner stays
+AGGRESS DOMINANT / increasing.  The working idea: a breakout that is
+being paid for in aggressive size, not a thin spike.
+
+\subsection{Implied-passive range}
+
+Price chops or stalls while the banner is IMPLIED PASSIVE DOMINANT or
+BALANCED, and the residual \(e\) is swinging rather than trending.
+The working idea: aggressive flow is there, but leftover price change
+is fighting it, so the path stays contained.
+
+\subsection{Unexplained extension}
+
+Price keeps going while TotalAggress flattens or turns, the residual
+grows (\(|z|\ge 2\) on panel 4), and implied passive is increasing.
+The working idea: the continuation is not in the curve prints.
+Something else is carrying price.
+
+\subsection{Absorption / failed push}
+
+Aggress is large and one-sided, but price barely moves or moves the
+other way; implied passive is the stronger leg and opposite in sign.
+The working idea: aggressive flow is being taken the other way.  That
+is often a range or reversal setup, not a breakout.
+
+\subsection{Exhaustion after a paid run}
+
+A long stretch of AGGRESS DOMINANT / increasing, then aggress goes
+slowing or QUIET while price is still extended from the dashed line.
+The working idea: the flow that built the move has faded; the next
+state is more likely a pause or give-back than a fresh breakout.
+
+\subsection{Quiet then ignition}
+
+The banner is QUIET, then flips to AGGRESS DOMINANT as \(\Delta A\)
+jumps and price starts to run.  The working idea: a new impulse, not
+the middle of an old one.  Early in the session this can just be
+warmup ending.
+
+\subsection{Session vs 10-day disagreement}
+
+Panel 4 (this session) and panel 5 (ten trading days) tell different
+residual stories: one marks large \(z\), the other does not.  The
+working idea: this session's price-to-flow slope is unlike the recent
+sample.  Treat rich or cheap versus flow as session-specific until they
+agree.
+
+\subsection{Curve vs chosen price}
+
+TotalAggress includes FV, TU, TY, and US, but the right-hand price is
+only one contract.  If TY is flat while the blue sum is moving, the
+flow may be in the wings.  The working idea: a TY unexplained residual
+can just be other contracts dominating the sum.
+
+These are reading habits, not validated states.  The banner never
+becomes a long or short.
+
+\end{document}

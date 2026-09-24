@@ -1,0 +1,32 @@
+{
+  "cycle": "C014",
+  "slug": "impact_shortfall",
+  "tier": "EXPLORATORY",
+  "status": "REVIEWED",
+  "opened_utc": "2026-08-13T18:06:00Z",
+  "closed_utc": "2026-08-13T18:10:00Z",
+  "backlog_ref": "BL-3",
+  "parent_cycle": null,
+  "spec_ref": "research/loop/specs/BL3_impact_shortfall_spec.md",
+  "data_window_used": {
+    "start": "2022-01-05",
+    "end": "2022-04-25"
+  },
+  "dates_used_source": "workspace/analysis/move_exhaustion_v2/experiments/X1_20260813T143427Z/manifest.json",
+  "holdout_opened": false,
+  "artifact_paths": [
+    "workspace/analysis/move_exhaustion_v2/loop/C014_impact_shortfall/"
+  ],
+  "advisor_decision": "PARKED",
+  "worker_model": "composer-2.5 (in-IDE fallback; Codex sandbox cannot access Y: share)",
+  "worker_agent_id": null,
+  "advisor_models": ["gpt-5.6-sol-max"],
+  "solo_review_reason": "Human waived the Fable 5 seat on 2026-08-13. Solo reviews may not PROMOTE_REQUEST.",
+  "headline_metrics": {
+    "t3_minus_t1_reversal_pp": -11.299435028248583,
+    "corr_is_dm": -0.9574438111065894,
+    "n_oos": 1062,
+    "oos_r2": 0.0074891788052394714
+  },
+  "wall_clock_minutes": 4
+}

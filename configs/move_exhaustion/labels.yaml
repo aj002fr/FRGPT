@@ -1,0 +1,25 @@
+# labels.yaml — primary + audit grid
+primary:
+  type: symmetric_fixed_barrier
+  R_ticks: 4
+  C_ticks: 4
+  H_minutes: 15
+  tick_source: instrument_minimum_price_increment
+grid:
+  R_C_pairs:
+    - [2, 2]
+    - [4, 4]
+    - [8, 8]
+    - [4, 2]
+    - [2, 4]
+  H_minutes: [5, 15, 30]
+move_scaled:
+  frac_of_initial: 0.25
+  lower_ticks: 2
+  upper_ticks: 8
+  H_minutes: 15
+audit_reject_if:
+  resolved_events_lt: 100
+  unresolved_gt: 0.80
+  one_class_gt: 0.90
+note: Thresholds are diagnostics, not profitability claims.

@@ -16,18 +16,17 @@ _EVENT_DICT: Optional[Dict[str, Any]] = None
 
 
 def load_event_dictionary() -> Dict[str, Any]:
-    """Load event dictionary from JSON file."""
+    """Load event dictionary from JSON file.
+    
+    Returns dictionary with event names as keys and aliases (if any) as values.
+    """
     global _EVENT_DICT
     
     if _EVENT_DICT is not None:
         return _EVENT_DICT
     
     if not _EVENT_DICT_PATH.exists():
-        return {
-            "by_country": {},
-            "by_event": {},
-            "metadata": {"error": "Dictionary not built yet. Run scripts/build_event_dictionary.py"}
-        }
+        return {}
     
     with open(_EVENT_DICT_PATH, 'r', encoding='utf-8') as f:
         _EVENT_DICT = json.load(f)
@@ -41,7 +40,7 @@ def search_event_name(keyword: str, country: Optional[str] = None, limit: int = 
     
     Args:
         keyword: Search keyword (case-insensitive)
-        country: Optional country filter
+        country: Optional country filter (no longer used with simplified dictionary)
         limit: Maximum results
         
     Returns:
@@ -52,38 +51,16 @@ def search_event_name(keyword: str, country: Optional[str] = None, limit: int = 
     
     results = []
     
-    if country:
-        # Search within specific country
-        country_lower = country.lower()
-        country_events = event_dict["by_country"].get(country_lower, {})
-        
-        for event_name, details in country_events.items():
-            if keyword_lower in event_name.lower():
-                results.append({
-                    "event_name": event_name,
-                    "country": country_lower,
-                    **details
-                })
-                
-                if len(results) >= limit:
-                    break
-    else:
-        # Search across all events
-        for event_name, countries in event_dict["by_event"].items():
-            if keyword_lower in event_name.lower():
-                # Get details from first country
-                first_country = countries[0] if countries else ""
-                details = event_dict["by_country"].get(first_country, {}).get(event_name, {})
-                
-                results.append({
-                    "event_name": event_name,
-                    "countries": countries,
-                    "country_count": len(countries),
-                    **details
-                })
-                
-                if len(results) >= limit:
-                    break
+    # Search across all events (country filter not applicable with simplified dict)
+    for event_name, details in event_dict.items():
+        if keyword_lower in event_name.lower():
+            results.append({
+                "event_name": event_name,
+                **details
+            })
+            
+            if len(results) >= limit:
+                break
     
     return results
 
@@ -92,29 +69,33 @@ def get_events_for_country(country: str) -> Dict[str, Dict[str, Any]]:
     """
     Get all events for a specific country.
     
+    NOTE: With simplified dictionary, country filtering is no longer available.
+    Returns all events.
+    
     Args:
-        country: Country code or name
+        country: Country code or name (no longer used)
         
     Returns:
         Dictionary of event names to details
     """
     event_dict = load_event_dictionary()
-    country_lower = country.lower()
-    return event_dict["by_country"].get(country_lower, {})
+    return event_dict
 
 
 def get_countries_for_event(event_name: str) -> List[str]:
     """
     Get all countries that have a specific event.
     
+    NOTE: With simplified dictionary, country information is no longer available.
+    Returns empty list.
+    
     Args:
         event_name: Exact event name
         
     Returns:
-        List of country names
+        List of country names (always empty with simplified dict)
     """
-    event_dict = load_event_dictionary()
-    return event_dict["by_event"].get(event_name, [])
+    return []
 
 
 def validate_event_name(event_name: str, country: Optional[str] = None) -> bool:
@@ -123,19 +104,13 @@ def validate_event_name(event_name: str, country: Optional[str] = None) -> bool:
     
     Args:
         event_name: Event name to validate
-        country: Optional country to check
+        country: Optional country to check (no longer used)
         
     Returns:
         True if event exists
     """
     event_dict = load_event_dictionary()
-    
-    if country:
-        country_lower = country.lower()
-        country_events = event_dict["by_country"].get(country_lower, {})
-        return event_name in country_events
-    else:
-        return event_name in event_dict["by_event"]
+    return event_name in event_dict
 
 
 def get_event_details(event_name: str, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -144,57 +119,72 @@ def get_event_details(event_name: str, country: Optional[str] = None) -> Optiona
     
     Args:
         event_name: Event name
-        country: Country (if not provided, returns from first available country)
+        country: Country (no longer used)
         
     Returns:
-        Event details or None
+        Event details (aliases if present) or None
     """
     event_dict = load_event_dictionary()
-    
-    if country:
-        country_lower = country.lower()
-        country_events = event_dict["by_country"].get(country_lower, {})
-        return country_events.get(event_name)
-    else:
-        # Return from first country that has it
-        countries = event_dict["by_event"].get(event_name, [])
-        if countries:
-            first_country = countries[0]
-            return event_dict["by_country"].get(first_country, {}).get(event_name)
-        return None
+    return event_dict.get(event_name)
 
 
 def fuzzy_find_event(partial_name: str, country: Optional[str] = None) -> List[str]:
     """
     Find all matching event names for a partial/fuzzy input.
     
+    Also checks aliases if present in event details.
+    
     Args:
         partial_name: Partial or fuzzy event name (e.g., "nfp", "non farm", "jolts")
-        country: Optional country filter
+        country: Optional country filter (no longer used)
         
     Returns:
         List of matching event names (empty list if none found)
     """
-    matches = search_event_name(partial_name, country=country, limit=10)
+    event_dict = load_event_dictionary()
+    partial_lower = partial_name.lower()
+    matches = []
     
-    if not matches:
-        return []
+    # Search by name AND aliases
+    for event_name, details in event_dict.items():
+        # Check event name
+        if partial_lower in event_name.lower():
+            matches.append(event_name)
+        # Check aliases
+        elif details and "aliases" in details:
+            for alias in details["aliases"]:
+                if partial_lower in alias.lower():
+                    matches.append(event_name)
+                    break
     
     # Return exact match first if found
-    partial_lower = partial_name.lower()
     exact_match = None
-    for match in matches:
-        if match["event_name"].lower() == partial_lower:
-            exact_match = match["event_name"]
+    for name in matches:
+        if name.lower() == partial_lower:
+            exact_match = name
             break
     
-    # Extract all event names
-    event_names = [m["event_name"] for m in matches]
-    
     # If exact match found, put it first
-    if exact_match and exact_match in event_names:
-        event_names.remove(exact_match)
-        event_names.insert(0, exact_match)
+    if exact_match and exact_match in matches:
+        matches.remove(exact_match)
+        matches.insert(0, exact_match)
     
-    return event_names
+    return matches[:10]  # Limit to 10 matches
+
+
+def get_event_aliases(event_name: str, country: Optional[str] = None) -> List[str]:
+    """
+    Get aliases for a specific event.
+    
+    Args:
+        event_name: Event name
+        country: Country (if not provided, uses first available country)
+        
+    Returns:
+        List of aliases (empty if none defined)
+    """
+    details = get_event_details(event_name, country)
+    if details:
+        return details.get("aliases", [])
+    return []
 

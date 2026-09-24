@@ -1,0 +1,73 @@
+# FROZEN — Move Exhaustion V2 data store, session, and QC definitions
+# Source of truth: research/PROGRAM.md §1-§2 (verbatim scientific content).
+# Any edit requires user approval + dated PROGRAM.md §10 addendum + MANIFEST.sha256 re-hash.
+schema_version: 3
+frozen_utc: "2026-08-12"
+
+source:
+  mbp1_archive_root: 'D:\FRDBs\FutMBP\move_exhaustion_v2_source'
+  mbp10_overlap: 'D:\FRDBs\FutMBP\ZN_outrights_mbp10'
+  mbp10_overlap_available: false
+  tbbo_parity_matrix: 'workspace/analysis/aggression_v2_tbbo/tbbo_feature_matrix.csv'   # read-only, Q7/Q8 parity only
+  event_context_db: 'workspace/economic_events.db'
+  no_new_api_pulls: true
+  authorized_replacement_batch:
+    one_shot_only: true
+    dataset: GLBX.MDP3
+    symbols: ZN.FUT
+    stype_in: parent
+    schema: mbp-1
+    start_inclusive: "2022-01-01"
+    end_exclusive: "2026-04-02"
+    encoding: csv
+    compression: zstd
+    split_duration: month
+    approved_utc: "2026-08-11"
+    estimated_cost_usd_at_approval: 0.0
+  mbo: unavailable
+
+writes:
+  derived_store: 'D:\FRDBs\FutMBP\move_exhaustion_v2_store'
+  small_artifacts: 'workspace/analysis/move_exhaustion_v2'
+
+session:
+  convention: "trading date = prior day 18:00 ET -> trading date 17:00 ET"
+  legacy_0100_et_window: false
+  calendar: "pandas-market-calendars>=5.4.0 CME_InterestRate; product-specific historical closures and modified hours"
+
+builder:
+  order: newest_first
+  checkpointed: true
+  front_contract_selection: "causal prior-session volume (autoresearch convention); roll decisions never use same-day information"
+  derived_columns:
+    event_classes: [AGG_BUY, AGG_SELL, AGG_UNKNOWN, ADD_BID, ADD_ASK, ADD_UNKNOWN, CXL_BID, CXL_ASK, CXL_UNKNOWN, MOD_ADD_LIKE, MOD_CXL_LIKE, MOD_CXL_ADD, MOD_UNKNOWN, RESET]
+    pre_event_depth: [pre_bid_sz, pre_ask_sz, pre_bid_px, pre_ask_px]
+    clocks: [n_lob_events, n_trades, n_price_changes, wall_clock]
+  disk_budget_rule: "pilot one recent month, extrapolate; stop and escalate if projection exceeds free space minus 20% headroom"
+
+mbp1_semantics:   # Assumption A1 — verified in X0 (hard stop on mismatch)
+  actions: {A: add, C: cancel, M: modify, R: reset_clear, T: trade}
+  trade_side_is_aggressor: true
+  aggressor_map: {B: aggressive_buy, A: aggressive_sell}
+  unknown_side_policy: "retain side=N rows as action-specific *_UNKNOWN classes; include in total event/trade counts and post-event L1 state, exclude from all side-specific flow; never infer a side"
+  modify_decomposition: "compare consecutive same-contract L1 price, aggregate size, then order count; an initial session-row modify without prior state is MOD_UNKNOWN"
+  l1_only_limitation: "adds/cancels resting deeper than L1 invisible; all passive-flow quantities are at-the-touch (Assumption A3)"
+
+qc_gates:
+  Q1: {check: timestamp_monotonicity, rule: "(ts_event, sequence) lexicographically non-decreasing; equal pairs are valid multi-record events and separately counted", on_failure: "day flagged qc_fail, excluded"}
+  Q2: {check: crossed_book, rule: "bid_px_00 < ask_px_00 for strictly >99.99% of rows; crossed-row sample capped in QC artifact", on_failure: ">=0.01% -> day excluded"}
+  Q3: {check: session_coverage, rule: "first/last event within 30 min of session bounds; no intra-session gap > 30 min outside known halts", on_failure: "flagged partial, excluded from episode construction"}
+  Q4: {check: event_count_sanity, rule: "daily row count within [0.1x, 10x] of trailing-20-day median", on_failure: "flagged for manual review"}
+  Q5: {check: roll_audit, rule: "front contract changes only at documented roll windows; chosen contract volume share >50% of prior session", on_failure: "manual review"}
+  Q6: {check: book_resets, rule: "R actions handled (state re-seeded); days with >5 resets flagged", on_failure: "review"}
+  Q7: {check: cross_source_parity, rule: "2026 overlap dates: per-5m aggressive buy/sell vs TBBO matrix; sign convention identical; corr of 5m signed flow > 0.95", on_failure: "any sign flip -> HARD STOP"}
+  Q8: {check: price_parity, rule: "store mid vs TBBO 1m price on overlap dates; max abs diff <= 1 tick at bucket close", on_failure: "investigate before proceeding"}
+  review_gate_eligibility: "Q4/Q5/Q6 failure excludes the day unless a dated per-date manual-review record explicitly approves it with rationale; Q1-Q3 pass alone never auto-admits a flagged day"
+  review_gate_explicit_user_approval_utc: "2026-08-12"
+
+x0_pass_criterion:
+  rule: "Q1-Q8 pass on >= 95% of days in 2024-2026; parity sign check exact"
+  years_2022_2023:
+    min_expected_session_coverage: 0.95
+    min_q1_q6_day_pass_rate: 0.95
+  q7_q8_scope: "global overlap gates; not per-day requirements outside overlap"

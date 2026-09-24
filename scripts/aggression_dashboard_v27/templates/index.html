@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aggression V2.7 Research</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v={{ asset_version }}">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Aggression V2.7 Research Dashboard</h1>
+        <p>Isolated V2.2 copy + 10-minute local fair value (B1_W10). High-conviction entry: session 2–6 ticks, same sign, no same-sign re-entry. Research-only. Not a live trading signal. Live V2 / V2.2 / V2.3 unchanged.</p>
+      </div>
+      <div id="status">Loading...</div>
+    </section>
+
+    <section id="session-day" class="session-day" aria-live="polite">
+      <div class="session-day-kicker">Session day · research marks only · since <span id="session-day-start">18:00 ET</span></div>
+      <div class="session-day-grid">
+        <div>
+          <span class="session-kicker">Ticks captured</span>
+          <strong id="session-ticks">0.0</strong>
+        </div>
+        <div>
+          <span class="session-kicker">Trades</span>
+          <strong id="session-counts">0 issued · 0 closed · 0 open</strong>
+        </div>
+        <div>
+          <span class="session-kicker">Closed</span>
+          <strong id="session-closed">0 win · 0 lose · 0 flat</strong>
+        </div>
+      </div>
+    </section>
+
+    <section id="lifo-alert" class="lifo-alert hidden" role="status" aria-live="polite">
+      <strong>LIFO FRIENDLY</strong>
+    </section>
+
+    <section class="controls">
+      <label>
+        Model
+        <select id="model-select"></select>
+      </label>
+      <label>
+        Date
+        <select id="date-select"></select>
+      </label>
+      <button id="refresh-btn">Refresh</button>
+    </section>
+
+    <section id="live-banner" class="live-banner none">
+      <div>
+        <strong id="live-state">LIVE SIGNAL</strong>
+        <p id="live-message">Waiting for live signal...</p>
+      </div>
+      <div class="live-side">
+        <div id="live-price">Price: n/a</div>
+        <div id="live-feed-status"></div>
+      </div>
+    </section>
+
+    <section id="trade-signal" class="trade-signal flat" aria-live="polite">
+      <div class="trade-signal-note">Research display only · not executable · last-print marks</div>
+      <div class="trade-signal-grid">
+        <div>
+          <span class="trade-kicker">ENTRY</span>
+          <strong id="trade-entry">FLAT — wait for |z| ≥ 1.5, session 2–6 ticks, same sign, new session-sign after exit</strong>
+        </div>
+        <div>
+          <span class="trade-kicker">EXIT</span>
+          <strong id="trade-exit">Then EXIT when the fade side dies or flips. 10m is a mark, not a flatten</strong>
+        </div>
+        <div>
+          <span class="trade-kicker">NOW</span>
+          <strong id="trade-now">No open lean</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="cards stats-cards">
+      <div class="card">
+        <h3>Alerts Issued</h3>
+        <p id="alert-issued">WATCH 0 | DISLOCATION 0</p>
+      </div>
+      <div class="card">
+        <h3>WATCH Stats</h3>
+        <p id="watch-stats">0 issued | 0.0% resolved</p>
+      </div>
+      <div class="card">
+        <h3>DISLOCATION Stats</h3>
+        <p id="dislocation-stats">0 issued | 0.0% resolved</p>
+      </div>
+      <div class="card">
+        <h3>Hold Expectations</h3>
+        <p id="hold-expectations">Median resolve n/a | adverse n/a ticks | price share n/a</p>
+      </div>
+      <div class="card">
+        <h3>LIFO FRIENDLY</h3>
+        <p id="lifo-state">NORMAL</p>
+        <p id="lifo-stats" class="small-note">finalized 0 | RANGE n/a | TREND n/a | amb n/a | active 0</p>
+      </div>
+    </section>
+
+    <section class="grid live-grid">
+      <div class="panel"><div id="live-fair-value-chart" class="chart"></div></div>
+      <div class="panel"><div id="live-residual-chart" class="chart"></div></div>
+    </section>
+
+    <section class="panel table-panel outcomes-panel">
+      <div class="table-header">
+        <h3>Live Alert Outcomes</h3>
+        <div>
+          <select id="alert-scope">
+            <option value="today" selected>Today</option>
+            <option value="all">All</option>
+          </select>
+          <a id="alert-csv-link" href="/workspace/analysis/aggression_v27_live/alert_log.csv">CSV log path</a>
+        </div>
+      </div>
+      <div id="alert-log-stats" class="small-note"></div>
+      <div id="alert-log-table"></div>
+      <details class="stats-glossary">
+        <summary>What these stats mean</summary>
+        <p><strong>ENTRY</strong>: fade when |z| ≥ 1.5. <strong>EXIT Z-RESET</strong>: the fade side dies (short exits at z ≤ 0.5, long at z ≥ −0.5) after 5 minutes. <strong>EXIT FLIP</strong>: the other side hits |z| ≥ 1, even during the min-hold. <strong>10M MARK</strong>: score/display only — not a flatten. The trade stays open until z-reset or flip.</p>
+        <p><strong>Session day</strong>: ticks captured and counts from the last 18:00 ET Globex open through now. Today’s table uses that same window, not the calendar date. Open trades are counted but not included in ticks until they close.</p>
+        <p><strong>Trade pnl</strong>: fade P&amp;L from that trade’s entry print to its exit print. Each entry→exit is one row. A new trade can open after the previous one closes.</p>
+        <p><strong>Trade adverse</strong>: worst fade-path mark between that trade’s entry and its own exit.</p>
+        <p><strong>Hold Expectations</strong>: median time for resolved alerts to close, median adverse ticks before resolution, and the share of reversion caused by price moving rather than fair value drifting.</p>
+      </details>
+    </section>
+
+    <section class="cards">
+      <div class="card">
+        <h3>Latest Readout</h3>
+        <p id="readout"></p>
+      </div>
+      <div class="card">
+        <h3>Best Holdout Rule</h3>
+        <p id="best-rule"></p>
+      </div>
+      <div class="card">
+        <h3>Recommendation</h3>
+        <p>Proceed as research/explainability. Do not automate live trading until costs, event filters, and more independent validation are reviewed.</p>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel"><div id="fair-value-chart" class="chart"></div></div>
+      <div class="panel"><div id="residual-chart" class="chart"></div></div>
+      <div class="panel"><div id="metrics-chart" class="chart"></div></div>
+      <div class="panel"><div id="drivers-chart" class="chart"></div></div>
+      <div class="panel table-panel">
+        <h3>Holdout Rules</h3>
+        <div id="holdout-table"></div>
+      </div>
+      <div class="panel table-panel">
+        <h3>Conditional Rule Search</h3>
+        <div id="conditional-table"></div>
+      </div>
+    </section>
+
+    <section class="explainer">
+      <h2>How To Read This</h2>
+      <pre id="explainer-text"></pre>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

@@ -126,6 +126,60 @@ def init_db(db_path: Optional[Path] = None) -> Path:
             "ON agent_outputs(step)"
         )
 
+        # -------------------------------------------------------------------
+        # Telegram feedback tables
+        # -------------------------------------------------------------------
+
+        # Map bot-sent Telegram messages -> orchestration run_id so users can
+        # reply-to a bot answer and we can deterministically link feedback.
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS telegram_run_messages (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id       TEXT NOT NULL,
+                chat_id      INTEGER NOT NULL,
+                message_id   INTEGER NOT NULL,
+                message_kind TEXT NOT NULL,
+                created_at   TEXT NOT NULL,
+                UNIQUE(chat_id, message_id)
+            )
+            """
+        )
+
+        # Feedback records are self-contained snapshots so they remain useful
+        # even if run artifacts are later deleted.
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS telegram_feedback (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id               TEXT NOT NULL,
+                chat_id              INTEGER NOT NULL,
+                from_user_id         INTEGER NOT NULL,
+                from_username        TEXT,
+                reply_to_message_id  INTEGER NOT NULL,
+                label                TEXT NOT NULL,
+                comment              TEXT,
+                query_text           TEXT NOT NULL,
+                answer_text          TEXT NOT NULL,
+                output_path          TEXT,
+                created_at           TEXT NOT NULL
+            )
+            """
+        )
+
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_telegram_run_messages_run_id "
+            "ON telegram_run_messages(run_id)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_telegram_feedback_run_id "
+            "ON telegram_feedback(run_id)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_telegram_feedback_created_at "
+            "ON telegram_feedback(created_at)"
+        )
+
         conn.commit()
     finally:
         conn.close()

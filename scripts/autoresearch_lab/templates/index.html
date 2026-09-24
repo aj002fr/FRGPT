@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Autoresearch Hypothesis Lab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v={{ asset_version }}">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <span class="eyebrow">AGGRESSION AUTORESEARCH</span>
+      <h1>Hypothesis Lab</h1>
+      <p>Review frozen evidence, explore spent discovery data, and freeze new preregistrations.</p>
+    </div>
+    <div class="status-badge">EXPLORATORY / DISCOVERY-ONLY / NOT EVIDENCE</div>
+  </header>
+
+  <nav class="tabs" aria-label="Lab lanes">
+    <button class="tab active" data-tab="evidence">Evidence</button>
+    <button class="tab" data-tab="sandbox">Discovery Sandbox</button>
+    <button class="tab" data-tab="preregister">Preregister</button>
+  </nav>
+
+  <main>
+    <section id="tab-evidence" class="tab-panel active">
+      <div id="campaign-summary" class="summary-grid"></div>
+      <div id="integrity-panel" class="panel"></div>
+      <div id="experiment-evidence" class="panel"></div>
+      <div id="d001-map" class="panel"></div>
+      <div id="ledger-panel" class="panel"></div>
+    </section>
+
+    <section id="tab-sandbox" class="tab-panel">
+      <div id="sandbox-controls" class="panel"></div>
+      <div id="sandbox-jobs" class="panel"></div>
+      <div id="sandbox-results" class="panel"></div>
+    </section>
+
+    <section id="tab-preregister" class="tab-panel">
+      <div id="holdout-panel" class="panel"></div>
+      <div id="prereg-form" class="panel"></div>
+      <div id="prereg-result" class="panel"></div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

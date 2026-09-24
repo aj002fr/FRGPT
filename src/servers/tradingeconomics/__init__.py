@@ -8,7 +8,6 @@ from src.servers.tradingeconomics.fetch_calendar import fetch_economic_calendar
 from src.servers.tradingeconomics.query_events import (
     query_event_history,
     search_events,
-    find_correlated_events,
 )
 from src.servers.tradingeconomics.search_event_names import search_event_names
 from src.servers.tradingeconomics.websocket_client import (
@@ -22,7 +21,6 @@ __all__ = [
     "fetch_economic_calendar",
     "query_event_history",
     "search_events",
-    "find_correlated_events",
     "search_event_names",
     "start_event_stream",
     "stop_event_stream",

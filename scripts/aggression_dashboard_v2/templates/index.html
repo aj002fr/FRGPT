@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aggression V2 Research</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v={{ asset_version }}">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Aggression V2 Research Dashboard</h1>
+        <p>Research-only. TBBO-backed fair-value residual validation and explainability. Not a live trading signal.</p>
+      </div>
+      <div id="status">Loading...</div>
+    </section>
+
+    <section class="controls">
+      <label>
+        Model
+        <select id="model-select"></select>
+      </label>
+      <label>
+        Date
+        <select id="date-select"></select>
+      </label>
+      <button id="refresh-btn">Refresh</button>
+    </section>
+
+    <section id="live-banner" class="live-banner none">
+      <div>
+        <strong id="live-state">LIVE SIGNAL</strong>
+        <p id="live-message">Waiting for live signal...</p>
+      </div>
+      <div class="live-side">
+        <div id="live-price">Price: n/a</div>
+        <div id="live-feed-status"></div>
+      </div>
+    </section>
+
+    <section class="cards stats-cards">
+      <div class="card">
+        <h3>Alerts Issued</h3>
+        <p id="alert-issued">WATCH 0 | DISLOCATION 0</p>
+      </div>
+      <div class="card">
+        <h3>WATCH Stats</h3>
+        <p id="watch-stats">0 issued | 0.0% resolved</p>
+      </div>
+      <div class="card">
+        <h3>DISLOCATION Stats</h3>
+        <p id="dislocation-stats">0 issued | 0.0% resolved</p>
+      </div>
+      <div class="card">
+        <h3>Hold Expectations</h3>
+        <p id="hold-expectations">Median resolve n/a | adverse n/a ticks | price share n/a</p>
+      </div>
+    </section>
+
+    <section class="grid live-grid">
+      <div class="panel"><div id="live-fair-value-chart" class="chart"></div></div>
+      <div class="panel"><div id="live-residual-chart" class="chart"></div></div>
+    </section>
+
+    <section class="panel table-panel outcomes-panel">
+      <div class="table-header">
+        <h3>Live Alert Outcomes</h3>
+        <div>
+          <select id="alert-scope">
+            <option value="today" selected>Today</option>
+            <option value="all">All</option>
+          </select>
+          <a id="alert-csv-link" href="/workspace/analysis/aggression_v2_live/alert_log.csv">CSV log path</a>
+        </div>
+      </div>
+      <div id="alert-log-stats" class="small-note"></div>
+      <div id="alert-log-table"></div>
+      <details class="stats-glossary">
+        <summary>What these stats mean</summary>
+        <p><strong>Resolved</strong>: the signal's absolute z-score dropped back below 1.0 before the 30-minute deadline. <strong>Expired</strong>: it did not.</p>
+        <p><strong>30m hit / 30m pnl</strong>: whether fading the alert direction made money after exactly 30 minutes, and by how many price points. This is the trade scoreboard.</p>
+        <p><strong>30m adverse</strong>: the worst price move against the fade during the first 30 minutes, even if the alert later worked.</p>
+        <p><strong>Hold Expectations</strong>: median time for resolved alerts to close, median adverse ticks before resolution, and the share of reversion caused by price moving rather than fair value drifting.</p>
+      </details>
+    </section>
+
+    <section class="cards">
+      <div class="card">
+        <h3>Latest Readout</h3>
+        <p id="readout"></p>
+      </div>
+      <div class="card">
+        <h3>Best Holdout Rule</h3>
+        <p id="best-rule"></p>
+      </div>
+      <div class="card">
+        <h3>Recommendation</h3>
+        <p>Proceed as research/explainability. Do not automate live trading until costs, event filters, and more independent validation are reviewed.</p>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel"><div id="fair-value-chart" class="chart"></div></div>
+      <div class="panel"><div id="residual-chart" class="chart"></div></div>
+      <div class="panel"><div id="metrics-chart" class="chart"></div></div>
+      <div class="panel"><div id="drivers-chart" class="chart"></div></div>
+      <div class="panel table-panel">
+        <h3>Holdout Rules</h3>
+        <div id="holdout-table"></div>
+      </div>
+      <div class="panel table-panel">
+        <h3>Conditional Rule Search</h3>
+        <div id="conditional-table"></div>
+      </div>
+    </section>
+
+    <section class="explainer">
+      <h2>How To Read This</h2>
+      <pre id="explainer-text"></pre>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

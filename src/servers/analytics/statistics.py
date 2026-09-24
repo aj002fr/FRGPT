@@ -375,30 +375,92 @@ def compute_statistics(
             "include_equal": {
                 "type": "boolean",
                 "description": "If true, count values equal to target. Default: true"
+            },
+            "event_name": {
+                "type": "string",
+                "description": "Optional: Event name to fetch historical surprises from economic_events.db"
+            },
+            "country": {
+                "type": "string",
+                "description": "Optional: Country filter when fetching historical events (default: US)"
+            },
+            "lookback_days": {
+                "type": "integer",
+                "description": "Optional: Days to look back for historical events (default: 730 = 2 years)"
             }
         },
-        "required": ["value", "data"]
+        "required": ["value"]
     }
 )
 def compute_percentile_rank(
     value: float,
-    data: List[Any],
-    include_equal: bool = True
+    data: List[Any] = None,
+    include_equal: bool = True,
+    event_name: str = None,
+    country: str = "US",
+    lookback_days: int = 730
 ) -> Dict[str, Any]:
     """
     Compute the percentile rank of a value within a dataset.
     
     This answers: "What percentage of values in the dataset are below this value?"
     
+    If event_name is provided, fetches historical surprises from economic_events.db
+    to build the reference distribution (recommended for event surprise analysis).
+    
     Args:
         value: The value to rank
-        data: Reference dataset
+        data: Reference dataset (optional if event_name provided)
         include_equal: Whether to count equal values
+        event_name: Optional event name to fetch historical surprises
+        country: Country filter for historical events
+        lookback_days: Days to look back for historical events
         
     Returns:
         Dictionary with percentile rank and context
     """
     logger.info(f"Computing percentile rank for value={value}")
+    
+    # If event_name provided, fetch historical surprises from DB
+    if event_name:
+        logger.info(f"Fetching historical surprises for {event_name} (last {lookback_days} days)")
+        try:
+            from src.servers.tradingeconomics.query_events import query_event_history
+            
+            # Fetch historical events
+            result = query_event_history(
+                event_name=event_name,
+                country=country,
+                lookback_days=lookback_days,
+                limit=500  # Get good sample size
+            )
+            
+            if result.get("success") and result.get("events"):
+                # Extract surprises from historical events
+                historical_surprises = [
+                    e["surprise"] 
+                    for e in result["events"] 
+                    if e.get("surprise") is not None
+                ]
+                
+                if historical_surprises:
+                    logger.info(f"Using {len(historical_surprises)} historical surprises as reference distribution")
+                    data = historical_surprises
+                else:
+                    logger.warning(f"No historical surprises found for {event_name}, using provided data")
+            else:
+                logger.warning(f"Failed to fetch historical events for {event_name}, using provided data")
+        except Exception as e:
+            logger.error(f"Error fetching historical events: {e}, using provided data")
+    
+    # Validate we have data
+    if not data:
+        return {
+            "success": False,
+            "error": "No reference dataset provided and unable to fetch historical data"
+        }
+    
+    logger.info(f"Computing percentile rank against {len(data)} reference values")
     
     # Validate data
     is_valid, error, numeric_data = validate_numeric_data(data)
@@ -708,4 +770,6 @@ def compute_correlation(
             "success": False,
             "error": str(e)
         }
+
+
 

@@ -1,7 +1,6 @@
 """Analytics Agent - Main logic for statistical analysis and visualization."""
 
 import logging
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
@@ -16,8 +15,6 @@ from .config import (
     AGENT_NAME,
     AGENT_VERSION,
     get_workspace_path,
-    get_market_data_db_path,
-    get_economic_events_db_path,
     get_plots_dir,
     OUT_DIR,
     LOGS_DIR,
@@ -35,13 +32,12 @@ class AnalyticsAgent:
     Analytics Agent - Performs statistical analysis and generates visualizations.
     
     This agent can:
-    1. Query market_data and economic_events databases
-    2. Compute descriptive statistics
-    3. Calculate percentile ranks
-    4. Compare distributions
-    5. Analyze correlations
-    6. Generate SVG plots (histograms, line charts, scatter plots, bar charts)
-    7. Analyze event impacts and surprises
+    1. Compute descriptive statistics
+    2. Calculate percentile ranks
+    3. Compare distributions
+    4. Analyze correlations
+    5. Generate SVG plots (histograms, line charts, scatter plots, bar charts)
+    6. Generate PNG plots (candlestick charts, multi-candlestick charts)
     """
     
     def __init__(self):
@@ -55,148 +51,6 @@ class AnalyticsAgent:
         ensure_dir(plots_dir)
         
         logger.info(f"AnalyticsAgent initialized at {self.workspace}")
-    
-    # =========================================================================
-    # Database Access
-    # =========================================================================
-    
-    def _get_market_data_connection(self) -> sqlite3.Connection:
-        """Get connection to market data database."""
-        db_path = get_market_data_db_path()
-        if not db_path.exists():
-            raise FileNotFoundError(f"Market data database not found: {db_path}")
-        
-        conn = sqlite3.connect(str(db_path))
-        conn.row_factory = sqlite3.Row
-        return conn
-    
-    def _get_economic_events_connection(self) -> sqlite3.Connection:
-        """Get connection to economic events database."""
-        db_path = get_economic_events_db_path()
-        if not db_path.exists():
-            raise FileNotFoundError(f"Economic events database not found: {db_path}")
-        
-        conn = sqlite3.connect(str(db_path))
-        conn.row_factory = sqlite3.Row
-        return conn
-    
-    def query_market_data(
-        self,
-        columns: List[str] = None,
-        symbol_pattern: Optional[str] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        limit: int = MAX_ROWS
-    ) -> List[Dict[str, Any]]:
-        """
-        Query market data database.
-        
-        Args:
-            columns: Columns to select (default: all)
-            symbol_pattern: LIKE pattern for symbol
-            date_from: Start date (YYYY-MM-DD)
-            date_to: End date (YYYY-MM-DD)
-            limit: Max rows to return
-            
-        Returns:
-            List of row dictionaries
-        """
-        conn = self._get_market_data_connection()
-        cursor = conn.cursor()
-        
-        try:
-            # Build query
-            col_str = ", ".join(columns) if columns else "*"
-            sql = f"SELECT {col_str} FROM market_data WHERE is_valid = 1"
-            params = []
-            
-            if symbol_pattern:
-                sql += " AND symbol LIKE ?"
-                params.append(symbol_pattern)
-            
-            if date_from:
-                sql += " AND file_date >= ?"
-                params.append(date_from)
-            
-            if date_to:
-                sql += " AND file_date <= ?"
-                params.append(date_to)
-            
-            sql += f" ORDER BY file_date DESC, timestamp DESC LIMIT ?"
-            params.append(limit)
-            
-            cursor.execute(sql, params)
-            rows = cursor.fetchall()
-            
-            return [dict(row) for row in rows]
-            
-        finally:
-            conn.close()
-    
-    def query_economic_events(
-        self,
-        columns: List[str] = None,
-        event_name_pattern: Optional[str] = None,
-        country: Optional[str] = None,
-        date_from: Optional[str] = None,
-        date_to: Optional[str] = None,
-        importance: Optional[str] = None,
-        limit: int = MAX_ROWS
-    ) -> List[Dict[str, Any]]:
-        """
-        Query economic events database.
-        
-        Args:
-            columns: Columns to select (default: all)
-            event_name_pattern: LIKE pattern for event_name
-            country: Country filter
-            date_from: Start date (YYYY-MM-DD)
-            date_to: End date (YYYY-MM-DD)
-            importance: Importance filter (low/medium/high)
-            limit: Max rows to return
-            
-        Returns:
-            List of row dictionaries
-        """
-        conn = self._get_economic_events_connection()
-        cursor = conn.cursor()
-        
-        try:
-            # Build query
-            col_str = ", ".join(columns) if columns else "*"
-            sql = f"SELECT {col_str} FROM economic_events WHERE 1=1"
-            params = []
-            
-            if event_name_pattern:
-                sql += " AND event_name LIKE ?"
-                params.append(f"%{event_name_pattern}%")
-            
-            if country:
-                sql += " AND LOWER(country) LIKE LOWER(?)"
-                params.append(f"%{country}%")
-            
-            if date_from:
-                sql += " AND event_date >= ?"
-                params.append(date_from)
-            
-            if date_to:
-                sql += " AND event_date <= ?"
-                params.append(date_to)
-            
-            if importance:
-                sql += " AND importance = ?"
-                params.append(importance.lower())
-            
-            sql += f" ORDER BY event_date DESC LIMIT ?"
-            params.append(limit)
-            
-            cursor.execute(sql, params)
-            rows = cursor.fetchall()
-            
-            return [dict(row) for row in rows]
-            
-        finally:
-            conn.close()
     
     # =========================================================================
     # Analysis Methods
@@ -449,217 +303,101 @@ class AnalyticsAgent:
         result = self.mcp_client.call_tool("generate_bar_chart", arguments=args)
         return result
     
-    # =========================================================================
-    # High-Level Analysis Methods
-    # =========================================================================
-    
-    def analyze_event_surprises(
+    def generate_candlestick_chart(
         self,
-        event_name_pattern: str,
-        country: Optional[str] = None,
-        current_surprise: Optional[float] = None
+        open_data: List[float],
+        high_data: List[float],
+        low_data: List[float],
+        close_data: List[float],
+        timestamps: Optional[List[str]] = None,
+        events: Optional[List[Dict[str, Any]]] = None,
+        show_event_labels: bool = True,
+        auto_fetch_events: bool = False,
+        event_country: str = "US",
+        title: str = "Candlestick Chart",
+        x_label: str = "Time",
+        y_label: str = "Price",
+        color_scheme: str = "default",
+        width: int = 1600,
+        height: int = 600
     ) -> Dict[str, Any]:
         """
-        Analyze historical surprises for an economic event.
-        
-        Surprise = actual - consensus
+        Generate a candlestick chart (OHLC) as PNG.
         
         Args:
-            event_name_pattern: Event name pattern (e.g., "Nonfarm")
-            country: Country filter (e.g., "US")
-            current_surprise: Current surprise value to rank (optional)
+            open_data: List of opening prices
+            high_data: List of high prices
+            low_data: List of low prices
+            close_data: List of closing prices
+            timestamps: Optional list of timestamps
+            events: Optional list of events to mark
+            show_event_labels: Whether to show event names
+            auto_fetch_events: If True, auto-query events for time range
+            event_country: Country code for event lookup
+            title: Chart title
+            x_label: X-axis label
+            y_label: Y-axis label
+            color_scheme: Color scheme name
+            width: Image width in pixels
+            height: Image height in pixels
             
         Returns:
-            Analysis result with statistics and optional percentile rank
+            Plot result with PNG path
         """
-        start_time = time.time()
-        
-        # Query historical events
-        events = self.query_economic_events(
-            columns=["event_name", "event_date", "actual", "consensus", "forecast", "previous"],
-            event_name_pattern=event_name_pattern,
-            country=country,
-        )
-        
-        if not events:
-            return {
-                "success": False,
-                "error": f"No events found matching '{event_name_pattern}'"
-            }
-        
-        # Calculate surprises (actual - consensus)
-        surprises = []
-        events_with_surprise = []
-        
-        for event in events:
-            actual = event.get("actual")
-            consensus = event.get("consensus")
-            
-            if actual is not None and consensus is not None:
-                surprise = actual - consensus
-                surprises.append(surprise)
-                events_with_surprise.append({
-                    **event,
-                    "surprise": surprise
-                })
-        
-        if len(surprises) < MIN_DATA_POINTS_FOR_STATS:
-            return {
-                "success": False,
-                "error": f"Insufficient data: only {len(surprises)} events with actual and consensus values"
-            }
-        
-        # Compute statistics on surprises
-        stats_result = self.compute_statistics(surprises, include_outliers=True)
-        
-        result = {
-            "success": True,
-            "event_pattern": event_name_pattern,
-            "country": country,
-            "total_events": len(events),
-            "events_with_surprise": len(surprises),
-            "surprise_statistics": stats_result.get("statistics", {}),
-            "recent_events": events_with_surprise[:10],  # Last 10 events
+        args = {
+            "open_data": open_data,
+            "high_data": high_data,
+            "low_data": low_data,
+            "close_data": close_data,
+            "title": title,
+            "x_label": x_label,
+            "y_label": y_label,
+            "color_scheme": color_scheme,
+            "width": width,
+            "height": height,
+            "show_event_labels": show_event_labels,
+            "auto_fetch_events": auto_fetch_events,
+            "event_country": event_country,
         }
         
-        # If current surprise provided, compute its percentile rank
-        if current_surprise is not None:
-            rank_result = self.compute_percentile_rank(current_surprise, surprises)
-            result["current_surprise"] = {
-                "value": current_surprise,
-                "percentile_rank": rank_result.get("percentile_rank"),
-                "z_score": rank_result.get("z_score"),
-                "interpretation": rank_result.get("interpretation"),
-            }
+        if timestamps is not None:
+            args["timestamps"] = timestamps
         
-        # Generate histogram of surprises
-        hist_result = self.generate_histogram(
-            surprises,
-            title=f"Surprise Distribution: {event_name_pattern}",
-            x_label="Surprise (Actual - Consensus)",
-            y_label="Frequency"
-        )
+        if events is not None:
+            args["events"] = events
         
-        if hist_result.get("success"):
-            result["histogram_path"] = hist_result.get("svg_path")
-        
-        result["duration_ms"] = round((time.time() - start_time) * 1000, 2)
-        
+        result = self.mcp_client.call_tool("generate_candlestick_chart", arguments=args)
         return result
     
-    def analyze_market_on_event_dates(
+    def generate_multi_candlestick_charts(
         self,
-        event_name_pattern: str,
-        symbol_pattern: str,
-        country: Optional[str] = None,
-        price_column: str = "price"
+        timeseries_list: List[Dict[str, Any]],
+        width: int = 1600,
+        height: int = 600
     ) -> Dict[str, Any]:
         """
-        Analyze market prices on economic event dates.
+        Generate multiple candlestick charts from a list of timeseries data.
+        
+        This is designed for queries like "for each NFP event, show a price chart".
         
         Args:
-            event_name_pattern: Event name pattern
-            symbol_pattern: Symbol pattern for market data
-            country: Country filter for events
-            price_column: Column to analyze (price, bid, ask)
+            timeseries_list: List of timeseries, each with:
+                - "title": Chart title (e.g., "NFP Dec 6, 2024")
+                - "date": Date string for identification
+                - "data": List of OHLC records or separate arrays
+            width: Chart width in pixels
+            height: Chart height in pixels
             
         Returns:
-            Analysis result with statistics and visualization
+            Dictionary with list of chart paths and metadata
         """
-        start_time = time.time()
-        
-        # Get event dates
-        events = self.query_economic_events(
-            columns=["event_name", "event_date", "actual", "consensus"],
-            event_name_pattern=event_name_pattern,
-            country=country,
-        )
-        
-        if not events:
-            return {
-                "success": False,
-                "error": f"No events found matching '{event_name_pattern}'"
-            }
-        
-        # Extract unique dates (just the date part)
-        event_dates = set()
-        for event in events:
-            date_str = event.get("event_date", "")
-            if date_str:
-                # Extract just YYYY-MM-DD
-                event_dates.add(date_str[:10])
-        
-        # Query market data for those dates
-        prices_on_event_dates = []
-        date_price_map = {}
-        
-        for date in event_dates:
-            market_data = self.query_market_data(
-                columns=[price_column, "file_date", "symbol"],
-                symbol_pattern=symbol_pattern,
-                date_from=date,
-                date_to=date,
-                limit=1000
-            )
-            
-            for row in market_data:
-                price = row.get(price_column)
-                if price is not None:
-                    prices_on_event_dates.append(price)
-                    if date not in date_price_map:
-                        date_price_map[date] = []
-                    date_price_map[date].append(price)
-        
-        if len(prices_on_event_dates) < MIN_DATA_POINTS_FOR_STATS:
-            return {
-                "success": False,
-                "error": f"Insufficient market data: only {len(prices_on_event_dates)} prices found"
-            }
-        
-        # Compute statistics
-        stats_result = self.compute_statistics(prices_on_event_dates)
-        
-        # Calculate average price per event date
-        avg_prices_by_date = []
-        sorted_dates = sorted(date_price_map.keys())
-        for date in sorted_dates:
-            prices = date_price_map[date]
-            avg_prices_by_date.append(sum(prices) / len(prices))
-        
-        result = {
-            "success": True,
-            "event_pattern": event_name_pattern,
-            "symbol_pattern": symbol_pattern,
-            "event_dates_found": len(event_dates),
-            "total_price_observations": len(prices_on_event_dates),
-            "price_statistics": stats_result.get("statistics", {}),
-            "dates_analyzed": sorted_dates[-20:],  # Last 20 dates
+        args = {
+            "timeseries_list": timeseries_list,
+            "width": width,
+            "height": height,
         }
         
-        # Generate histogram
-        hist_result = self.generate_histogram(
-            prices_on_event_dates,
-            title=f"{symbol_pattern} Prices on {event_name_pattern} Dates",
-            x_label=price_column.capitalize(),
-            y_label="Frequency"
-        )
-        
-        if hist_result.get("success"):
-            result["histogram_path"] = hist_result.get("svg_path")
-        
-        # Generate line chart of average prices over time
-        if len(avg_prices_by_date) >= 3:
-            line_result = self.generate_line_chart(
-                avg_prices_by_date,
-                title=f"Average {price_column.capitalize()} on Event Dates",
-                x_label="Event Occurrence",
-                y_label=price_column.capitalize()
-            )
-            if line_result.get("success"):
-                result["line_chart_path"] = line_result.get("svg_path")
-        
-        result["duration_ms"] = round((time.time() - start_time) * 1000, 2)
-        
+        result = self.mcp_client.call_tool("generate_multi_candlestick_charts", arguments=args)
         return result
     
     # =========================================================================
@@ -690,36 +428,29 @@ class AnalyticsAgent:
         
         try:
             # Execute analysis based on type
-            if analysis_type == "surprise_analysis":
-                result = self.analyze_event_surprises(**params)
-            
-            elif analysis_type == "event_impact":
-                result = self.analyze_market_on_event_dates(**params)
+            if analysis_type in {"surprise_analysis", "event_impact"}:
+                result = {
+                    "success": False,
+                    "error": (
+                        f"AnalyticsAgent analysis_type '{analysis_type}' is disabled. "
+                        "Fetch data via market_data_agent/eventdata_puller_agent and then run "
+                        "analytics tools on the resulting arrays/timeseries."
+                    ),
+                }
             
             elif analysis_type == "descriptive":
                 data = params.get("data", [])
                 if not data:
-                    # Try to fetch from database
-                    db = params.get("database", "market_data")
-                    column = params.get("column", "price")
-                    
-                    if db == "market_data":
-                        rows = self.query_market_data(
-                            columns=[column],
-                            symbol_pattern=params.get("symbol_pattern"),
-                            date_from=params.get("date_from"),
-                            date_to=params.get("date_to"),
-                        )
-                        data = [r[column] for r in rows if r.get(column) is not None]
-                    else:
-                        rows = self.query_economic_events(
-                            columns=[column],
-                            event_name_pattern=params.get("event_name_pattern"),
-                            country=params.get("country"),
-                        )
-                        data = [r[column] for r in rows if r.get(column) is not None]
-                
-                result = self.compute_statistics(data, include_outliers=True)
+                    result = {
+                        "success": False,
+                        "error": (
+                            "AnalyticsAgent descriptive analysis now requires params['data'] "
+                            "(list of numbers). Database fetching was removed; fetch upstream "
+                            "via market_data_agent/eventdata_puller_agent tools."
+                        ),
+                    }
+                else:
+                    result = self.compute_statistics(data, include_outliers=True)
                 
                 if generate_plot and result.get("success"):
                     hist = self.generate_histogram(data, title=params.get("title", "Distribution"))

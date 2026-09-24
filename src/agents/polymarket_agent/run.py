@@ -121,7 +121,6 @@ class PolymarketAgent:
     ) -> Path:
         """
         - Uses Polymarket Gamma `/markets` API (sorted by volume)
-        - Filters by keyword relevance and high volume
         - Validation focuses on:
           1. Prices are numeric in [0, 1]
           2. Volume is non-negative and above threshold
@@ -131,7 +130,6 @@ class PolymarketAgent:
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
 
-        # Generate run ID and session ID (for logging + manifest)
         run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         session_id = self._generate_session_id(query, run_id)
 
@@ -144,9 +142,8 @@ class PolymarketAgent:
             # Step 1: Fetch markets from Polymarket Gamma /public-search API
             # This endpoint already filters by the user's query string and returns
             # price + volume + clobTokenIds for all relevant markets.
-            logger.info(
-                "Simple Step 1: Fetching markets from Polymarket public-search API"
-            )
+            logger.info("Fetching markets from Polymarket public-search API")
+            
             api_response = call_polymarket_search_api(query, limit_per_type=MAX_POLYMARKET_RESULTS)
             all_markets = parse_public_search_response(api_response, query)
 
@@ -246,7 +243,6 @@ class PolymarketAgent:
                 final_markets = validated_markets[:search_limit]
 
                 # Optional: add historical comparison.
-                # Priority:
                 # 1) If inline dates are present in the query, use the past_date.
                 # 2) Otherwise, default to a lookback window (e.g. past week).
                 past_date, today_date = self._extract_inline_dates(query)

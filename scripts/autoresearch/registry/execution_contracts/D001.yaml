@@ -1,0 +1,43 @@
+schema_version: 1
+experiment_id: D001
+base_spec_hash: 4cab244b5ef07c9281dea843a753b3af2c5896b413f922923235cbfafb194f88
+kind: descriptive
+candidate:
+  proxy_order: [buysell_ratio, large_trade_share, trade_intensity]
+  buysell_boundaries: [discovery_p10, discovery_p90]
+  other_boundaries: discovery_terciles
+  volatility_boundaries: discovery_terciles
+  boundary_inclusion: LOW_lt_lower_MID_inclusive_lower_exclusive_upper_HIGH_ge_upper
+  outputs: [buysell_ratio, large_trade_share, trade_intensity, realized_vol_context]
+evaluator:
+  sessions:
+    ASIA: 18:00-02:59 America/New_York
+    LONDON: 03:00-07:59 America/New_York
+    RATES_RTH: 08:00-15:00 America/New_York
+    LATE: 15:01-16:59 America/New_York
+  horizons_minutes: [15, 30, 60]
+  declared_cells: 243
+  late_nomination_eligible: false
+selection:
+  first_half_end: "2025-01-31"
+  second_half_start: "2025-02-03"
+  comparison: complementary_proxy_buckets_same_session_volatility_horizon_half
+  minimum_dates_each_half: 25
+  minimum_anchors_each_half: 50
+  minimum_bounded_lift_each_half: 0.08
+  reversal_slices: [event, non_event]
+  reversal_slice_minimum_dates: 10
+  reversal_slice_minimum_anchors: 20
+  material_reversal: -0.04
+  rank: smaller_absolute_half_lift_desc
+  tie_break: [buysell_ratio, large_trade_share, trade_intensity, MID, LOW, HIGH, RATES_RTH, LONDON, ASIA, 30, 15, 60]
+  nomination_cap: 2
+outcome:
+  tick_size: 0.015625
+  bound_ticks: 4
+  bounded_rule: all_closes_strictly_inside
+  resolved_rule: exact_touch_or_breach
+  path_efficiency: absolute_net_move_over_sum_absolute_one_minute_moves
+  anchor_spacing: horizon_specific_non_overlapping
+  minimum_future_coverage: 0.8
+  endpoint_tolerance_minutes: 2

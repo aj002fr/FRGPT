@@ -1,0 +1,84 @@
+# Plot Configuration - All styling in one place
+# Used by src/servers/analytics/core_plotting.py
+
+output:
+  format: png
+  dpi: 150
+  scale: 2  # For Plotly PNG export
+
+colors:
+  default:
+    background: "#FFFFFF"
+    primary: "#2E86AB"
+    secondary: "#E94F37"
+    accent: "#F6AE2D"
+    text: "#333333"
+    grid: "#E0E0E0"
+    axis: "#666666"
+    bullish: "#26A69A"
+    bearish: "#EF5350"
+  
+  dark:
+    background: "#1E1E1E"
+    primary: "#4FC3F7"
+    secondary: "#FF7043"
+    accent: "#FFD54F"
+    text: "#FFFFFF"
+    grid: "#424242"
+    axis: "#BDBDBD"
+    bullish: "#4CAF50"
+    bearish: "#F44336"
+
+fonts:
+  family: "Segoe UI, Arial, sans-serif"
+  title_size: 14
+  label_size: 12
+  tick_size: 10
+  legend_size: 11
+
+dimensions:
+  histogram:
+    width: 800
+    height: 500
+    bins: 20
+  
+  candlestick:
+    width: 1600
+    height: 600
+  
+  line_chart:
+    width: 800
+    height: 400
+  
+  scatter:
+    width: 800
+    height: 600
+    point_size: 5
+  
+  bar_chart:
+    width: 800
+    height: 400
+
+histogram:
+  show_kde: true
+  kde_color: secondary
+  edge_color: white
+  alpha: 0.7
+
+candlestick:
+  auto_fetch_events: true
+  show_event_labels: true
+  event_line_style: "dash"
+  
+timeseries:
+  show_points: false
+  line_width: 2
+
+stats_box:
+  show: true
+  position: "top_left"
+  alpha: 0.9
+
+
+
+

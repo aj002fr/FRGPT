@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aggression V2.3 Exhaustion Context</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v={{ asset_version }}">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Aggression V2.3 — Move Exhaustion Context</h1>
+        <p>Isolated V2 copy + research-supported exhaustion badges. <strong>PROVISIONAL / RESEARCH-ONLY / NOT AFTER-COST VALIDATED</strong>. Live V2 unchanged.</p>
+      </div>
+      <div id="status">Loading...</div>
+    </section>
+
+    <section id="strategy-banner" class="strategy-banner" role="status">
+      <strong id="strategy-label">PROVISIONAL / RESEARCH-ONLY / NOT AFTER-COST VALIDATED</strong>
+      <span id="after-cost-note">E26 failed after costs — display only, not executable.</span>
+    </section>
+
+    <section id="standaside-alert" class="standaside-alert hidden" role="alert">
+      <strong>STAND ASIDE</strong>
+      <span id="standaside-reason"></span>
+    </section>
+
+    <section id="exh-badges" class="exh-badges" aria-live="polite"></section>
+
+    <section class="controls">
+      <label>
+        Model
+        <select id="model-select"></select>
+      </label>
+      <label>
+        Date
+        <select id="date-select"></select>
+      </label>
+      <button id="refresh-btn">Refresh</button>
+    </section>
+
+    <section id="live-banner" class="live-banner none">
+      <div>
+        <strong id="live-state">LIVE SIGNAL</strong>
+        <p id="live-message">Waiting for live signal...</p>
+      </div>
+      <div class="live-side">
+        <div id="live-price">Price: n/a</div>
+        <div id="live-feed-status"></div>
+      </div>
+    </section>
+
+    <section class="cards stats-cards exh-stats-cards">
+      <div class="card">
+        <h3>Alerts Issued</h3>
+        <p id="alert-issued">WATCH 0 | DISLOCATION 0</p>
+      </div>
+      <div class="card">
+        <h3>WATCH Stats</h3>
+        <p id="watch-stats">0 issued | 0.0% resolved</p>
+      </div>
+      <div class="card">
+        <h3>DISLOCATION Stats</h3>
+        <p id="dislocation-stats">0 issued | 0.0% resolved</p>
+      </div>
+      <div class="card">
+        <h3>Hold Expectations</h3>
+        <p id="hold-expectations">Median resolve n/a | adverse n/a ticks | price share n/a</p>
+      </div>
+      <div class="card">
+        <h3>Exhaustion State</h3>
+        <p id="exh-state">NO_SIGNAL</p>
+        <p id="exh-prob" class="small-note">P(exh) n/a</p>
+      </div>
+      <div class="card">
+        <h3>Extension / Reversal</h3>
+        <p id="ext-bound">q50 n/a | q80 n/a</p>
+        <p id="rev-mag" class="small-note">rev 5m n/a</p>
+      </div>
+    </section>
+
+    <section class="grid live-grid">
+      <div class="panel"><div id="live-fair-value-chart" class="chart"></div></div>
+      <div class="panel"><div id="live-residual-chart" class="chart"></div></div>
+    </section>
+
+    <section class="panel table-panel outcomes-panel">
+      <div class="table-header">
+        <h3>Live Alert Outcomes</h3>
+        <div>
+          <select id="alert-scope">
+            <option value="today" selected>Today</option>
+            <option value="all">All</option>
+          </select>
+          <a id="alert-csv-link" href="/workspace/analysis/aggression_v23_live/alert_log.csv">CSV log path</a>
+        </div>
+      </div>
+      <div id="alert-log-stats" class="small-note"></div>
+      <div id="alert-log-table"></div>
+      <details class="stats-glossary">
+        <summary>What these stats mean</summary>
+        <p><strong>Resolved</strong>: the signal's absolute z-score dropped back below 1.0 before the 30-minute deadline. <strong>Expired</strong>: it did not.</p>
+        <p><strong>30m hit / 30m pnl</strong>: whether fading the alert direction made money after exactly 30 minutes, and by how many price points. This is the trade scoreboard for V2 residual alerts only.</p>
+        <p><strong>Exhaustion badges</strong> are separate research context from the move-exhaustion study. They are not after-cost validated.</p>
+      </details>
+    </section>
+
+    <section class="cards">
+      <div class="card">
+        <h3>Latest Readout</h3>
+        <p id="readout"></p>
+      </div>
+      <div class="card">
+        <h3>Best Holdout Rule</h3>
+        <p id="best-rule"></p>
+      </div>
+      <div class="card">
+        <h3>Recommendation</h3>
+        <p>Use as context only. Do not automate trading. E26 costed simulation failed; holdout locked; stability was unstable offline.</p>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel"><div id="fair-value-chart" class="chart"></div></div>
+      <div class="panel"><div id="residual-chart" class="chart"></div></div>
+      <div class="panel"><div id="metrics-chart" class="chart"></div></div>
+      <div class="panel"><div id="drivers-chart" class="chart"></div></div>
+      <div class="panel table-panel">
+        <h3>Holdout Rules</h3>
+        <div id="holdout-table"></div>
+      </div>
+      <div class="panel table-panel">
+        <h3>Conditional Rule Search</h3>
+        <div id="conditional-table"></div>
+      </div>
+    </section>
+
+    <section class="explainer">
+      <h2>V2.3 Exhaustion Signal Explainer</h2>
+      <pre id="v23-explainer-text"></pre>
+    </section>
+
+    <section class="explainer">
+      <h2>How To Read V2 Residual Model</h2>
+      <pre id="explainer-text"></pre>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

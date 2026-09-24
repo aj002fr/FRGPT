@@ -64,7 +64,8 @@ def call_polymarket_search_api(query: str, limit_per_type: int = DEFAULT_POLYMAR
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     )
     req.add_header("Accept-Language", "en-US,en;q=0.9")
-    req.add_header("Accept-Encoding", "gzip, deflate, br")
+    # Only request gzip/deflate (not br/Brotli) since stdlib doesn't support Brotli
+    req.add_header("Accept-Encoding", "gzip, deflate")
     req.add_header("Connection", "keep-alive")
     req.add_header("Referer", "https://polymarket.com/")
     req.add_header("Origin", "https://polymarket.com")
@@ -72,11 +73,30 @@ def call_polymarket_search_api(query: str, limit_per_type: int = DEFAULT_POLYMAR
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             raw_data = response.read()
-
-            if raw_data[:2] == b"\x1f\x8b":  # Gzip magic number
+            
+            # Check Content-Encoding header to determine compression
+            content_encoding = response.headers.get("Content-Encoding", "").lower()
+            
+            # Handle compression
+            if "gzip" in content_encoding or raw_data[:2] == b"\x1f\x8b":  # Gzip magic number
                 raw_data = gzip.decompress(raw_data)
-
-            result = json.loads(raw_data.decode("utf-8"))
+            elif "deflate" in content_encoding:
+                import zlib
+                raw_data = zlib.decompress(raw_data)
+            elif "br" in content_encoding:
+                # Brotli not supported in stdlib - log warning and try to proceed
+                logger.warning("Response is Brotli compressed but stdlib doesn't support it. Attempting to decode anyway.")
+                # Try to decode as-is (might fail, but worth trying)
+            
+            # Decode with error handling
+            try:
+                text_data = raw_data.decode("utf-8")
+            except UnicodeDecodeError as e:
+                # Try with error handling - replace invalid bytes
+                logger.warning(f"UTF-8 decode error at position {e.start}: {e.reason}. Attempting with error handling.")
+                text_data = raw_data.decode("utf-8", errors="replace")
+            
+            result = json.loads(text_data)
 
             # Expected structure: {"events": [...], "tags": [...], "profiles": [...], "pagination": {...}}
             logger.info(
@@ -86,7 +106,15 @@ def call_polymarket_search_api(query: str, limit_per_type: int = DEFAULT_POLYMAR
             return result
 
     except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8") if e.fp else "No error details"
+        error_body = "No error details"
+        if e.fp:
+            try:
+                error_body = e.read().decode("utf-8")
+            except (UnicodeDecodeError, AttributeError):
+                try:
+                    error_body = e.read().decode("utf-8", errors="replace")
+                except Exception:
+                    error_body = "Could not decode error body"
         logger.error(f"Polymarket public-search HTTP error: {e.code} - {error_body}")
         raise
     except urllib.error.URLError as e:
