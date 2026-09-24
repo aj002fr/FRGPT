@@ -2,6 +2,16 @@
 
 
 
+## Dashboard operations (`ops/`)
+
+### release0/deploy_release0.ps1
+
+Release 0 deploy tool for a 17:00–18:00 ET window, one item at a time: `v3` (5053), `v1` (5050), `events` (5064 + 5065, plus the `ECON_EVENTS_PG_DSN` line in Y: `config/keys.env` and the 5064 calendar note in Y: `.cursorrules`). `-Action status|deploy|restore|verify`. Deploy refuses unless each Y: file still equals the `yshare-sync` merge base, backs originals up once to `C:\dev\mdp_backups\release0_20260924\<item>\` (SHA-256 manifest), writes the `ops/local-runtime` version with the Y: file's own line endings, restarts the item's apps headless (tasks `MDP R0 v3 5053`, `MDP R0 flow 5064`, `MDP R0 supply 5065`; V1 via its launcher loop), verifies, and adds a dated note to Y: `memory-bank/progress.md` + `activeContext.md`. Restore writes the backed-up bytes back and removes that note. `-SkipRestart` rehearses file handling on a scratch target.
+
+### release0/stream_probe.py
+
+Reads V3's `/api/live/stream` for N seconds and prints event counts, bytes, time to the first picture, and trade-print lag (receive time minus the print's ET time, so it includes feed delay).
+
 ## Event Parent/Component Mapping (`config/`)
 
 ### event_parent_components.json
@@ -1174,10 +1184,13 @@ Isolated Flask monitor on port `5053`. Implements `docs/aggression_v1_monitor.te
 Databento fetch/cache plus `build_print_frame`: sign, held last-trade price, session `TotalAggress`, BuySell EMA(10). `load_cached_trades_window` reads parquet only. CME `tau` and point values live here.
 
 ### live_publisher.py
-One default live view. Each `action == "T"` print is a clock tick: apply, recompute the 15-minute six-state, broadcast the same SSE bytes. Quotes are freshness only. Hole-fill / `beta_ref` changes are `history` / `beta` revisions. Past strip colors stay put across ordinary trades.
+One default live view. Each `action == "T"` print is a clock tick: apply, recompute the 15-minute six-state, broadcast the same SSE bytes. Quotes are freshness only. Hole-fill / `beta_ref` changes are `history` / `beta` revisions. Past strip colors stay put across ordinary trades. Rebuilds run only on the rebuild thread and coalesce (`REBUILD_MIN_INTERVAL_SEC` 60 s, 5 s while warming); the trade thread only requests one. `_prepare_picture` builds tape arrays, seen-keys and the JSON off the lock; `_store_picture` swaps under the lock and queues the revision as the snapshot's bytes plus one `trade` replay of prints that arrived mid-rebuild. Trade messages are queued under the lock; catch-up applies in `CATCH_UP_BATCH` (2000) batches.
 
 ### print_reconcile.py
-Live-then-hist session upsert. One-to-one match on size, normalized side, tick-rounded price, `|Δt|≤1ms` (time-sorted buckets + bisect; closest unused row, ties to the lowest stored row). Keep stored. Hist may fill left-of-store and interior holes; interior unmatched is skipped if match rate < 0.5; hist is never inserted after the live tail.
+Live-then-hist session upsert. One-to-one match on size, normalized side, tick-rounded price, `|Δt|≤1ms`; closest unused row, ties to the lowest stored row. `_matched_incoming` is vectorized (bucket/time-rank searchsorted; only rows competing for the same stored row run a loop) and equals `_matched_incoming_reference` (the time-sorted bisect loop, also the fallback for NaT/non-numeric keys). `LiveOverlayCache.apply_live` re-matches only the lookback-window edges between gap cuts (gaps > 1 ms that no pair can span), reusing verified-identical middle flags. Keep stored. Hist may fill left-of-store and interior holes; interior unmatched is skipped if match rate < 0.5; hist is never inserted after the live tail.
+
+### golden_fixture.py / bench_reconcile.py
+Offline tools. `golden_fixture.py` records a reconciliation fixture (Databento cache = stored side, AccessAPI `/historical/trades` = live side) and, with `--expected-only`, the reference matcher's outputs on 2-hour US-open windows. `bench_reconcile.py` times full vs cached overlay reconciliation (and optionally the reference) on that fixture. Fixture for 9/23: `C:\dev\mdp_golden\v3\20260923` (outside the repo).
 
 ### banner.py / beta_ref.py / panels.py / live_buffer.py
 Six-state READY/WARMING/UNAVAILABLE banner (beta / 15m / gap / session — not a foreign-request config flip) plus hover `flow_dominance_series` (≤4000 as-of snapshots) and a compact READY-state bar strip above Panel 1 (`panels.p1_states`; WARMING/UNAVAILABLE are gaps); last-3-hour TOD 10-session `ΔP` on `ΔA` mean cached as multi-entry `beta_ref.json` (`last_3h_tod_v1`, last-good reused across 5-minute TOD buckets); print-clock Plotly panels 1–5; Panel 2 draws a 30s time-weighted EWM of the raw print ratio, thinned on epoch-aligned bins (chart-only; spec EMA(10) is not plotted). `print_reconcile.py` matches live vs hist within 1ms and keeps the stored row. AccessAPI + Databento failover copied from V1.3. Live buffer invokes `on_trade` / `on_quote` after the lock is released.
@@ -1411,7 +1424,7 @@ Builds JSON-safe Plotly payloads for the five dashboard panels: TotalAggress vs 
 
 ## V1 Flow History Viewer (`scripts/aggression_flow_history_dash/`)
 
-Isolated read-only Flask viewer on port `5064`. Reads `workspace/analysis/aggression_v1_live/flow_history.sqlite` and `Y:\Yaman\Fundamentals\Economic Events\Data\events.sqlite`. Daily buckets are Globex sessions (Sun 18:00–Mon 17:00 ET = Monday; closed Fri 17:00–Sun 18:00). Store is 1-minute completed bars from every trade print. 2022-01-03 through 2026-06-11 is filled from AccessAPI `schema=trades` by `backfill_accessapi.py` (source `accessapi_2022`); 2026-06-12 onward stays V1 cache/live. Load uses `GET /api/bootstrap` plus an in-process cache of closed session days (`cache.py`); the current Globex session is re-folded on each `/api/today` poll (15s). LIVE uses `MAX(ts_utc)` via a plain sqlite open (`query_only=ON`, no `file:` URI — UNC `\\100.95...` paths fail that form). Journal: `workspace/analysis/aggression_flow_history/accessapi_2022_journal.sqlite`. Tags coupon supply, month-end, tier-1, and session weekday only — no residual QUIET label. OLS, distributions, and today analog stay descriptive. Does not import live V1 `app.py`. Manual launcher: `Y:\Aastha\SOD\run_v1_flow_history_dash.bat`.
+Isolated read-only Flask viewer on port `5064`. Reads `workspace/analysis/aggression_v1_live/flow_history.sqlite` and economic events from Yaman's Postgres `economic_events` (read-only role) via the in-memory `EventsCache` in `events.py` (60 s refresh, last-good file, `events` block on `/api/status`; `db_path=` still reads an events SQLite for tests). Daily buckets are Globex sessions (Sun 18:00–Mon 17:00 ET = Monday; closed Fri 17:00–Sun 18:00). Store is 1-minute completed bars from every trade print. 2022-01-03 through 2026-06-11 is filled from AccessAPI `schema=trades` by `backfill_accessapi.py` (source `accessapi_2022`); 2026-06-12 onward stays V1 cache/live. Load uses `GET /api/bootstrap` plus an in-process cache of closed session days (`cache.py`); the current Globex session is re-folded on each `/api/today` poll (15s). LIVE uses `MAX(ts_utc)` via a plain sqlite open (`query_only=ON`, no `file:` URI — UNC `\\100.95...` paths fail that form). Journal: `workspace/analysis/aggression_flow_history/accessapi_2022_journal.sqlite`. Tags coupon supply, month-end, tier-1, and session weekday only — no residual QUIET label. OLS, distributions, and today analog stay descriptive. Does not import live V1 `app.py`. Manual launcher: `Y:\Aastha\SOD\run_v1_flow_history_dash.bat`.
 
 ### flow_history.py
 

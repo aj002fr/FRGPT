@@ -20,7 +20,12 @@ Complete I/O contracts for the code-mode MCP system.
 | ensure_beta_ref.refresh_stale | Input | bool | default False; with `compute=True` recomputes a stale TOD bucket; a failed refresh returns last-good unchanged | V3 `_kick_beta_ref` passes True only on the first kick per chip set per process |
 | ensure_beta_ref.bucket_stale | Output | bool | True when last-good tod_bucket ≠ current 5-min ET bucket | Rebuild still kicks; held chip sets return the cached entry and do not re-trigger a rebuild |
 | _kick_beta_ref | Internal | (price_symbol, aggression_symbols, dv01_adjust, trades_window=None) -> Thread \| None | None when a compute for the key is already running | `offer_history()` only after a fresh OK beta; key then joins `_BETA_HELD_KEYS` (beta held until restart) |
+| CATCH_UP_BATCH | Constant | int | 2000 | V3 `_catch_up_live` applies newer live prints in batches this size so the lock is released between batches |
+| LIVE_OVERLAY_MIN_WINDOW | Constant | timedelta | 30 min | V3 `_live_display_trades` uses `LiveOverlayCache` only for windows at least this long (short catch-up windows use plain `apply_live`) |
 | MATCH_WINDOW | Constant | Timedelta | 1ms | Live/hist one-to-one match window in `print_reconcile.py` |
+| REBUILD_MIN_INTERVAL_SEC | Constant | float | 60.0 | V3 publisher: minimum gap between rebuild starts once a snapshot exists; offers inside it fold into one rebuild |
+| V3_GOLDEN_DIR | EnvVar | path | default `C:\dev\mdp_golden\v3\20260923` | `tests/test_v3_reconcile_golden.py` fixture dir (hist_/live_*.parquet, expected_*.npz, manifest.json); golden tests skip if absent |
+| WARMING_REBUILD_MIN_INTERVAL_SEC | Constant | float | 5.0 | V3 publisher: minimum gap between rebuilds while no snapshot exists yet |
 | MATCH_RATE_FLOOR | Constant | float | 0.5 | Skip unmatched interior hist if match rate is below this |
 | q | Spec | float | 1 tick | Quiet if `|d|<=q` and `max(|a|,|b|)<=q` |
 | r | Spec | float | 1.5 | Dominant if one abs contribution `>= r` times the other |
@@ -2441,7 +2446,16 @@ Complete I/O contracts for the code-mode MCP system.
 | GET /api/intraday.date | Input | date | `YYYY-MM-DD` ET | Click-through session |
 | GET /api/diagnostic.cohorts | Output | dict | `all`/`auction`/`month_end`/`tier1`/`nfp`/`cpi`/`fomc` plus weekdays with bid_gt_ask / ask_gt_bid stats | Counts only |
 | GET /api/diagnostic.bps_per_mm_dv01 | Output | dict | `all`/`auction`/`month_end`/`tier1` → `{n, slope_bps_per_mm, intercept_bps}` | OLS day bps on net $DV01; slope × 1e6 |
-| flow_history_dash.EVENTS_DB | Constant | Path | Existing SQLite | `Y:\Yaman\Fundamentals\Economic Events\Data\events.sqlite` |
+| flow_history_dash.EVENTS_DB | Constant | Path | Existing SQLite; no longer the default source (only an explicit `db_path=` reads SQLite) | `Y:\Yaman\Fundamentals\Economic Events\Data\events.sqlite` |
+| ECON_EVENTS_PG_DSN | EnvVar | str (secret) | libpq URI for role `economic_events_reader`; environment first, else `config/keys.env` (gitignored); hosts LAN first, Tailscale second; never `localhost` | `postgresql://economic_events_reader:***@172.30.86.68:5432,100.79.30.21:5432/economic_events` |
+| EVENTS_CACHE_DIR | EnvVar | path | optional; default `%LOCALAPPDATA%\market_data_puller\cache` | Per-app last-good file `events_tagged_mdp_<port>.json` |
+| flow_history_dash.EVENTS_REFRESH_SEC | Constant | float | `60.0` | Background Postgres refresh period |
+| flow_history_dash.EVENTS_COLD_WAIT_SEC | Constant | float | `5.0` | Longest a request waits for the first load before using the last-good file (or `[]`) |
+| start_events_cache(app_name) | Input | str | `mdp_<port>`; names the Postgres session (`application_name`) and the cache file | 5064/5065 `main()` |
+| events_from_pg_rows(rows) | Internal | list[tuple] -> list[dict] | rows `(parent_event, event_name, country_name, release_date, release_date_time, event_id)`; sorted by (release_date, parent_event, event_id) to match the SQLite reader exactly | Parity with `events.sqlite` proven 2026-09-24 (2,124 events) |
+| GET /api/status.events (5064); /api/bootstrap.events, /api/live.events (5065) | Output | dict | `{ok, last_ok_utc, age_sec, rows, host, table_rows, max_event_id, calendar_horizon, latest_actual_et, feed_age_days, last_error, fallback, source}` | `feed_age_days` grows until Yaman's pipeline writes Postgres |
+| EVENTS_GOLDEN_SQLITE | EnvVar | path | default `C:\dev\mdp_golden\events\events_20260923_1226.sqlite` (the file loaded into Postgres) | `tests/test_events_pg_cache.py` parity |
+| EVENTS_PG_PARITY | EnvVar | `1` or unset | opt-in live Postgres parity test | `EVENTS_PG_PARITY=1 pytest tests/test_events_pg_cache.py` |
 | flow_history_dash.backfill.start | Constant | date | `2022-01-03` | First weekday session pulled from AccessAPI |
 | flow_history_dash.backfill.seam | Constant | datetime | `2026-06-12 05:00 UTC` | Do not overwrite V1 cache/live bars |
 | flow_history_dash.backfill.source | Constant | str | `accessapi_2022` | `v1_aggress_flow_1m.source` for rebuilt minutes |

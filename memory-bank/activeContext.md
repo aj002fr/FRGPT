@@ -2,6 +2,16 @@
 
 ## Recent Changes (2026-09-24)
 
+### Dashboard reliability plan: Release 0 (R0.2–R0.4 staged for the 17:00 ET window)
+
+- Plan: `c:\Users\aasth\.cursor\plans\dashboard_reliability_fixes_4e8509b6.plan.md`. This work lives in the C: checkout `C:\dev\market_data_puller`, branch `ops/local-runtime` (Y: history, snapshot commit `6715631` of the 11:05 Y: tree, parallel V3 fix merged in `ae0cd42`). Y: stays read-only except Release 0 deploys through `ops\release0\deploy_release0.ps1`, which refuses if a Y: file changed since the `yshare-sync` merge base.
+- R0.1 done 10:58: v27 (5063) and supply weeks (5065) run headless from tasks `MDP R0 v27 5063` / `MDP R0 supply 5065` (logs `%LOCALAPPDATA%\market_data_puller\logs\`); `:8445`/`:8447` answer.
+- R0.2 V3 (staged): vectorized exact matcher; the 11:37 bisect loop is now `_matched_incoming_reference` and the fallback. On the 9/23 US-open fixture (`C:\dev\mdp_golden\v3\20260923`) all three implementations agree (original loop on 2 h windows, bisect loop on 30 min windows, synthetic adversarial cases). 2 h window at the open: full overlay 20–80 ms per symbol, cached rebuild 10–28 ms per symbol (72 ms all four); the original loop took minutes. Publisher: coalesced rebuilds (60 s; 5 s warming), off-lock prepare, one JSON encode, broadcasts under the lock, 2000-print catch-up batches.
+- R0.3 V1 (staged): ten-day Databento bars stay in memory only; live AccessAPI writes unchanged.
+- R0.4 5064/5065 (staged): events from Postgres `economic_events` (read-only role) via `EventsCache`; output identical to the SQLite reader (2,124 events, same order); `/api/events` 17 ms vs 0.7–13 s over the share. Postgres is a one-time copy of the 9/23 12:26 SQLite build until Yaman's pipeline writes it.
+- Deploy at 17:00, in order `v3`, `v1`, `events`: `powershell -File ops\release0\deploy_release0.ps1 -Item <item> -Action deploy`; rollback `-Action restore`. 5053 and 5064 move to headless tasks (`MDP R0 v3 5053`, `MDP R0 flow 5064`); V1 restarts through its launcher loop.
+- Finding (not changed in R0, identical-output rule): the Databento cache `ts` that V3 stores as hist runs 0.2–14 ms (median ~1 ms) behind AccessAPI exchange timestamps, so the 1 ms window pairs only ~50–65% of the same trades; where hist and live overlap, unmatched live prints sit next to their hist twins. For Milestone 5/9.
+
 ### V3 5053 CPU spin quick fix (restarted 11:47 ET)
 
 - Symptom: 5053 was delayed and not responding. The 9/23 21:07 process (PID 34760) had used one full core for 14 hours (~52k CPU-s, ~3 GB). `py-spy dump --nonblocking` showed `v3-live-rebuild` holding the GIL in `print_reconcile._matched_incoming`, called from `apply_live` in `_live_display_trades`.
