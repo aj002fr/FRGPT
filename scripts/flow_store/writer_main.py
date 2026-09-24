@@ -39,7 +39,6 @@ from scripts.flow_store.settings import (  # noqa: E402
     ACCESS_API_BASE,
     ACCESS_API_WS,
     BACKFILL_EVERY_SEC,
-    COVERAGE_HEAD_US,
     COVERAGE_STALE_SEC,
     COVERAGE_TAIL_US,
     FLUSH_EVERY_SEC,
@@ -89,6 +88,7 @@ class FlowWriter:
         self.last_record_wall: dict[str, Optional[float]] = {s: None for s in SYMBOLS}
         self.last_event_us: dict[str, Optional[int]] = {s: None for s in SYMBOLS}
         self.cov_open: dict[str, Optional[int]] = {s: None for s in SYMBOLS}
+        self.root_first_us: dict[str, Optional[int]] = {s: None for s in SYMBOLS}
         self.seal_cursor: dict[str, Optional[int]] = {s: None for s in SYMBOLS}
         self.pending: dict[str, set[int]] = {s: set() for s in SYMBOLS}
         self.counters = {"records": 0, "trades_inserted": 0, "backup_trades": 0, "dropped": 0,
@@ -232,15 +232,19 @@ class FlowWriter:
                 self.connected = False
                 for symbol in SYMBOLS:
                     self.cov_open[symbol] = None
+                    self.root_first_us[symbol] = None
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 30.0)
 
-    def _coverage_updates(self, batch_max_us: Optional[int]) -> dict[str, tuple[str, int, int]]:
-        """One connection carries all four roots, and TBBO has only trades, so a quiet root is not
-        a gap: every root is covered while the connection is up and any record arrived within
-        COVERAGE_STALE_SEC. A new interval starts COVERAGE_HEAD_US after the newest event of its
-        first batch and ends COVERAGE_TAIL_US behind the newest event, so records still in flight
-        at either edge fall into a gap that backfill fills."""
+    def _coverage_updates(self) -> dict[str, tuple[str, int, int]]:
+        """Coverage per root, from the root's first record on this connection.
+
+        AccessAPI subscribes each root's stream separately, so a root is known to be flowing only
+        once one of its own records arrives; earlier prints are a gap for backfill (shadow run 2
+        lost three ZT/ZB prints that followed ZN's first record by half a second). After that, one
+        connection carries every root and TBBO has only trades, so a quiet root is not a gap: a
+        root stays covered while any record arrived within COVERAGE_STALE_SEC, up to
+        COVERAGE_TAIL_US behind the newest event."""
         updates: dict[str, tuple[str, int, int]] = {}
         wall = time.time()
         last_wall = max((v for v in self.last_record_wall.values() if v is not None), default=None)
@@ -249,12 +253,13 @@ class FlowWriter:
         for symbol in SYMBOLS:
             if not fresh or watermark is None:
                 self.cov_open[symbol] = None
+                self.root_first_us[symbol] = None
+                continue
+            start = self.root_first_us[symbol]
+            if start is None:
                 continue
             end = watermark - COVERAGE_TAIL_US
             if self.cov_open[symbol] is None:
-                if batch_max_us is None:
-                    continue
-                start = batch_max_us + COVERAGE_HEAD_US
                 updates[symbol] = ("open", start, max(start, end))
             else:
                 updates[symbol] = ("extend", 0, end)
@@ -267,7 +272,7 @@ class FlowWriter:
             if stop_file.exists():
                 logger.info("stop requested by %s; releasing the lease", stop_file)
                 self.stopping.set()
-            live, backup, batch_max = [], [], None
+            live, backup = [], []
             while True:
                 try:
                     kind, data, wall, epoch = self.queue.get_nowait()
@@ -276,9 +281,9 @@ class FlowWriter:
                 self.counters["records"] += 1
                 if epoch != self.cov_epoch:
                     self.cov_epoch = epoch
-                    batch_max = None
                     for symbol in SYMBOLS:
                         self.cov_open[symbol] = None
+                        self.root_first_us[symbol] = None
                 if kind == "live":
                     symbol = ROOT_TO_SYMBOL.get(str(data.get("symbol") or "")[:2].upper())
                     ts_ns = parse_ts_ns(data.get("ts_event"))
@@ -287,7 +292,8 @@ class FlowWriter:
                     ts_us = round_us(ts_ns)
                     self.last_record_wall[symbol] = wall
                     self.last_event_us[symbol] = max(self.last_event_us[symbol] or 0, ts_us)
-                    batch_max = ts_us if batch_max is None else max(batch_max, ts_us)
+                    if self.root_first_us[symbol] is None:
+                        self.root_first_us[symbol] = ts_us
                     trade = normalize_record(data, source=SOURCE_LIVE, keep_raw=True)
                     if trade is not None:
                         live.append(trade)
@@ -295,7 +301,7 @@ class FlowWriter:
                     trade = normalize_record(data, source=SOURCE_BACKUP)
                     if trade is not None:
                         backup.append(trade)
-            coverage = self._coverage_updates(batch_max)
+            coverage = self._coverage_updates()
             try:
                 await self.db(self._write_batch, live, backup, coverage)
             except LeaseLost as exc:

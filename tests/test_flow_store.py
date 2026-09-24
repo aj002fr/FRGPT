@@ -72,24 +72,27 @@ def _writer(tmp_path):
     return FlowWriter(tape_path=tmp_path / "t.sqlite", history_path=tmp_path / "h.sqlite", status_path=tmp_path / "s.json")
 
 
-def test_quiet_root_stays_covered_while_the_feed_is_alive(tmp_path):
+def test_coverage_starts_per_root_and_quiet_roots_stay_covered(tmp_path):
     import time as _time
 
-    from scripts.flow_store.settings import COVERAGE_HEAD_US, COVERAGE_TAIL_US
+    from scripts.flow_store.settings import COVERAGE_TAIL_US
 
     w = _writer(tmp_path)
     w.connected = True
     now = _time.time()
     w.last_record_wall = {"TY": now, "FV": None, "TU": None, "US": now - 45}
-    w.last_event_us = {"TY": M0 + 50_000_000, "FV": None, "TU": None, "US": M0}
-    opened = w._coverage_updates(batch_max_us=M0 + 50_000_000)
-    assert set(opened) == {"TY", "FV", "TU", "US"}
-    assert all(v == ("open", M0 + 50_000_000 + COVERAGE_HEAD_US, M0 + 50_000_000 + COVERAGE_HEAD_US) for v in opened.values())
-    w.cov_open = {s: 1 for s in w.cov_open}
+    w.last_event_us = {"TY": M0 + 50_000_000, "FV": None, "TU": None, "US": M0 + 2_000_000}
+    w.root_first_us = {"TY": M0 + 10_000_000, "FV": None, "TU": None, "US": M0 + 2_000_000}
+    opened = w._coverage_updates()
+    assert set(opened) == {"TY", "US"}
+    assert opened["TY"] == ("open", M0 + 10_000_000, M0 + 50_000_000 - COVERAGE_TAIL_US)
+    assert opened["US"] == ("open", M0 + 2_000_000, M0 + 50_000_000 - COVERAGE_TAIL_US)
+    w.cov_open.update({"TY": 1, "US": 2})
     w.last_event_us["TY"] = M0 + 90_000_000
-    assert w._coverage_updates(None)["US"] == ("extend", 0, M0 + 90_000_000 - COVERAGE_TAIL_US)
+    assert w._coverage_updates()["US"] == ("extend", 0, M0 + 90_000_000 - COVERAGE_TAIL_US)
     w.last_record_wall = {s: now - 120 if v else None for s, v in w.last_record_wall.items()}
-    assert w._coverage_updates(None) == {} and all(v is None for v in w.cov_open.values())
+    assert w._coverage_updates() == {}
+    assert all(v is None for v in w.cov_open.values()) and all(v is None for v in w.root_first_us.values())
 
 
 def test_fetch_uses_whole_second_bounds_and_reads_empty_json(monkeypatch):
