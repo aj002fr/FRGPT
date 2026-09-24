@@ -5,11 +5,34 @@
       "FLOW_HISTORY_DB_PATH": "C:\\dev\\mdp_rehearsal\\data\\flow_history.sqlite",
       "FLOW_TAPE_DB_PATH": "C:\\dev\\mdp_rehearsal\\data\\flow_tape.sqlite",
       "MDP_LOG_DIR": "C:\\dev\\mdp_rehearsal\\logs",
-      "EVENTS_CACHE_DIR": "C:\\dev\\mdp_rehearsal\\cache"
+      "EVENTS_CACHE_DIR": "C:\\dev\\mdp_rehearsal\\cache",
+      "MDP_PG_HOST": "127.0.0.1"
     },
     "apps": [
       {"name": "writer", "argv": ["{python}", "-u", "-m", "scripts.flow_store.writer_main", "--owner", "rehearsal_writer"],
        "health": "writer", "status_file": "C:\\dev\\mdp_rehearsal\\data\\status.json"},
+      {"name": "v3", "argv": ["{python}", "-u", "-m", "scripts.aggression_dashboard_v3.app", "--host", "127.0.0.1", "--port", "7053"],
+       "port": 7053, "url": "http://127.0.0.1:7053/api/live_status", "grace_sec": 300},
+      {"name": "v22", "argv": ["{python}", "-u", "-m", "scripts.aggression_dashboard_v22.app", "--host", "127.0.0.1", "--port", "7058", "--server", "waitress"],
+       "port": 7058, "url": "http://127.0.0.1:7058/api/signal_status"},
+      {"name": "v27", "argv": ["{python}", "-u", "-m", "scripts.aggression_dashboard_v27.app", "--host", "127.0.0.1", "--port", "7063", "--server", "waitress"],
+       "port": 7063, "url": "http://127.0.0.1:7063/api/signal_status"},
+      {"name": "flow", "argv": ["{python}", "-u", "-m", "scripts.aggression_flow_history_dash.app", "--host", "127.0.0.1", "--port", "7064", "--server", "waitress"],
+       "port": 7064, "url": "http://127.0.0.1:7064/api/status", "fresh_bars": true},
+      {"name": "supply", "argv": ["{python}", "-u", "-m", "scripts.supply_weeks_live.app", "--host", "127.0.0.1", "--port", "7065", "--server", "waitress"],
+       "port": 7065, "url": "http://127.0.0.1:7065/api/live", "fresh_bars": true}
+    ]
+  },
+  "production": {
+    "state_dir": "C:\\dev\\market_data_puller\\workspace\\analysis\\supervisor",
+    "env": {
+      "FLOW_HISTORY_DB_PATH": "C:\\dev\\market_data_puller\\workspace\\analysis\\aggression_v1_live\\flow_history.sqlite",
+      "FLOW_TAPE_DB_PATH": "C:\\dev\\market_data_puller\\workspace\\analysis\\flow_store\\flow_tape.sqlite",
+      "MDP_PG_HOST": "127.0.0.1"
+    },
+    "apps": [
+      {"name": "writer", "argv": ["{python}", "-u", "-m", "scripts.flow_store.writer_main", "--owner", "production_writer", "--provisional"],
+       "health": "writer", "status_file": "C:\\dev\\market_data_puller\\workspace\\analysis\\flow_store\\status.json"},
       {"name": "v3", "argv": ["{python}", "-u", "-m", "scripts.aggression_dashboard_v3.app", "--host", "127.0.0.1", "--port", "6053"],
        "port": 6053, "url": "http://127.0.0.1:6053/api/live_status", "grace_sec": 300},
       {"name": "v22", "argv": ["{python}", "-u", "-m", "scripts.aggression_dashboard_v22.app", "--host", "127.0.0.1", "--port", "6058", "--server", "waitress"],
@@ -20,27 +43,6 @@
        "port": 6064, "url": "http://127.0.0.1:6064/api/status", "fresh_bars": true},
       {"name": "supply", "argv": ["{python}", "-u", "-m", "scripts.supply_weeks_live.app", "--host", "127.0.0.1", "--port", "6065", "--server", "waitress"],
        "port": 6065, "url": "http://127.0.0.1:6065/api/live", "fresh_bars": true}
-    ]
-  },
-  "production": {
-    "state_dir": "C:\\dev\\market_data_puller\\workspace\\analysis\\supervisor",
-    "env": {
-      "FLOW_HISTORY_DB_PATH": "C:\\dev\\market_data_puller\\workspace\\analysis\\aggression_v1_live\\flow_history.sqlite",
-      "FLOW_TAPE_DB_PATH": "C:\\dev\\market_data_puller\\workspace\\analysis\\flow_store\\flow_tape.sqlite"
-    },
-    "apps": [
-      {"name": "writer", "argv": ["{python}", "-u", "-m", "scripts.flow_store.writer_main", "--owner", "production_writer", "--provisional"],
-       "health": "writer", "status_file": "C:\\dev\\market_data_puller\\workspace\\analysis\\flow_store\\status.json"},
-      {"name": "v3", "argv": ["{python}", "-u", "-m", "scripts.aggression_dashboard_v3.app", "--host", "127.0.0.1", "--port", "5053"],
-       "port": 5053, "url": "http://127.0.0.1:5053/api/live_status", "grace_sec": 300},
-      {"name": "v22", "argv": ["{python}", "-u", "-m", "scripts.aggression_dashboard_v22.app", "--host", "127.0.0.1", "--port", "5058", "--server", "waitress"],
-       "port": 5058, "url": "http://127.0.0.1:5058/api/signal_status"},
-      {"name": "v27", "argv": ["{python}", "-u", "-m", "scripts.aggression_dashboard_v27.app", "--host", "127.0.0.1", "--port", "5063", "--server", "waitress"],
-       "port": 5063, "url": "http://127.0.0.1:5063/api/signal_status"},
-      {"name": "flow", "argv": ["{python}", "-u", "-m", "scripts.aggression_flow_history_dash.app", "--host", "127.0.0.1", "--port", "5064", "--server", "waitress"],
-       "port": 5064, "url": "http://127.0.0.1:5064/api/status", "fresh_bars": true},
-      {"name": "supply", "argv": ["{python}", "-u", "-m", "scripts.supply_weeks_live.app", "--host", "127.0.0.1", "--port", "5065", "--server", "waitress"],
-       "port": 5065, "url": "http://127.0.0.1:5065/api/live", "fresh_bars": true}
     ]
   }
 }

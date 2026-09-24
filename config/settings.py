@@ -9,7 +9,7 @@ WORKSPACE_PATH = PROJECT_ROOT / "workspace"
 # Market Data Database Configuration (PostgreSQL)
 # =============================================================================
 # PostgreSQL connection settings for OHLCV data
-PG_HOST = "100.82.143.79"
+PG_HOST = os.environ.get("MDP_PG_HOST", "100.82.143.79")
 PG_PORT = 5432
 PG_DATABASE = "postgres"
 PG_USER = "postgres"

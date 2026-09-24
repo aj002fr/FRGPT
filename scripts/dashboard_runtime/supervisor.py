@@ -231,6 +231,13 @@ class Supervisor:
         phase = self.phase(now)
         for spec in self.specs:
             state = self.state[spec.name]
+            if (self.state_dir / f"{spec.name}.disabled").exists():
+                if state.proc is not None:
+                    self.stop(spec)
+                    self.alert("warning", spec.name, "stopped: disabled by operator")
+                state.failures = 0
+                state.last_detail = "disabled"
+                continue
             if state.proc is None:
                 if now >= state.next_start_at:
                     self.start(spec)

@@ -158,3 +158,21 @@ def test_profiles_parse(tmp_path) -> None:
         specs, env, state_dir = sv.load_profile(root / "ops" / "supervisor" / "profiles.json", name, "python")
         assert [s.name for s in specs] == ["writer", "v3", "v22", "v27", "flow", "supply"]
         assert specs[0].health == "writer" and env["FLOW_TAPE_DB_PATH"]
+
+
+def test_disabled_marker_stops_the_app_and_keeps_it_down(tmp_path) -> None:
+    sup, clock, started = make(tmp_path, [True] * 10)
+    sup.tick()
+    assert len(started) == 1
+    (tmp_path / "flow.disabled").write_text("", encoding="utf-8")
+    clock.t += 5
+    sup.tick()
+    assert started[0].code == -9 and sup.state["flow"].proc is None
+    for _ in range(3):
+        clock.t += 400
+        sup.tick()
+    assert len(started) == 1
+    assert json.loads((tmp_path / "supervisor_status.json").read_text())["apps"]["flow"]["detail"] == "disabled"
+    (tmp_path / "flow.disabled").unlink()
+    sup.tick()
+    assert len(started) == 2
