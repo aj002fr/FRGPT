@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import time
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,15 @@ except ImportError as exc:  # pragma: no cover
 
 from scripts.aggression_dashboard.core import SYMBOL_PARENT_MAP
 from scripts.aggression_flow_history_dash.cache import cached_daily, cached_history, feed_for, latest_bar_ts
+from scripts.aggression_flow_history_dash.session import current_session_day
+from scripts.dashboard_runtime.serve import (
+    ResponseCache,
+    add_server_args,
+    cached_response,
+    configure_logging,
+    install_request_timing,
+    serve,
+)
 from scripts.aggression_flow_history_dash.daily import (
     build_diagnostic,
     build_today_outlook,
@@ -40,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 STATUS_LABEL = "DESCRIPTIVE / RESEARCH-ONLY / NON-DIRECTIONAL"
+_RESPONSES = ResponseCache(wait_sec=30.0)
 SYMBOLS = (*SYMBOL_PARENT_MAP, "CURVE")
 
 
@@ -179,6 +190,38 @@ def api_diagnostic() -> Any:
         return jsonify({"success": False, "error": str(exc)}), 500
 
 
+def _tick(symbol: str) -> tuple:
+    """Data tick for cached responses: newest bar, session date, and the wall-clock minute."""
+    return (latest_bar_ts(symbol), str(current_session_day()), int(time.time() // 60))
+
+
+def _today_payload(symbol: str, day: date | None) -> tuple[dict[str, Any], int]:
+    try:
+        payload = build_today_outlook(symbol, day=day, history=cached_history(symbol))
+        return {"success": True, "feed": _feed(symbol), **payload}, 200
+    except Exception as exc:
+        logger.exception("today API failed")
+        return {"success": False, "error": str(exc)}, 500
+
+
+def _bootstrap_payload(symbol: str, day: date | None) -> tuple[dict[str, Any], int]:
+    try:
+        rows = cached_daily(symbol)
+        return {
+            "success": True,
+            "label": STATUS_LABEL,
+            "symbol": symbol,
+            "rows": rows,
+            "count": len(rows),
+            "feed": _feed(symbol),
+            "diagnostic": build_diagnostic(rows),
+            **build_today_outlook(symbol, day=day, history=rows),
+        }, 200
+    except Exception as exc:
+        logger.exception("bootstrap API failed")
+        return {"success": False, "error": str(exc)}, 500
+
+
 @app.get("/api/today")
 def api_today() -> Any:
     try:
@@ -186,12 +229,7 @@ def api_today() -> Any:
         day = _parse_day(request.args.get("date"))
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
-    try:
-        payload = build_today_outlook(symbol, day=day, history=cached_history(symbol))
-        return jsonify({"success": True, "feed": _feed(symbol), **payload})
-    except Exception as exc:
-        logger.exception("today API failed")
-        return jsonify({"success": False, "error": str(exc)}), 500
+    return cached_response(_RESPONSES, ("today", symbol, str(day)), _tick(symbol), lambda: _today_payload(symbol, day))
 
 
 @app.get("/api/bootstrap")
@@ -202,21 +240,7 @@ def api_bootstrap() -> Any:
         day = _parse_day(request.args.get("date"))
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
-    try:
-        rows = cached_daily(symbol)
-        return jsonify({
-            "success": True,
-            "label": STATUS_LABEL,
-            "symbol": symbol,
-            "rows": rows,
-            "count": len(rows),
-            "feed": _feed(symbol),
-            "diagnostic": build_diagnostic(rows),
-            **build_today_outlook(symbol, day=day, history=rows),
-        })
-    except Exception as exc:
-        logger.exception("bootstrap API failed")
-        return jsonify({"success": False, "error": str(exc)}), 500
+    return cached_response(_RESPONSES, ("bootstrap", symbol, str(day)), _tick(symbol), lambda: _bootstrap_payload(symbol, day))
 
 
 @app.get("/api/events")
@@ -243,10 +267,13 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5064)
     parser.add_argument("--debug", action="store_true")
+    add_server_args(parser)
     args = parser.parse_args()
-    logger.info("Starting flow-history viewer on %s:%s", args.host, args.port)
+    configure_logging(f"flow_{args.port}")
+    install_request_timing(app)
+    logger.info("Starting flow-history viewer on %s:%s (%s)", args.host, args.port, args.server)
     start_events_cache(f"mdp_{args.port}")
-    app.run(host=args.host, port=args.port, debug=args.debug)
+    serve(app, host=args.host, port=args.port, server=args.server, debug=args.debug)
 
 
 if __name__ == "__main__":

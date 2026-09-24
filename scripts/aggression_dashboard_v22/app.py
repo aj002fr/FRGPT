@@ -8,6 +8,7 @@ Does not modify live V1/V2/V3 or their stores.
 from __future__ import annotations
 
 import json
+import logging
 import sys
 import threading
 import time
@@ -27,6 +28,7 @@ from scripts.aggression_dashboard_v22.lifo_context import LIFO_FRIENDLY_LABEL, S
 from scripts.aggression_dashboard_v22.lifo_store import LifoStore
 from scripts.aggression_dashboard_v22.live_buffer import LiveTbboBuffer
 from scripts.aggression_dashboard_v22.model_state import RidgeModelState
+from scripts.dashboard_runtime.serve import add_server_args, configure_logging, install_request_timing, serve
 
 
 ARTIFACT_DIR = PROJECT_ROOT / "workspace" / "analysis" / "aggression_v2_tbbo_models"
@@ -71,14 +73,40 @@ def _evaluate_live_once() -> tuple[pd.DataFrame, Dict[str, Any], Dict[str, Any],
     return model_df, model_meta, alert_summary, lifo_summary
 
 
+PRODUCER_POLL_SEC = 1.0
+PRODUCER_MAX_SEC = 20.0
+_PRODUCED_LOCK = threading.Lock()
+_PRODUCED: Dict[str, Any] = {"result": None}
+_PRODUCED_READY = threading.Event()
+
+
 def _background_evaluator() -> None:
+    """The only live evaluation: once per new TBBO tick (at most 1/s, at least every 20 s).
+
+    Requests read the latest result, so alert/LIFO stores update once per tick, not per viewer.
+    """
+    last_tick: Any = object()
+    last_run = 0.0
     while _EVALUATOR_RUNNING:
-        try:
-            model_df, _, _, _ = _evaluate_live_once()
-            _append_signal_log(model_df)
-        except Exception:
-            pass
-        time.sleep(20.0)
+        tick = LIVE_BUFFER.status().get("last_tick_ts")
+        if tick != last_tick or time.monotonic() - last_run >= PRODUCER_MAX_SEC:
+            last_tick, last_run = tick, time.monotonic()
+            try:
+                result = _evaluate_live_once()
+                with _PRODUCED_LOCK:
+                    _PRODUCED["result"] = result
+                _PRODUCED_READY.set()
+                _append_signal_log(result[0])
+            except Exception:
+                logging.getLogger(__name__).exception("V2.2 live evaluation failed")
+        time.sleep(PRODUCER_POLL_SEC)
+
+
+def _latest_evaluation(timeout: float = 15.0):
+    if not _PRODUCED_READY.wait(timeout):
+        return None
+    with _PRODUCED_LOCK:
+        return _PRODUCED["result"]
 
 
 def _append_signal_log(model_df: pd.DataFrame) -> None:
@@ -284,7 +312,16 @@ def api_signal_status() -> Any:
 @app.get("/api/live_signal")
 def api_live_signal() -> Any:
     _ensure_live()
-    model_df, model_meta, alert_summary, lifo_summary = _evaluate_live_once()
+    produced = _latest_evaluation()
+    if produced is None:
+        return jsonify({
+            "success": False,
+            "error": "Waiting for the first live evaluation.",
+            "feed": LIVE_BUFFER.status(),
+            "model": MODEL_STATE.status(),
+            "lifo": LIFO.payload(None),
+        }), 202
+    model_df, model_meta, alert_summary, lifo_summary = produced
     if model_df.empty:
         return jsonify({
             "success": False,
@@ -349,7 +386,8 @@ def api_alert_log() -> Any:
 def api_lifo() -> Any:
     _ensure_live()
     scope = str(request.args.get("scope") or "today").lower()
-    _, _, _, lifo_summary = _evaluate_live_once()
+    produced = _latest_evaluation()
+    lifo_summary = produced[3] if produced is not None else LIFO.payload(None)
     return jsonify({
         "success": True,
         "scope": scope,
@@ -366,14 +404,18 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5058)
     parser.add_argument("--debug", action="store_true")
+    add_server_args(parser)
     args = parser.parse_args()
+    configure_logging(f"v22_{args.port}")
+    install_request_timing(app)
     logging.getLogger().info(
-        "Starting Aggression V2.2 on %s:%s (%s)",
+        "Starting Aggression V2.2 on %s:%s (%s, %s)",
         args.host,
         args.port,
         STRATEGY_STATUS,
+        args.server,
     )
-    app.run(host=args.host, port=args.port, debug=args.debug)
+    serve(app, host=args.host, port=args.port, server=args.server, debug=args.debug)
 
 
 if __name__ == "__main__":

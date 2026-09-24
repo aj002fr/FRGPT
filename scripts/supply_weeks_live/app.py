@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -17,8 +18,16 @@ try:
 except ImportError as exc:  # pragma: no cover
     raise SystemExit("Flask is required. Install with: pip install flask") from exc
 
-from scripts.aggression_flow_history_dash.cache import feed_for
+from scripts.aggression_flow_history_dash.cache import feed_for, latest_bar_ts
 from scripts.aggression_flow_history_dash.events import events_status, start_events_cache
+from scripts.dashboard_runtime.serve import (
+    ResponseCache,
+    add_server_args,
+    cached_response,
+    configure_logging,
+    install_request_timing,
+    serve,
+)
 from scripts.supply_weeks_live.cache import build_payload
 
 logging.basicConfig(
@@ -30,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 STATUS_LABEL = "DESCRIPTIVE / RESEARCH-ONLY / NON-DIRECTIONAL"
+_RESPONSES = ResponseCache(wait_sec=60.0)
 
 
 def _month_end() -> str:
@@ -93,51 +103,68 @@ def index() -> Any:
     return render_template("index.html", status_label=STATUS_LABEL)
 
 
+def _tick() -> tuple:
+    """Data tick for cached responses: newest TY bar and the wall-clock minute."""
+    return (latest_bar_ts("TY"), int(time.time() // 60))
+
+
+def _bootstrap_payload(filters: dict[str, Any], force: bool) -> tuple[dict[str, Any], int]:
+    try:
+        payload = build_payload(force=force, **filters)
+        return {
+            "success": True,
+            "label": STATUS_LABEL,
+            "weeks": _public_weeks(payload["weeks"]),
+            "windows": payload["windows"],
+            "compare": payload.get("compare") or {},
+            "current": _public_current(payload["current"]),
+            "feed": feed_for("TY"),
+            "events": events_status(),
+        }, 200
+    except Exception as exc:
+        logger.exception("bootstrap failed")
+        return {"success": False, "error": str(exc)}, 500
+
+
+def _live_payload(filters: dict[str, Any]) -> tuple[dict[str, Any], int]:
+    try:
+        payload = build_payload(**filters)
+        return {
+            "success": True,
+            "label": STATUS_LABEL,
+            "windows": payload["windows"],
+            "compare": payload.get("compare") or {},
+            "current": _public_current(payload["current"]),
+            "feed": feed_for("TY"),
+            "events": events_status(),
+        }, 200
+    except Exception as exc:
+        logger.exception("live failed")
+        return {"success": False, "error": str(exc)}, 500
+
+
 @app.get("/api/bootstrap")
 def api_bootstrap() -> Any:
     try:
         filters = _filters()
-        force = str(request.args.get("force") or "") in {"1", "true", "yes"}
-        payload = build_payload(force=force, **filters)
-        return jsonify(
-            {
-                "success": True,
-                "label": STATUS_LABEL,
-                "weeks": _public_weeks(payload["weeks"]),
-                "windows": payload["windows"],
-                "compare": payload.get("compare") or {},
-                "current": _public_current(payload["current"]),
-                "feed": feed_for("TY"),
-                "events": events_status(),
-            }
-        )
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
-    except Exception as exc:
-        logger.exception("bootstrap failed")
-        return jsonify({"success": False, "error": str(exc)}), 500
+    force = str(request.args.get("force") or "") in {"1", "true", "yes"}
+    if force:
+        payload, status = _bootstrap_payload(filters, True)
+        return jsonify(payload), status
+    key = ("bootstrap", tuple(sorted(filters.items())))
+    return cached_response(_RESPONSES, key, _tick(), lambda: _bootstrap_payload(filters, False))
 
 
 @app.get("/api/live")
 def api_live() -> Any:
     try:
-        payload = build_payload(**_filters())
-        return jsonify(
-            {
-                "success": True,
-                "label": STATUS_LABEL,
-                "windows": payload["windows"],
-                "compare": payload.get("compare") or {},
-                "current": _public_current(payload["current"]),
-                "feed": feed_for("TY"),
-                "events": events_status(),
-            }
-        )
+        filters = _filters()
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
-    except Exception as exc:
-        logger.exception("live failed")
-        return jsonify({"success": False, "error": str(exc)}), 500
+    key = ("live", tuple(sorted(filters.items())))
+    return cached_response(_RESPONSES, key, _tick(), lambda: _live_payload(filters))
 
 
 def _warmup() -> None:
@@ -155,11 +182,14 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5065)
     parser.add_argument("--debug", action="store_true")
+    add_server_args(parser)
     args = parser.parse_args()
-    logger.info("Starting supply-weeks live viewer on %s:%s", args.host, args.port)
+    configure_logging(f"supply_{args.port}")
+    install_request_timing(app)
+    logger.info("Starting supply-weeks live viewer on %s:%s (%s)", args.host, args.port, args.server)
     start_events_cache(f"mdp_{args.port}")
     threading.Thread(target=_warmup, daemon=True).start()
-    app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)
+    serve(app, host=args.host, port=args.port, server=args.server, debug=args.debug)
 
 
 if __name__ == "__main__":
