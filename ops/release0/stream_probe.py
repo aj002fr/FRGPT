@@ -23,6 +23,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default="http://127.0.0.1:5053/api/live/stream")
     parser.add_argument("--seconds", type=float, default=60.0)
+    parser.add_argument("--stop-after-picture", action="store_true", help="return as soon as the first picture arrives")
     args = parser.parse_args()
 
     started = time.monotonic()
@@ -47,6 +48,8 @@ def main() -> int:
             sizes[event] = sizes.get(event, 0) + len(raw)
             if event in ("snapshot", "history", "beta") and first_picture is None:
                 first_picture = time.monotonic() - started
+                if args.stop_after_picture:
+                    break
             if event == "trade":
                 now_et = datetime.now(EASTERN).replace(tzinfo=None)
                 message = json.loads(line[6:])

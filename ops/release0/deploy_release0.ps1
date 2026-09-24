@@ -26,6 +26,7 @@ param(
     [string]$BackupRoot = 'C:\dev\mdp_backups\release0_20260924',
     [string]$BaseRef = 'yshare-sync',
     [string]$ReleaseRef = 'release0',
+    [int]$ProbeSec = 75,
     [switch]$SkipRestart
 )
 $ErrorActionPreference = 'Stop'
@@ -195,9 +196,9 @@ function Verify-Item {
         { $_ -in 'v3', 'v3core' } {
             $s = Get-Json 'http://127.0.0.1:5053/api/live_status' 60
             Log ("v3 live_status: connected={0} source={1} market_open={2}" -f $s.connected, $s.source, $s.market_open)
-            $probe = & $BasePython (Join-Path $Repo 'ops\release0\stream_probe.py') --seconds 75 2>&1
+            $probe = & $BasePython (Join-Path $Repo 'ops\release0\stream_probe.py') --seconds $ProbeSec --stop-after-picture 2>&1
             Log "v3 stream probe: $probe"
-            if ("$probe" -notmatch '"first_picture_sec": [0-9]') { throw 'v3 stream sent no snapshot within 75 s' }
+            if ("$probe" -notmatch '"first_picture_sec": [0-9]') { throw "v3 stream sent no snapshot within $ProbeSec s" }
         }
         'v1' {
             $r = Invoke-WebRequest -Uri 'http://127.0.0.1:5050/' -UseBasicParsing -TimeoutSec 60
