@@ -384,8 +384,9 @@ def test_newer_tail_continues_the_rebuilt_session_sum():
         {"total_aggress": [99.0, 98.0], "delta_a": [3.0, -1.0], "session_id": [session, session]},
         index=pd.to_datetime(["2026-09-24T14:00:02Z", "2026-09-24T14:00:03Z"], utc=True),
     )
-    out = _keep_newer_tail(rebuilt, tail)
+    out, shift = _keep_newer_tail(rebuilt, tail)
     assert out["total_aggress"].tolist() == [10.0, 12.0, 15.0, 14.0]
+    assert shift == 84.0
 
 
 def test_same_timestamp_print_keeps_buysell_ewm():
