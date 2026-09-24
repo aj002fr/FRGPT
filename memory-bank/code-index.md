@@ -16,6 +16,10 @@ Reads V3's `/api/live/stream` for N seconds and prints event counts, bytes, time
 
 Process profiles for `scripts/dashboard_runtime/supervisor.py`: `rehearsal` (writer + V3/V2.2/V2.7/flow/supply on 7053/7058/7063/7064/7065, rehearsal DBs under `C:\dev\mdp_rehearsal\data`) and `production` (6053-6065 so the cutover switch is a Tailscale repoint, C: checkout DBs, writer with `--provisional`). Both set `MDP_PG_HOST=127.0.0.1`. `{python}` is replaced by the interpreter passed to the supervisor.
 
+### docs/rehearsal_report_20260924.md
+
+Milestone 7 results so far: supervisor, writer kill/graceful stop, 20-viewer load, share-loss independence, V3 compact payload and stream continuity, state copy (24 MB 1.7 s), flow DB migration on today's 1,077 MB DB (copy 16.7 s, VACUUM INTO 35.1 s, quick_check ok), Tailscale commands verified; open items (US-open p95, shadow gate, Starlette deferred) and the two V3 correctness findings.
+
 ### docs/cutover_runbook.md
 
 Milestone 8 procedure: 16:45 go/no-go gates and open decisions (banner alerts, V2 signal log, local 50xx links), pre-window tag/backups/rollback worktree, halt steps with exact commands (disable the V1 watchdog, stop Y: apps, copy-then-`VACUUM INTO` migration, state copies, supervisor task, five `tailscale serve --https=<port>` repoints), reopen checks, and rollbacks A (before 18:00), B (one app, `<app>.disabled`), C (writer, V1 fallback on the local DB).
