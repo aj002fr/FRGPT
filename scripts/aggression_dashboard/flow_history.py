@@ -1,6 +1,7 @@
 """Durable 1-minute V1 aggress buy/sell volume history.
 
-Writes only under workspace/analysis/aggression_v1_live/.
+Writes only under workspace/analysis/aggression_v1_live/, unless FLOW_HISTORY_DB_PATH names
+the database explicitly (read at import; the local runtime and shadow runs set it).
 Fail-closed: callers must treat every public function as best-effort.
 
 buy_contracts / buy_flow = aggress buys (took the ask, Databento side B)
@@ -10,6 +11,7 @@ sell_contracts / sell_flow = aggress sells (hit the bid, Databento side A)
 from __future__ import annotations
 
 import logging
+import os
 import re
 import sqlite3
 import sys
@@ -36,8 +38,9 @@ from scripts.aggression_dashboard.core import _select_front_month_per_day
 
 logger = logging.getLogger(__name__)
 
+FLOW_HISTORY_DB_PATH_ENV = "FLOW_HISTORY_DB_PATH"
 DB_DIR = PROJECT_ROOT / "workspace" / "analysis" / "aggression_v1_live"
-DB_PATH = DB_DIR / "flow_history.sqlite"
+DB_PATH = Path(os.environ.get(FLOW_HISTORY_DB_PATH_ENV) or DB_DIR / "flow_history.sqlite")
 CACHE_NAME_RE = re.compile(r"^trades_v2_(ZF_FUT|ZT_FUT|ZN_FUT|ZB_FUT)_(\d{8})\.parquet$")
 PARENT_TO_SYMBOL = {
     "ZF_FUT": "FV",

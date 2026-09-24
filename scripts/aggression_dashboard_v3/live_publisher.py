@@ -77,6 +77,29 @@ def encode_sse(event: str, payload: Any) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, separators=(',', ':'), default=_json_default)}\n\n"
 
 
+_CHUNK_ENCODER = json.JSONEncoder(separators=(",", ":"), default=_json_default)
+JSON_CHUNK_ITEMS = 2000
+
+
+def encode_json_chunked(value: Any) -> str:
+    """Same text as ``json.dumps(value, separators=(',', ':'), default=_json_default)``.
+
+    Dicts with string keys and long lists are encoded piece by piece, so no single C-level
+    encode holds the GIL for seconds and the trade thread keeps emitting during a rebuild.
+    """
+    if isinstance(value, dict) and all(isinstance(key, str) for key in value):
+        return "{" + ",".join(
+            f"{_CHUNK_ENCODER.encode(key)}:{encode_json_chunked(item)}" for key, item in value.items()
+        ) + "}"
+    if isinstance(value, list) and len(value) > JSON_CHUNK_ITEMS:
+        parts = []
+        for offset in range(0, len(value), JSON_CHUNK_ITEMS):
+            text = _CHUNK_ENCODER.encode(value[offset:offset + JSON_CHUNK_ITEMS])
+            parts.append(text[1:-1])
+        return "[" + ",".join(parts) + "]"
+    return _CHUNK_ENCODER.encode(value)
+
+
 def encode_heartbeat() -> str:
     return ": heartbeat\n\n"
 
@@ -852,7 +875,7 @@ class LivePublisher:
         if not priced.empty and not aggress.empty:
             first = display.loc[display["price"].notna()].iloc[0]
             anchor = (float(first["price"]), float(first["total_aggress"]))
-        data = json.dumps(response, separators=(",", ":"), default=_json_default)
+        data = encode_json_chunked(response)
         through_ns = 0
         if frame is not None and not frame.empty:
             stamp = pd.Timestamp(frame.index.max())

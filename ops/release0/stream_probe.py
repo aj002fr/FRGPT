@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Read V3's SSE stream for a while and report what arrived and how late trade prints were.
 
-Lag is receive time minus the print's own time (``x`` in ET), so it includes feed delay.
+Lag is receive time minus the print's own time (``x`` in ET), so it includes feed delay. Only
+live deltas count (trade messages that carry ``strip``); replays of already-sent prints (after a
+subscribe or a rebuild) are reported separately.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ def main() -> int:
     sizes: dict[str, int] = {}
     lags: list[float] = []
     first_picture = None
+    replayed = 0
     event = None
     with urllib.request.urlopen(args.url, timeout=30) as response:
         while time.monotonic() - started < args.seconds:
@@ -46,7 +49,12 @@ def main() -> int:
                 first_picture = time.monotonic() - started
             if event == "trade":
                 now_et = datetime.now(EASTERN).replace(tzinfo=None)
-                for point in json.loads(line[6:]).get("prints") or []:
+                message = json.loads(line[6:])
+                if "strip" not in message:
+                    replayed += len(message.get("prints") or [])
+                    event = None
+                    continue
+                for point in message.get("prints") or []:
                     try:
                         stamp = datetime.fromisoformat(str(point["x"]).replace("T", " ")[:26])
                     except (KeyError, ValueError):
@@ -59,6 +67,7 @@ def main() -> int:
         "bytes": sizes,
         "first_picture_sec": round(first_picture, 2) if first_picture is not None else None,
         "prints": len(lags),
+        "replayed_prints": replayed,
     }
     if lags:
         ordered = sorted(lags)

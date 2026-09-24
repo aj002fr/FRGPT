@@ -271,6 +271,27 @@ def test_catch_up_applies_prints_in_bounded_batches():
     assert batches == [lp.CATCH_UP_BATCH, lp.CATCH_UP_BATCH, 5]
 
 
+def test_chunked_json_matches_one_shot_json():
+    import numpy as np
+
+    from scripts.aggression_dashboard_v3 import live_publisher as lp
+
+    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
+    snapshot = pub.rebuild()
+    one_shot = lambda value: json.dumps(value, separators=(",", ":"), default=lp._json_default)
+    assert lp.encode_json_chunked(snapshot) == one_shot(snapshot)
+    ts = pd.Timestamp("2026-09-24 13:30:00.123456789", tz="UTC")
+    tricky = {
+        "points": [{"x": f"2026-09-24T09:{i // 60:02d}:{i % 60:02d}", "y": float(i) / 3, "n": np.int64(i), "t": ts} for i in range(5003)],
+        "nested": {"empty": {}, "list": [], "nan": float("nan"), "tuple": (1, 2.5, "é"), "unicode": "Δ ✓"},
+        "int_keys": {1: "a", 2.5: "b", None: "c", True: "d"},
+        "np": np.float64(1e-8),
+        "big": list(range(4001)),
+    }
+    assert lp.encode_json_chunked(tricky) == one_shot(tricky)
+    assert lp.encode_sse("history", snapshot).split("data: ", 1)[1] == lp.encode_json_chunked(snapshot) + "\n\n"
+
+
 def test_empty_tape_warming_helper():
     banner = build_banner(
         pd.DataFrame(),
