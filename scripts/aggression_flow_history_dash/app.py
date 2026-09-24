@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import time
 from datetime import date, datetime
 from pathlib import Path
@@ -50,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 STATUS_LABEL = "DESCRIPTIVE / RESEARCH-ONLY / NON-DIRECTIONAL"
-_RESPONSES = ResponseCache(wait_sec=30.0)
+_RESPONSES = ResponseCache(wait_sec=90.0)
 SYMBOLS = (*SYMBOL_PARENT_MAP, "CURVE")
 
 
@@ -279,7 +280,18 @@ def main() -> None:
     install_request_timing(app)
     logger.info("Starting flow-history viewer on %s:%s (%s)", args.host, args.port, args.server)
     start_events_cache(f"mdp_{args.port}")
+    threading.Thread(target=_warmup, name="history-warmup", daemon=True).start()
     serve(app, host=args.host, port=args.port, server=args.server, debug=args.debug)
+
+
+def _warmup() -> None:
+    """Build the closed-session history once at startup so the first viewer does not wait ~30 s."""
+    for symbol in ("TY", "CURVE"):
+        try:
+            cached_history(symbol)
+            logger.info("history cache ready for %s", symbol)
+        except Exception:
+            logger.exception("history warmup failed for %s", symbol)
 
 
 if __name__ == "__main__":

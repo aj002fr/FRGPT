@@ -303,8 +303,8 @@ class Supervisor:
                    "detail": state.last_detail}
             if psutil is not None and self._running(state):
                 try:
-                    procs = [psutil.Process(state.proc.pid)]
-                    procs += procs[0].children(recursive=True)
+                    procs = [self._ps_process(psutil, state.proc.pid)]
+                    procs += [self._ps_process(psutil, child.pid) for child in procs[0].children(recursive=True)]
                     row["cpu_pct"] = round(sum(p.cpu_percent(interval=None) for p in procs), 1)
                     row["rss_mb"] = round(sum(p.memory_info().rss for p in procs) / 2**20, 1)
                     row["threads"] = sum(p.num_threads() for p in procs)
@@ -314,6 +314,16 @@ class Supervisor:
         with open(self.state_dir / "metrics.jsonl", "a", encoding="utf-8") as handle:
             for row in rows:
                 handle.write(json.dumps(row) + "\n")
+
+    def _ps_process(self, psutil, pid: int):
+        """Reuse psutil.Process objects so cpu_percent measures the interval since the last snapshot."""
+        cache = getattr(self, "_ps_cache", None)
+        if cache is None:
+            cache = self._ps_cache = {}
+        proc = cache.get(pid)
+        if proc is None:
+            proc = cache[pid] = psutil.Process(pid)
+        return proc
 
     def write_status(self, now: float, phase: str) -> None:
         status = {
