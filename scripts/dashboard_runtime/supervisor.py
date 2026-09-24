@@ -44,6 +44,7 @@ WRITER_SEALED_STALE_SEC = 180.0
 WRITER_QUEUE_MAX = 50_000
 BAR_STALE_SEC = 300.0
 HTTP_TIMEOUT_SEC = 10.0
+GRACEFUL_STOP_SEC = 10.0
 EVENT_SOURCE = "MDP Dashboard Supervisor"
 
 
@@ -58,6 +59,7 @@ class AppSpec:
     status_file: Optional[str] = None
     fresh_bars: bool = False
     env: dict[str, str] = field(default_factory=dict)
+    grace_sec: float = 120.0
 
 
 @dataclass
@@ -76,10 +78,22 @@ def backoff_sec(restarts: int) -> float:
     return min(BACKOFF_MAX_SEC, BACKOFF_BASE_SEC * (2 ** max(restarts, 0)))
 
 
-def market_phase(now: Optional[float] = None) -> str:
-    from scripts.aggression_flow_history_dash.session import market_phase as phase
+REOPEN_GRACE_SEC = 300.0
 
-    return phase(datetime.fromtimestamp(now if now is not None else time.time(), timezone.utc))
+
+def market_phase(now: Optional[float] = None) -> str:
+    """OPEN / HALT / CLOSED, with OPENING for the first REOPEN_GRACE_SEC of a session, when no
+    bar can be fresh yet (the newest bar is from before the halt)."""
+    from scripts.aggression_flow_history_dash.session import market_phase as phase
+    from scripts.flow_store.sessions import session_bounds_ns, session_for_ns
+
+    now = now if now is not None else time.time()
+    value = phase(datetime.fromtimestamp(now, timezone.utc))
+    if value == "OPEN":
+        session = session_for_ns(int(now) * 1_000_000_000)
+        if session is not None and now - session_bounds_ns(session)[0] / 1e9 < REOPEN_GRACE_SEC:
+            return "OPENING"
+    return value
 
 
 def _pid_in_tree(pid: Optional[int], root_pid: Optional[int]) -> bool:
@@ -186,6 +200,15 @@ class Supervisor:
         if not isinstance(proc, subprocess.Popen):
             proc.kill()
             return
+        stop_file = Path(spec.status_file).with_name("stop.request") if spec.health == "writer" and spec.status_file else None
+        if stop_file is not None:
+            try:
+                stop_file.write_text(datetime.now(timezone.utc).isoformat(), encoding="utf-8")
+                proc.wait(timeout=GRACEFUL_STOP_SEC)
+            except Exception:
+                pass
+            finally:
+                stop_file.unlink(missing_ok=True)
         try:
             import psutil
 
@@ -225,6 +248,9 @@ class Supervisor:
                 ok, detail = check_http(spec, phase, self.fetch)
             state.last_latency_ms = (time.perf_counter() - started) * 1000.0
             state.last_detail = detail
+            if not ok and state.started_at is not None and now - state.started_at < spec.grace_sec:
+                state.last_detail = f"starting ({now - state.started_at:.0f}s): {detail}"
+                continue
             if ok:
                 if state.failures:
                     logger.info("%s healthy again: %s", spec.name, detail)
@@ -328,7 +354,7 @@ def load_profile(path: Path, name: str, python: str) -> tuple[list[AppSpec], dic
         specs.append(AppSpec(
             name=app["name"], argv=argv, port=app.get("port"), health=app.get("health", "http"), url=app.get("url"),
             ok_statuses=tuple(app.get("ok_statuses", [200])), status_file=app.get("status_file"),
-            fresh_bars=bool(app.get("fresh_bars")), env=app.get("env", {}),
+            fresh_bars=bool(app.get("fresh_bars")), env=app.get("env", {}), grace_sec=float(app.get("grace_sec", 120.0)),
         ))
     return specs, profile.get("env", {}), Path(profile["state_dir"])
 

@@ -34,7 +34,7 @@ class Clock:
         return self.t
 
 
-def make(tmp_path: Path, health_results: list, *, phase: str = "OPEN"):
+def make(tmp_path: Path, health_results: list, *, phase: str = "OPEN", grace: float = 0.0):
     clock = Clock()
     started = []
     results = iter(health_results)
@@ -48,7 +48,7 @@ def make(tmp_path: Path, health_results: list, *, phase: str = "OPEN"):
         ok = next(results)
         return (200, b'{"feed": {"age_sec": 5}}') if ok else (500, b"")
 
-    spec = sv.AppSpec(name="flow", argv=["x"], url="http://x/api/status", fresh_bars=True)
+    spec = sv.AppSpec(name="flow", argv=["x"], url="http://x/api/status", fresh_bars=True, grace_sec=grace)
     sup = sv.Supervisor([spec], state_dir=tmp_path, clock=clock, launcher=launcher, fetch=fetch, phase=lambda now: phase)
     return sup, clock, started
 
@@ -94,6 +94,31 @@ def test_crash_loop_backs_off(tmp_path) -> None:
     clock.t += sv.BACKOFF_RESET_AFTER_SEC + 1
     sup.tick()
     assert sup.state["flow"].restarts == 0
+
+
+def test_failures_during_startup_grace_do_not_count(tmp_path) -> None:
+    sup, clock, started = make(tmp_path, [False] * 10, grace=60)
+    sup.tick()
+    for _ in range(5):
+        clock.t += 10
+        sup.tick()
+    assert sup.state["flow"].failures == 0 and "starting" in sup.state["flow"].last_detail
+    for _ in range(3):
+        clock.t += 10
+        sup.tick()
+    assert sup.state["flow"].proc is None and len(started) == 1
+
+
+def test_first_minutes_after_reopen_are_opening() -> None:
+    from datetime import datetime
+
+    from scripts.flow_store.sessions import EASTERN
+
+    at = lambda text: datetime.fromisoformat(text).replace(tzinfo=EASTERN).timestamp()
+    assert sv.market_phase(at("2026-09-24 18:02")) == "OPENING"
+    assert sv.market_phase(at("2026-09-24 18:06")) == "OPEN"
+    assert sv.market_phase(at("2026-09-24 17:30")) == "HALT"
+    assert sv.market_phase(at("2026-09-27 18:01")) == "OPENING"
 
 
 def test_stale_bars_fail_only_while_open(tmp_path) -> None:

@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import signal
 import sys
 import time
 from collections import deque
@@ -260,8 +261,12 @@ class FlowWriter:
         return updates
 
     async def flush_loop(self) -> None:
+        stop_file = self.status_path.with_name("stop.request")
         while not self.stopping.is_set():
             await asyncio.sleep(FLUSH_EVERY_SEC)
+            if stop_file.exists():
+                logger.info("stop requested by %s; releasing the lease", stop_file)
+                self.stopping.set()
             live, backup, batch_max = [], [], None
             while True:
                 try:
@@ -394,6 +399,11 @@ class FlowWriter:
     async def run(self) -> int:
         self.queue = asyncio.Queue(maxsize=QUEUE_MAX)
         self.stopping = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for name in ("SIGBREAK", "SIGINT", "SIGTERM"):
+            if hasattr(signal, name):
+                signal.signal(getattr(signal, name), lambda *_: loop.call_soon_threadsafe(self.stopping.set))
+        self.status_path.with_name("stop.request").unlink(missing_ok=True)
         await self.db(self._open)
         tasks = [asyncio.create_task(coro) for coro in (
             self.consume(), self.flush_loop(), self.seal_loop(), self.backfill_loop(), self.heartbeat_loop(), self.status_loop(),

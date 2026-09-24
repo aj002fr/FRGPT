@@ -243,6 +243,12 @@ def api_bootstrap() -> Any:
     return cached_response(_RESPONSES, ("bootstrap", symbol, str(day)), _tick(symbol), lambda: _bootstrap_payload(symbol, day))
 
 
+@app.get("/api/runtime")
+def api_runtime() -> Any:
+    """Response-cache counters (builds vs hits) and events cache state, for supervision and rehearsal."""
+    return jsonify({"success": True, "responses": _RESPONSES.stats(), "events": events_status()})
+
+
 @app.get("/api/events")
 def api_events() -> Any:
     try:

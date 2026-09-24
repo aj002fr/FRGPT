@@ -167,6 +167,12 @@ def api_live() -> Any:
     return cached_response(_RESPONSES, key, _tick(), lambda: _live_payload(filters))
 
 
+@app.get("/api/runtime")
+def api_runtime() -> Any:
+    """Response-cache counters (builds vs hits) and events cache state, for supervision and rehearsal."""
+    return jsonify({"success": True, "responses": _RESPONSES.stats(), "events": events_status()})
+
+
 def _warmup() -> None:
     try:
         build_payload()
