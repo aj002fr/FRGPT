@@ -38,7 +38,9 @@ from scripts.flow_store.settings import (  # noqa: E402
     ACCESS_API_BASE,
     ACCESS_API_WS,
     BACKFILL_EVERY_SEC,
+    COVERAGE_HEAD_US,
     COVERAGE_STALE_SEC,
+    COVERAGE_TAIL_US,
     FLUSH_EVERY_SEC,
     LEASE_HEARTBEAT_SEC,
     MINUTE_US,
@@ -64,17 +66,6 @@ def now_us() -> int:
     return time.time_ns() // 1000
 
 
-def redelivery_key(data: dict, trade) -> Optional[tuple]:
-    """Identity of one AccessAPI stream entry, used only to drop an exact re-delivery.
-
-    Several identical fills can share a CME packet (same sequence, time, price, size, side);
-    they are separate trades, so sequence plus content is not a duplicate test. AccessAPI stamps
-    each stream entry with its own ingest time.
-    """
-    ingest = data.get("ingest_write_ts_utc_ns")
-    if ingest in (None, ""):
-        return None
-    return (str(ingest), trade.sequence, trade.key)
 
 
 class FlowWriter:
@@ -99,9 +90,7 @@ class FlowWriter:
         self.cov_open: dict[str, Optional[int]] = {s: None for s in SYMBOLS}
         self.seal_cursor: dict[str, Optional[int]] = {s: None for s in SYMBOLS}
         self.pending: dict[str, set[int]] = {s: set() for s in SYMBOLS}
-        self.recent_seq: deque = deque(maxlen=50_000)
-        self.recent_seq_set: set = set()
-        self.counters = {"records": 0, "trades_inserted": 0, "backup_trades": 0, "dropped": 0, "duplicates": 0,
+        self.counters = {"records": 0, "trades_inserted": 0, "backup_trades": 0, "dropped": 0,
                          "minutes_sealed": 0, "minutes_provisional": 0, "backfill_trades": 0, "revisions": 0}
         self.errors: deque = deque(maxlen=20)
         self.epoch = 0
@@ -192,7 +181,14 @@ class FlowWriter:
         start = self.store.canonical_start_us()
         out = {}
         for symbol in SYMBOLS:
-            stats = bf.fill_gaps(self.store, symbol, start, now, fetch=self.fetch, dv01_unit=self.dv01.get(symbol, 1.0))
+            try:
+                stats = bf.fill_gaps(self.store, symbol, start, now, fetch=self.fetch, dv01_unit=self.dv01.get(symbol, 1.0))
+            except LeaseLost:
+                raise
+            except Exception as exc:
+                self.note_error(f"backfill {symbol}", exc)
+                out[symbol] = {"error": f"{type(exc).__name__}: {exc}"}
+                continue
             self.counters["backfill_trades"] += stats["trades_added"]
             self.counters["revisions"] += stats["revised"]
             out[symbol] = stats
@@ -238,21 +234,27 @@ class FlowWriter:
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 30.0)
 
-    def _coverage_updates(self, seen: dict[str, int]) -> dict[str, tuple[str, int, int]]:
+    def _coverage_updates(self, batch_max_us: Optional[int]) -> dict[str, tuple[str, int, int]]:
+        """One connection carries all four roots, and TBBO has only trades, so a quiet root is not
+        a gap: every root is covered while the connection is up and any record arrived within
+        COVERAGE_STALE_SEC. A new interval starts COVERAGE_HEAD_US after the newest event of its
+        first batch and ends COVERAGE_TAIL_US behind the newest event, so records still in flight
+        at either edge fall into a gap that backfill fills."""
         updates: dict[str, tuple[str, int, int]] = {}
         wall = time.time()
+        last_wall = max((v for v in self.last_record_wall.values() if v is not None), default=None)
+        fresh = self.connected and last_wall is not None and wall - last_wall <= COVERAGE_STALE_SEC
         watermark = max((v for v in self.last_event_us.values() if v is not None), default=None)
         for symbol in SYMBOLS:
-            fresh = self.last_record_wall[symbol] is not None and wall - self.last_record_wall[symbol] <= COVERAGE_STALE_SEC
-            if not (self.connected and fresh):
+            if not fresh or watermark is None:
                 self.cov_open[symbol] = None
                 continue
-            end = max(watermark or 0, self.last_event_us[symbol] or 0)
+            end = watermark - COVERAGE_TAIL_US
             if self.cov_open[symbol] is None:
-                start = seen.get(symbol)
-                if start is None:
+                if batch_max_us is None:
                     continue
-                updates[symbol] = ("open", start, end)
+                start = batch_max_us + COVERAGE_HEAD_US
+                updates[symbol] = ("open", start, max(start, end))
             else:
                 updates[symbol] = ("extend", 0, end)
         return updates
@@ -260,7 +262,7 @@ class FlowWriter:
     async def flush_loop(self) -> None:
         while not self.stopping.is_set():
             await asyncio.sleep(FLUSH_EVERY_SEC)
-            live, backup, first_seen = [], [], {}
+            live, backup, batch_max = [], [], None
             while True:
                 try:
                     kind, data, wall, epoch = self.queue.get_nowait()
@@ -269,7 +271,7 @@ class FlowWriter:
                 self.counters["records"] += 1
                 if epoch != self.cov_epoch:
                     self.cov_epoch = epoch
-                    first_seen.clear()
+                    batch_max = None
                     for symbol in SYMBOLS:
                         self.cov_open[symbol] = None
                 if kind == "live":
@@ -280,26 +282,15 @@ class FlowWriter:
                     ts_us = round_us(ts_ns)
                     self.last_record_wall[symbol] = wall
                     self.last_event_us[symbol] = max(self.last_event_us[symbol] or 0, ts_us)
-                    if self.cov_open[symbol] is None:
-                        first_seen.setdefault(symbol, ts_us)
+                    batch_max = ts_us if batch_max is None else max(batch_max, ts_us)
                     trade = normalize_record(data, source=SOURCE_LIVE, keep_raw=True)
-                    if trade is None:
-                        continue
-                    entry = redelivery_key(data, trade)
-                    if entry is not None:
-                        if entry in self.recent_seq_set:
-                            self.counters["duplicates"] += 1
-                            continue
-                        if len(self.recent_seq) == self.recent_seq.maxlen:
-                            self.recent_seq_set.discard(self.recent_seq.popleft())
-                        self.recent_seq.append(entry)
-                        self.recent_seq_set.add(entry)
-                    live.append(trade)
+                    if trade is not None:
+                        live.append(trade)
                 else:
                     trade = normalize_record(data, source=SOURCE_BACKUP)
                     if trade is not None:
                         backup.append(trade)
-            coverage = self._coverage_updates(first_seen)
+            coverage = self._coverage_updates(batch_max)
             try:
                 await self.db(self._write_batch, live, backup, coverage)
             except LeaseLost as exc:

@@ -34,11 +34,39 @@ Fetch = Callable[[str, int, int], list[Trade]]
 
 def fetch_accessapi_trades(symbol: str, start_us: int, end_us: int, *, api_base: str = ACCESS_API_BASE,
                            timeout: int = 120) -> list[Trade]:
-    from scripts.aggression_flow_history_dash.backfill_accessapi import fetch_trades
+    """Historical trades with ts_us in [start_us, end_us).
 
-    start = pd.Timestamp(int(start_us), unit="us", tz="UTC").to_pydatetime()
-    end = pd.Timestamp(int(end_us), unit="us", tz="UTC").to_pydatetime()
-    return normalize_frame(fetch_trades(symbol, start, end, api_base=api_base, timeout=timeout), source=SOURCE_HIST)
+    AccessAPI answers microsecond bounds with an empty JSON body, and any empty result as JSON
+    rather than Arrow, so the request uses whole seconds around the window and filters locally.
+    """
+    import io
+    import json
+    import urllib.parse
+    import urllib.request
+
+    import pyarrow.ipc as pa_ipc
+
+    lo_s = int(start_us) // 1_000_000
+    hi_s = -(-int(end_us) // 1_000_000)
+    query = urllib.parse.urlencode({
+        "source": "database",
+        "schema": "trades",
+        "symbols": symbol,
+        "start": pd.Timestamp(lo_s, unit="s", tz="UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "end": pd.Timestamp(hi_s, unit="s", tz="UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "format": "arrow",
+    })
+    with urllib.request.urlopen(f"{api_base.rstrip('/')}/historical/trades?{query}", timeout=timeout) as response:
+        body = response.read()
+        kind = response.headers.get("Content-Type") or ""
+    if not body:
+        return []
+    if "json" in kind:
+        payload = json.loads(body)
+        frame = pd.DataFrame(payload.get("data") or [])
+    else:
+        frame = pa_ipc.open_stream(io.BytesIO(body)).read_all().to_pandas()
+    return [t for t in normalize_frame(frame, source=SOURCE_HIST) if start_us <= t.ts_us < end_us]
 
 
 def settle_limit_us(now_us: int) -> int:
