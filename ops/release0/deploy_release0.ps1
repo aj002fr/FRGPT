@@ -25,7 +25,7 @@ param(
     [string]$Target = 'Y:\Aastha\market_data_puller',
     [string]$BackupRoot = 'C:\dev\mdp_backups\release0_20260924',
     [string]$BaseRef = 'yshare-sync',
-    [string]$ReleaseRef = 'ops/local-runtime',
+    [string]$ReleaseRef = 'release0',
     [switch]$SkipRestart
 )
 $ErrorActionPreference = 'Stop'
