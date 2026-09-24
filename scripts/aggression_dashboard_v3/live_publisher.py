@@ -54,6 +54,9 @@ WINDOW_NS = int(WINDOW_MIN * 60 * 1_000_000_000)
 NO_EARLIER_PRINT = "No print yet at the 15-minute-earlier endpoint since the session or configuration reset."
 SESSION_RESET = "Banner window reset after a session boundary."
 SUBSCRIBER_QUEUE_MAX = 128
+REBUILD_MIN_INTERVAL_SEC = 60.0
+WARMING_REBUILD_MIN_INTERVAL_SEC = 5.0
+CATCH_UP_BATCH = 2000
 TIP_SLACK_MIN = 1.0
 EMPTY_WINDOW_REASON = "No print yet at the 15-minute-earlier endpoint since the session or configuration reset."
 
@@ -157,6 +160,28 @@ def _keep_newer_tail(rebuilt: pd.DataFrame, live: pd.DataFrame) -> pd.DataFrame:
     return pd.concat([rebuilt, tail]).sort_index()
 
 
+def _tape_arrays(frame: pd.DataFrame) -> Tuple[List[int], List[Optional[float]], List[Optional[float]], List[str], Optional[int]]:
+    if frame is None or frame.empty:
+        return [], [], [], [], None
+    idx = pd.DatetimeIndex(pd.to_datetime(frame.index, utc=True))
+    ts = [int(v) for v in idx.asi8]
+    prices = pd.to_numeric(frame["price"], errors="coerce").tolist() if "price" in frame.columns else [None] * len(ts)
+    aggs = pd.to_numeric(frame["total_aggress"], errors="coerce").tolist() if "total_aggress" in frame.columns else [None] * len(ts)
+    px = [_finite_num(v) for v in prices]
+    ag = [_finite_num(v) for v in aggs]
+    if "session_id" in frame.columns:
+        sid = ["" if v is None else str(v) for v in frame["session_id"].tolist()]
+    else:
+        sid = [""] * len(ts)
+    gap = None
+    prev = None
+    for ts_ns in ts:
+        if prev is not None and ts_ns - prev > GAP_NS:
+            gap = ts_ns
+        prev = ts_ns
+    return ts, px, ag, sid, gap
+
+
 def _prefix_changed(
     old: Tuple[Tuple[int, float], ...],
     new: Tuple[Tuple[int, float], ...],
@@ -205,6 +230,8 @@ class LivePublisher:
         self._subs_lock = threading.Lock()
         self._lock = threading.RLock()
         self._rebuild_event = threading.Event()
+        self._rebuild_mutex = threading.Lock()
+        self._last_rebuild_mono: Optional[float] = None
         self._thread: Optional[threading.Thread] = None
         self._rebuild_thread: Optional[threading.Thread] = None
         self._running = False
@@ -337,19 +364,44 @@ class LivePublisher:
                 logger.exception("V3 live publisher failed")
 
     def _rebuild_loop(self) -> None:
+        """Coalesce history offers: triggers during the minimum interval fold into one rebuild."""
         while self._running:
             if not self._rebuild_event.wait(timeout=1.0):
                 continue
-            self._rebuild_event.clear()
             if not self._running:
                 return
+            wait = self._rebuild_wait_sec()
+            if wait > 0:
+                time.sleep(min(wait, 1.0))
+                continue
+            self._rebuild_event.clear()
             try:
                 self.rebuild()
             except Exception:
                 logger.exception("V3 live rebuild failed")
 
+    def _rebuild_wait_sec(self) -> float:
+        if self._last_rebuild_mono is None:
+            return 0.0
+        with self._lock:
+            has_snapshot = self._snapshot is not None
+        interval = REBUILD_MIN_INTERVAL_SEC if has_snapshot else WARMING_REBUILD_MIN_INTERVAL_SEC
+        return interval - (time.monotonic() - self._last_rebuild_mono)
+
     def rebuild(self) -> Optional[Dict[str, Any]]:
         """Assemble the shared snapshot. Empty-tape WARMING is not stored."""
+        with self._rebuild_mutex:
+            self._last_rebuild_mono = time.monotonic()
+            started = time.perf_counter()
+            response = self._rebuild()
+            logger.info(
+                "V3 live rebuild %.2fs (%s)",
+                time.perf_counter() - started,
+                "snapshot" if response else "warming",
+            )
+            return response
+
+    def _rebuild(self) -> Optional[Dict[str, Any]]:
         now = datetime.now(timezone.utc)
         session_start = default_start_time(now)
         lookback_start = now - timedelta(hours=self.lookback_hours)
@@ -452,54 +504,54 @@ class LivePublisher:
         response["flow_dominance"] = banner
         response["flow_dominance_series"] = series
         response["panels"]["p1_states"] = build_state_timeline_panel(series)
-        event = self._revision_event(display, beta_payload)
-        self._store_picture(response, frame, display, session_path, beta_payload)
-        if event:
-            self._broadcast(event, response)
+        prefix = _aggress_prefix(display)
+        event = self._revision_event(prefix, beta_payload)
+        self._store_picture(response, frame, display, session_path, beta_payload, prefix=prefix, event=event)
         self._catch_up_live(display.index.max() if not display.empty else lookback_start)
         return response
 
     def apply_trades(self, trades: List[Dict[str, Any]]) -> Optional[str]:
-        """Apply prints in trade order. One message, every print, no wall-clock wait."""
+        """Apply prints in trade order. One message, every print, no wall-clock wait.
+
+        Never rebuilds on this thread; a missing picture only requests one. The trade message is
+        queued under the lock so it cannot overtake or trail a rebuild's history message.
+        """
         with self._lock:
-            if self._snapshot is None:
-                pending = True
-            else:
-                pending = False
+            pending = self._snapshot is None
         if pending:
-            self.rebuild()
-        prints: List[Dict[str, Any]] = []
-        banner = None
+            self.offer_history()
+        live_status = self.live_status()
         with self._lock:
+            prints: List[Dict[str, Any]] = []
+            banner = None
             for trade in trades:
                 point = self._apply_one(trade)
                 if point is None:
                     continue
                 prints.append(point)
                 banner = point.get("banner")
-        if not prints:
-            return None
-        if self._snapshot is None and frame_has_window_print(self._frame):
-            self.rebuild()
-            return None
-        live_status = self.live_status()
-        strip = self._strip_edge(prints[-1])
-        payload = {
-            "prints": prints,
-            "flow_dominance": banner,
-            "strip": strip,
-            "live_status": live_status,
-            "lookback_start": _to_et_iso(datetime.now(timezone.utc) - timedelta(hours=self.lookback_hours)),
-            "meta": {
-                "flow": {
-                    "trade_count": len(self._ts),
-                    "total_aggress_final": prints[-1].get("total_aggress"),
-                }
-            },
-        }
-        encoded = encode_sse("trade", payload)
-        self._update_snapshot_tip(prints, banner, live_status, strip)
-        self._broadcast_raw(encoded)
+            if not prints:
+                return None
+            if self._snapshot is None and frame_has_window_print(self._frame):
+                self.offer_history()
+                return None
+            strip = self._strip_edge(prints[-1])
+            payload = {
+                "prints": prints,
+                "flow_dominance": banner,
+                "strip": strip,
+                "live_status": live_status,
+                "lookback_start": _to_et_iso(datetime.now(timezone.utc) - timedelta(hours=self.lookback_hours)),
+                "meta": {
+                    "flow": {
+                        "trade_count": len(self._ts),
+                        "total_aggress_final": prints[-1].get("total_aggress"),
+                    }
+                },
+            }
+            encoded = encode_sse("trade", payload)
+            self._update_snapshot_tip(prints, banner, live_status, strip)
+            self._broadcast_raw(encoded)
         return encoded
 
     def _catch_up_live(self, since: datetime | pd.Timestamp) -> None:
@@ -528,7 +580,8 @@ class LivePublisher:
                 })
         if pending:
             pending.sort(key=lambda item: pd.Timestamp(item["ts"]))
-            self.apply_trades(pending)
+            for offset in range(0, len(pending), CATCH_UP_BATCH):
+                self.apply_trades(pending[offset:offset + CATCH_UP_BATCH])
 
     def _touch_snapshot_status(self, live_status: Dict[str, Any]) -> None:
         with self._lock:
@@ -729,27 +782,7 @@ class LivePublisher:
         self._pending_rows = [row for row in self._pending_rows if int(row["ts_ns"]) >= cutoff]
 
     def _index_tape(self, frame: pd.DataFrame) -> None:
-        if frame is None or frame.empty:
-            self._ts, self._px, self._ag, self._sid = [], [], [], []
-            self._gap_ns = None
-            return
-        idx = pd.DatetimeIndex(pd.to_datetime(frame.index, utc=True))
-        self._ts = [int(v) for v in idx.asi8]
-        prices = pd.to_numeric(frame["price"], errors="coerce").tolist() if "price" in frame.columns else [None] * len(self._ts)
-        aggs = pd.to_numeric(frame["total_aggress"], errors="coerce").tolist() if "total_aggress" in frame.columns else [None] * len(self._ts)
-        self._px = [_finite_num(v) for v in prices]
-        self._ag = [_finite_num(v) for v in aggs]
-        if "session_id" in frame.columns:
-            self._sid = ["" if v is None else str(v) for v in frame["session_id"].tolist()]
-        else:
-            self._sid = [""] * len(self._ts)
-        gap = None
-        prev = None
-        for ts_ns in self._ts:
-            if prev is not None and ts_ns - prev > GAP_NS:
-                gap = ts_ns
-            prev = ts_ns
-        self._gap_ns = gap
+        self._ts, self._px, self._ag, self._sid, self._gap_ns = _tape_arrays(frame)
 
     def _pending_frame(self) -> pd.DataFrame:
         rows = self._pending_rows
@@ -802,14 +835,15 @@ class LivePublisher:
             session_start=frame_start,
         )
 
-    def _store_picture(
+    def _prepare_picture(
         self,
         response: Dict[str, Any],
         frame: pd.DataFrame,
         display: pd.DataFrame,
-        session_path: pd.DataFrame,
         beta_payload: Dict[str, Any],
-    ) -> None:
+        prefix: Tuple[Tuple[int, float], ...],
+    ) -> Dict[str, Any]:
+        """Everything a rebuild swap needs that does not read live state. Runs off the lock."""
         p2 = ((response.get("panels") or {}).get("p2") or {}).get("data") or []
         last_p2 = p2[-1] if p2 else None
         priced = display["price"].dropna() if not display.empty and "price" in display.columns else pd.Series(dtype=float)
@@ -818,7 +852,7 @@ class LivePublisher:
         if not priced.empty and not aggress.empty:
             first = display.loc[display["price"].notna()].iloc[0]
             anchor = (float(first["price"]), float(first["total_aggress"]))
-        encoded = encode_sse("snapshot", response)
+        data = json.dumps(response, separators=(",", ":"), default=_json_default)
         through_ns = 0
         if frame is not None and not frame.empty:
             stamp = pd.Timestamp(frame.index.max())
@@ -827,16 +861,90 @@ class LivePublisher:
             else:
                 stamp = stamp.tz_convert("UTC")
             through_ns = int(stamp.value)
+        buysell_ewm = None
+        buysell_ts = None
+        if last_p2:
+            buysell_ewm = last_p2.get("buysell_ratio")
+            try:
+                buysell_ts = pd.Timestamp(str(last_p2.get("x")).replace(" ", "T"))
+            except Exception:
+                buysell_ts = display.index.max() if not display.empty else None
+        seen: Deque[Tuple[int, str, int, float]] = deque(maxlen=self._seen.maxlen)
+        seen_set: set[Tuple[int, str, int, float]] = set()
+        if not display.empty:
+            tail = display.tail(seen.maxlen or 8192)
+            idx = pd.DatetimeIndex(pd.to_datetime(tail.index, utc=True))
+            symbols = (
+                tail["dashboard_symbol"].astype(str).tolist()
+                if "dashboard_symbol" in tail.columns else [""] * len(tail)
+            )
+            sizes = (
+                pd.to_numeric(tail["size"], errors="coerce").fillna(0).tolist()
+                if "size" in tail.columns else [0] * len(tail)
+            )
+            prices = pd.to_numeric(tail["price"], errors="coerce").fillna(0).tolist() if "price" in tail.columns else [0] * len(tail)
+            for ts_ns, symbol, size, price in zip(idx.asi8, symbols, sizes, prices):
+                key = (int(ts_ns), str(symbol), int(round(float(size))), round(float(price), 6))
+                if key in seen_set:
+                    continue
+                if len(seen) == seen.maxlen:
+                    seen_set.discard(seen.popleft())
+                seen.append(key)
+                seen_set.add(key)
+        beta_bucket = None
+        if beta_payload.get("ok"):
+            beta_bucket = bucket_display_time(
+                pd.to_datetime(through_ns, utc=True).to_pydatetime() if through_ns else datetime.now(timezone.utc)
+            ).isoformat()
+        return {
+            "data": data,
+            "encoded": f"event: snapshot\ndata: {data}\n\n",
+            "through_ns": through_ns,
+            "tape": _tape_arrays(frame),
+            "runs": list(((response.get("panels") or {}).get("p1_states") or {}).get("data") or []),
+            "prefix": prefix,
+            "anchor": anchor,
+            "buysell": (buysell_ewm, buysell_ts),
+            "seen": seen,
+            "seen_set": seen_set,
+            "beta_bucket": beta_bucket,
+        }
+
+    def _store_picture(
+        self,
+        response: Dict[str, Any],
+        frame: pd.DataFrame,
+        display: pd.DataFrame,
+        session_path: pd.DataFrame,
+        beta_payload: Dict[str, Any],
+        *,
+        prefix: Optional[Tuple[Tuple[int, float], ...]] = None,
+        event: Optional[str] = None,
+    ) -> None:
+        """Swap a rebuilt picture in. The critical section only assigns and replays newer prints.
+
+        Existing subscribers get the same bytes as the opening snapshot, then one trade message
+        with the prints that arrived during the rebuild: what a new subscriber receives.
+        """
+        prepared = self._prepare_picture(
+            response,
+            frame,
+            display,
+            beta_payload,
+            prefix if prefix is not None else _aggress_prefix(display),
+        )
+        through_ns = prepared["through_ns"]
+        live_status = (response.get("meta") or {}).get("live_status") or {}
         with self._lock:
             kept_rows = [row for row in self._pending_rows if int(row["ts_ns"]) > through_ns]
             kept_seen = [key for key in self._seen if key[0] > through_ns]
             kept_points = [item["point"] for item in self._recent_points if int(item["ts_ns"]) > through_ns]
             self._snapshot = response
-            self._snapshot_bytes = encoded
+            self._snapshot_bytes = prepared["encoded"]
             self._snapshot_through_ns = through_ns
             self._loading = None
             self._frame = frame
-            self._index_tape(frame)
+            self._ts, self._px, self._ag, self._sid, self._gap_ns = prepared["tape"]
             for row in kept_rows:
                 self._push_tape(
                     int(row["ts_ns"]),
@@ -849,58 +957,31 @@ class LivePublisher:
             self._path = session_path
             self._beta = beta_payload
             self._beta_ref = float(beta_payload["beta_ref"]) if beta_payload.get("ok") and beta_payload.get("beta_ref") else None
-            self._runs = list(((response.get("panels") or {}).get("p1_states") or {}).get("data") or [])
-            self._prefix = _aggress_prefix(display)
-            self._path_anchor = anchor
-            if last_p2:
-                self._buysell_ewm = last_p2.get("buysell_ratio")
-                try:
-                    self._buysell_ts = pd.Timestamp(str(last_p2.get("x")).replace(" ", "T"))
-                except Exception:
-                    self._buysell_ts = display.index.max() if not display.empty else None
-            else:
-                self._buysell_ewm = None
-                self._buysell_ts = None
-            self._seen.clear()
-            self._seen_set.clear()
-            if not display.empty:
-                tail = display.tail(self._seen.maxlen or 8192)
-                idx = pd.DatetimeIndex(pd.to_datetime(tail.index, utc=True))
-                symbols = (
-                    tail["dashboard_symbol"].astype(str).tolist()
-                    if "dashboard_symbol" in tail.columns else [""] * len(tail)
-                )
-                sizes = (
-                    pd.to_numeric(tail["size"], errors="coerce").fillna(0).tolist()
-                    if "size" in tail.columns else [0] * len(tail)
-                )
-                prices = pd.to_numeric(tail["price"], errors="coerce").fillna(0).tolist() if "price" in tail.columns else [0] * len(tail)
-                for ts_ns, symbol, size, price in zip(idx.asi8, symbols, sizes, prices):
-                    self._remember((
-                        int(ts_ns),
-                        str(symbol),
-                        int(round(float(size))),
-                        round(float(price), 6),
-                    ))
+            self._runs = prepared["runs"]
+            self._prefix = prepared["prefix"]
+            self._path_anchor = prepared["anchor"]
+            self._buysell_ewm, self._buysell_ts = prepared["buysell"]
+            self._seen = prepared["seen"]
+            self._seen_set = prepared["seen_set"]
             for key in kept_seen:
                 self._remember(key)
-            if beta_payload.get("ok"):
-                bucket = bucket_display_time(
-                    pd.to_datetime(through_ns, utc=True).to_pydatetime() if through_ns else datetime.now(timezone.utc)
-                )
-                self._beta_bucket = bucket.isoformat()
+            if prepared["beta_bucket"] is not None:
+                self._beta_bucket = prepared["beta_bucket"]
             if kept_points:
-                self._update_snapshot_tip(
-                    kept_points,
-                    kept_points[-1].get("banner"),
-                    (response.get("meta") or {}).get("live_status") or {},
-                    {},
-                )
+                self._update_snapshot_tip(kept_points, kept_points[-1].get("banner"), live_status, {})
+            if event:
+                opening = prepared["encoded"] if event == "snapshot" else f"event: {event}\ndata: {prepared['data']}\n\n"
+                self._broadcast_raw(opening)
+                if kept_points:
+                    self._broadcast_raw(encode_sse("trade", {
+                        "prints": kept_points,
+                        "flow_dominance": kept_points[-1].get("banner"),
+                        "live_status": live_status,
+                    }))
 
-    def _revision_event(self, display: pd.DataFrame, beta_payload: Dict[str, Any]) -> Optional[str]:
+    def _revision_event(self, new_prefix: Tuple[Tuple[int, float], ...], beta_payload: Dict[str, Any]) -> Optional[str]:
         if self._snapshot is None:
             return "snapshot"
-        new_prefix = _aggress_prefix(display)
         if self._prefix and _prefix_changed(self._prefix, new_prefix):
             return "history"
         incoming = beta_payload.get("beta_ref") if beta_payload.get("ok") else None

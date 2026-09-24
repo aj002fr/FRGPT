@@ -51,7 +51,7 @@ from scripts.aggression_dashboard_v3.core import (
 )
 from scripts.aggression_dashboard_v3.live_buffer import LiveTradeBuffer
 from scripts.aggression_dashboard_v3.live_publisher import HEARTBEAT_SEC, LivePublisher
-from scripts.aggression_dashboard_v3.print_reconcile import apply_live, reconcile_by_symbol
+from scripts.aggression_dashboard_v3.print_reconcile import LiveOverlayCache, apply_live, reconcile_by_symbol
 from scripts.aggression_dashboard_v3.panels import build_dashboard_payload, build_state_timeline_panel
 
 logging.basicConfig(
@@ -103,6 +103,8 @@ _TENDAY_PATH_LOCK = threading.Lock()
 _TENDAY_PATH: Dict[str, Any] = {"key": None, "frame": pd.DataFrame(), "building": None}
 _PUBLISHER: LivePublisher | None = None
 _PUBLISHER_LOCK = threading.Lock()
+_LIVE_OVERLAY = LiveOverlayCache()
+LIVE_OVERLAY_MIN_WINDOW = timedelta(minutes=30)
 
 
 def _beta_warm_key(price_symbol: str, aggression_symbols: Tuple[str, ...], dv01_adjust: bool) -> tuple:
@@ -431,12 +433,13 @@ def _live_display_trades(
     historical, errors, state = _peek_backfill_window(symbols, start, end)
     live = LIVE_BUFFER.get_trades(symbols, start, end)
     stored = _snapshot_session_window(symbols, start, end)
+    overlay = _LIVE_OVERLAY.apply_live if end - start >= LIVE_OVERLAY_MIN_WINDOW else apply_live
     trades: Dict[str, pd.DataFrame] = {}
     for symbol in symbols:
         base = stored.get(symbol)
         if base is None or base.empty:
             base = historical.get(symbol)
-        trades[symbol] = apply_live(base, live.get(symbol), symbol)
+        trades[symbol] = overlay(base, live.get(symbol), symbol)
     return trades, errors, state
 
 

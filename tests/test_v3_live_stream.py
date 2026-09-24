@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
@@ -182,6 +183,92 @@ def test_trade_updates_shared_snapshot_tip():
     p1 = ((snap or {}).get("panels") or {}).get("p1") or {}
     assert p1.get("data")
     assert p1["data"][-1]["x"] == snap["flow_dominance_series"][-1]["x"]
+
+
+def test_rebuilds_coalesce_to_the_minimum_interval():
+    from scripts.aggression_dashboard_v3 import live_publisher as lp
+
+    pub = _publisher(_tape(_recent_start(5), minutes=5, n=10))
+    assert pub._rebuild_wait_sec() == 0.0
+    assert pub.rebuild() is None
+    assert 0 < pub._rebuild_wait_sec() <= lp.WARMING_REBUILD_MIN_INTERVAL_SEC
+    pub.assemble_trades = lambda _s, _e: (_tape(_recent_start(20), minutes=20, n=30), {}, {})
+    assert pub.rebuild() is not None
+    assert lp.WARMING_REBUILD_MIN_INTERVAL_SEC < pub._rebuild_wait_sec() <= lp.REBUILD_MIN_INTERVAL_SEC
+
+
+def test_trade_thread_requests_rebuild_instead_of_running_it():
+    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
+    calls = []
+    pub.rebuild = lambda: calls.append(1)
+    pub.apply_trades([{
+        "ts": datetime.now(timezone.utc),
+        "price": 111.0,
+        "size": 1,
+        "side": "B",
+        "dashboard_symbol": "TY",
+    }])
+    assert calls == []
+    assert pub._rebuild_event.is_set()
+
+
+def test_history_broadcast_reuses_snapshot_bytes_then_replays_newer_prints():
+    first_tape = _tape(_recent_start(20), minutes=20, n=30, size=1)
+    pub = _publisher(first_tape)
+    pub.rebuild()
+    q = pub.subscribe()
+    q.get_nowait()
+    last = pub._frame.iloc[-1]
+    newer = {
+        "ts": pub._frame.index.max() + pd.Timedelta(milliseconds=5),
+        "price": float(last["price"]) + (1.0 / 64.0),
+        "size": 3,
+        "side": "A",
+        "dashboard_symbol": "TY",
+    }
+    hole = first_tape["TY"].copy()
+    hole.loc[0, "size"] = 50
+    pub.assemble_trades = lambda _s, _e: ({**first_tape, "TY": hole}, {}, {})
+    prepare = pub._prepare_picture
+    sent = []
+
+    def arrives_mid_rebuild(*args, **kwargs):
+        prepared = prepare(*args, **kwargs)
+        sent.append(pub.apply_trades([newer]))
+        return prepared
+
+    pub._prepare_picture = arrives_mid_rebuild
+    pub.rebuild()
+    assert q.get_nowait() == sent[0]
+    history = q.get_nowait()
+    assert history.startswith("event: history\n")
+    assert history.split("\n", 1)[1] == pub._snapshot_bytes.split("\n", 1)[1]
+    replay = q.get_nowait()
+    assert replay.startswith("event: trade\n")
+    prints = json.loads(replay.split("data: ", 1)[1])["prints"]
+    assert [p["buy_aggress"] + p["sell_aggress"] for p in prints] == [-3.0]
+    assert pub._snapshot_through_ns < int(pd.Timestamp(newer["ts"]).value)
+
+
+def test_catch_up_applies_prints_in_bounded_batches():
+    from scripts.aggression_dashboard_v3 import live_publisher as lp
+
+    start = _recent_start(1)
+    n = lp.CATCH_UP_BATCH * 2 + 5
+    rows = pd.DataFrame({
+        "ts": pd.to_datetime([start + timedelta(microseconds=10 * i) for i in range(n)], utc=True),
+        "price": 110.0,
+        "size": 1,
+        "side": "B",
+        "instrument_id": "1",
+        "raw_symbol": "TYZ6",
+        "dashboard_symbol": "TY",
+    })
+    pub = _publisher({"TY": rows, "FV": _empty_symbol("FV"), "TU": _empty_symbol("TU"), "US": _empty_symbol("US")})
+    batches = []
+    pub.apply_trades = lambda trades: batches.append(len(trades))
+    pub._catch_up_live(start - timedelta(seconds=1))
+    assert batches == [lp.CATCH_UP_BATCH, lp.CATCH_UP_BATCH, 5]
 
 
 def test_empty_tape_warming_helper():

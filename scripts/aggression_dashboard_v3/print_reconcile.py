@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import threading
 from collections import defaultdict
+from datetime import timezone
 from typing import Dict, Iterable, Optional, Tuple
 
 import numpy as np
@@ -48,11 +50,19 @@ def empty_trades() -> pd.DataFrame:
     return pd.DataFrame(columns=TRADE_COLUMNS)
 
 
+def _utc_ts(values: pd.Series) -> pd.Series:
+    """``pd.to_datetime(values, utc=True)``, skipped when it would return the same column."""
+    dtype = values.dtype
+    if isinstance(dtype, pd.DatetimeTZDtype) and dtype.tz is timezone.utc:
+        return values
+    return pd.to_datetime(values, utc=True)
+
+
 def _as_trades(frame: Optional[pd.DataFrame]) -> pd.DataFrame:
     if frame is None or frame.empty:
         return empty_trades()
     out = frame.copy()
-    out["ts"] = pd.to_datetime(out["ts"], utc=True)
+    out["ts"] = _utc_ts(out["ts"])
     return out.reset_index(drop=True)
 
 
@@ -65,8 +75,187 @@ def _is_missing_seq(value: object) -> bool:
         return False
 
 
+_WINDOW_NS = 1_000_000
+_SIDE_CODE = {"B": 0, "A": 1, "N": 2}
+
+
+def _side_codes(frame: pd.DataFrame) -> np.ndarray:
+    codes, uniques = pd.factorize(frame["side"], use_na_sentinel=False)
+    table = np.array([_SIDE_CODE[normalize_side(value)] for value in uniques], dtype=np.int64)
+    return table[codes] if len(table) else np.zeros(len(frame), dtype=np.int64)
+
+
+def _finite_floats(values: pd.Series) -> Optional[np.ndarray]:
+    try:
+        arr = values.to_numpy(dtype=float)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not np.isfinite(arr).all() or (len(arr) and np.abs(arr).max() >= 2.0 ** 52):
+        return None
+    return arr
+
+
+def _match_keys(frame: pd.DataFrame, symbol: str) -> Optional[Tuple[np.ndarray, ...]]:
+    """(side code, size, price bits, raw symbol, ts ns), or None when the exact loop must decide."""
+    sizes = _finite_floats(frame["size"])
+    prices = _finite_floats(frame["price"])
+    ts = frame["ts"].to_numpy(dtype="datetime64[ns]")
+    if sizes is None or prices is None or np.isnat(ts).any():
+        return None
+    tick = float(TICK_SIZE_BY_SYMBOL.get(symbol, 1.0 / 64.0))
+    price_norm = np.rint(prices / tick) * tick + 0.0
+    raw = (
+        frame["raw_symbol"].fillna("").astype(str).to_numpy()
+        if "raw_symbol" in frame.columns
+        else np.array([""] * len(frame), dtype=object)
+    )
+    return (
+        _side_codes(frame),
+        np.rint(sizes).astype(np.int64),
+        price_norm.view(np.int64),
+        raw,
+        ts.view(np.int64),
+    )
+
+
+def _bucket_ids(side: np.ndarray, size: np.ndarray, price_bits: np.ndarray) -> np.ndarray:
+    order = np.lexsort((price_bits, size, side))
+    new_group = np.ones(len(order), dtype=bool)
+    new_group[1:] = (
+        (side[order][1:] != side[order][:-1])
+        | (size[order][1:] != size[order][:-1])
+        | (price_bits[order][1:] != price_bits[order][:-1])
+    )
+    ids = np.empty(len(order), dtype=np.int64)
+    ids[order] = np.cumsum(new_group) - 1
+    return ids
+
+
 def _matched_incoming(stored: pd.DataFrame, incoming: pd.DataFrame, symbol: str) -> np.ndarray:
-    """True for each incoming row that pairs to one unused stored row."""
+    """True for each incoming row that pairs to one unused stored row.
+
+    Same result as ``_matched_incoming_reference``: each incoming row, in order, takes the
+    unused raw-compatible stored row of its (side, size, price) bucket with the smallest
+    |dt| <= 1 ms, lowest stored index on ties. Rows whose candidates no other incoming row
+    shares are decided directly; only rows that compete for a stored row run the loop.
+    """
+    if stored.empty or incoming.empty:
+        return np.zeros(len(incoming), dtype=bool)
+    s_keys = _match_keys(stored, symbol)
+    i_keys = _match_keys(incoming, symbol)
+    if s_keys is None or i_keys is None:
+        return _matched_incoming_reference(stored, incoming, symbol)
+    sequences = None
+    if "sequence" in stored.columns and "sequence" in incoming.columns:
+        sequences = (stored["sequence"].to_numpy(), incoming["sequence"].to_numpy())
+    return _match_on_keys(s_keys, i_keys, sequences)
+
+
+def _match_on_keys(
+    s_keys: Tuple[np.ndarray, ...],
+    i_keys: Tuple[np.ndarray, ...],
+    sequences: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+) -> np.ndarray:
+    s_side, s_size, s_price, s_raw, s_ts = s_keys
+    i_side, i_size, i_price, i_raw, i_ts = i_keys
+    n_in = len(i_ts)
+    n_s = len(s_ts)
+    matched = np.zeros(n_in, dtype=bool)
+    if n_s == 0 or n_in == 0:
+        return matched
+    used = np.zeros(n_s, dtype=bool)
+
+    if sequences is not None:
+        seq_to_j: Dict[object, Optional[int]] = {}
+        for j, seq in enumerate(sequences[0]):
+            if _is_missing_seq(seq):
+                continue
+            seq_to_j[seq] = None if seq in seq_to_j else j
+        for i, seq in enumerate(sequences[1]):
+            if _is_missing_seq(seq):
+                continue
+            j = seq_to_j.get(seq)
+            if j is None or used[j]:
+                continue
+            if i_side[i] != s_side[j] or i_size[i] != s_size[j] or i_price[i] != s_price[j]:
+                continue
+            if i_raw[i] and s_raw[j] and i_raw[i] != s_raw[j]:
+                continue
+            if abs(int(s_ts[j]) - int(i_ts[i])) > _WINDOW_NS:
+                continue
+            used[j] = True
+            matched[i] = True
+
+    bucket = _bucket_ids(
+        np.concatenate([s_side, i_side]),
+        np.concatenate([s_size, i_size]),
+        np.concatenate([s_price, i_price]),
+    )
+    s_bucket, i_bucket = bucket[:n_s], bucket[n_s:]
+    uniq_ts = np.unique(np.concatenate([s_ts, i_ts]))
+    span = np.int64(len(uniq_ts) + 1)
+    s_rank = np.searchsorted(uniq_ts, s_ts, side="left")
+    s_key = s_bucket * span + s_rank
+    s_order = np.argsort(s_key, kind="stable")
+    s_key_sorted = s_key[s_order]
+    lo_rank = np.searchsorted(uniq_ts, i_ts - _WINDOW_NS, side="left")
+    hi_rank = np.searchsorted(uniq_ts, i_ts + _WINDOW_NS, side="right") - 1
+    lo = np.searchsorted(s_key_sorted, i_bucket * span + lo_rank, side="left")
+    hi = np.searchsorted(s_key_sorted, i_bucket * span + hi_rank, side="right")
+    counts = np.where(matched, 0, np.maximum(hi - lo, 0))
+    total = int(counts.sum())
+    if total == 0:
+        return matched
+
+    pair_i = np.repeat(np.arange(n_in), counts)
+    starts = np.cumsum(counts) - counts
+    pair_pos = np.arange(total) - np.repeat(starts, counts) + np.repeat(lo, counts)
+    pair_j = s_order[pair_pos]
+    ir = i_raw[pair_i]
+    sr = s_raw[pair_j]
+    valid = ~used[pair_j] & ((ir == "") | (sr == "") | (ir == sr))
+    pair_i, pair_j = pair_i[valid], pair_j[valid]
+    if len(pair_i) == 0:
+        return matched
+    delta = np.abs(s_ts[pair_j] - i_ts[pair_i])
+
+    shared_j = np.bincount(pair_j, minlength=n_s) >= 2
+    contested_i = np.zeros(n_in, dtype=bool)
+    contested_i[pair_i[shared_j[pair_j]]] = True
+    free = ~contested_i[pair_i]
+
+    fi, fj, fd = pair_i[free], pair_j[free], delta[free]
+    if len(fi):
+        order = np.lexsort((fj, fd, fi))
+        fi, fj = fi[order], fj[order]
+        first = np.ones(len(fi), dtype=bool)
+        first[1:] = fi[1:] != fi[:-1]
+        matched[fi[first]] = True
+        used[fj[first]] = True
+
+    ci, cj, cd = pair_i[~free], pair_j[~free], delta[~free]
+    if len(ci):
+        order = np.lexsort((cj, ci))
+        ci, cj, cd = ci[order].tolist(), cj[order].tolist(), cd[order].tolist()
+        k, n_pairs = 0, len(ci)
+        while k < n_pairs:
+            i = ci[k]
+            best_j = -1
+            best_dt = 0
+            while k < n_pairs and ci[k] == i:
+                j = cj[k]
+                if not used[j] and (best_j < 0 or cd[k] < best_dt):
+                    best_j = j
+                    best_dt = cd[k]
+                k += 1
+            if best_j >= 0:
+                used[best_j] = True
+                matched[i] = True
+    return matched
+
+
+def _matched_incoming_reference(stored: pd.DataFrame, incoming: pd.DataFrame, symbol: str) -> np.ndarray:
+    """Original row-by-row matcher. Kept as the golden reference and the fallback for bad inputs."""
     n_in = len(incoming)
     matched = np.zeros(n_in, dtype=bool)
     if stored.empty or incoming.empty:
@@ -145,7 +334,7 @@ def _concat_keep(stored: pd.DataFrame, extra: pd.DataFrame) -> pd.DataFrame:
     if not frames:
         return empty_trades()
     out = pd.concat(frames, ignore_index=True)
-    out["ts"] = pd.to_datetime(out["ts"], utc=True)
+    out["ts"] = _utc_ts(out["ts"])
     out.sort_values("ts", inplace=True)
     out.reset_index(drop=True, inplace=True)
     return out
@@ -192,6 +381,112 @@ def apply_hist(stored: Optional[pd.DataFrame], hist: Optional[pd.DataFrame], sym
     else:
         keep = (~matched) & (~is_right.to_numpy())
     return _concat_keep(stored_df, hist_df.loc[keep])
+
+
+def _gap_cuts(s_ts: np.ndarray, i_ts: np.ndarray) -> np.ndarray:
+    """Timestamps that start a gap longer than the match window in the merged timeline.
+
+    No candidate pair can span such a gap, so rows before and after it match independently.
+    """
+    merged = np.sort(np.concatenate([s_ts, i_ts]), kind="stable")
+    if len(merged) < 2:
+        return merged[:0]
+    return merged[1:][np.diff(merged) > _WINDOW_NS]
+
+
+class LiveOverlayCache:
+    """``apply_live`` for a sliding lookback window that re-matches only the window edges.
+
+    The middle of the window, between the first gap cut and the previous call's last safe cut,
+    reuses the previous flags when every row from the window start to that cut is unchanged.
+    Anything else (reordered, inserted or edited rows, sequence ids, bad keys) runs the full match.
+    """
+
+    def __init__(self) -> None:
+        self._memo: Dict[str, Dict[str, object]] = {}
+        self._lock = threading.Lock()
+        self.reused = 0
+        self.full = 0
+
+    def apply_live(self, stored: Optional[pd.DataFrame], live: Optional[pd.DataFrame], symbol: str) -> pd.DataFrame:
+        stored_df = _as_trades(stored)
+        live_df = _as_trades(live)
+        if live_df.empty:
+            return stored_df
+        if stored_df.empty:
+            return live_df.sort_values("ts").reset_index(drop=True)
+        with self._lock:
+            matched = self._matched(stored_df, live_df, symbol)
+        return _concat_keep(stored_df, live_df.loc[~matched])
+
+    def _matched(self, stored: pd.DataFrame, live: pd.DataFrame, symbol: str) -> np.ndarray:
+        s_keys = _match_keys(stored, symbol)
+        i_keys = _match_keys(live, symbol)
+        usable = (
+            s_keys is not None
+            and i_keys is not None
+            and "sequence" not in stored.columns
+            and "sequence" not in live.columns
+            and bool(np.all(np.diff(s_keys[4]) >= 0))
+            and bool(np.all(np.diff(i_keys[4]) >= 0))
+        )
+        if not usable:
+            self._memo.pop(symbol, None)
+            self.full += 1
+            return _matched_incoming(stored, live, symbol)
+        memo = self._memo.get(symbol)
+        matched = self._reuse(memo, len(live), s_keys, i_keys) if memo else None
+        if matched is None:
+            self.full += 1
+            matched = _match_on_keys(s_keys, i_keys)
+        else:
+            self.reused += 1
+        cuts = _gap_cuts(s_keys[4], i_keys[4])
+        limit = min(int(s_keys[4][-1]), int(i_keys[4][-1])) - 2 * _WINDOW_NS
+        safe = cuts[cuts <= limit]
+        self._memo[symbol] = {
+            "s": s_keys,
+            "i": i_keys,
+            "matched": matched,
+            "cut": int(safe[-1]) if len(safe) else None,
+        }
+        return matched
+
+    @staticmethod
+    def _reuse(memo, n_live: int, s_keys, i_keys) -> Optional[np.ndarray]:
+        tail_cut = memo["cut"]
+        if tail_cut is None:
+            return None
+        cuts = _gap_cuts(s_keys[4], i_keys[4])
+        if not len(cuts) or int(cuts[0]) >= tail_cut:
+            return None
+        head_cut = int(cuts[0])
+        start = min(int(s_keys[4][0]), int(i_keys[4][0]))
+        bounds = {}
+        for name, cur in (("s", s_keys), ("i", i_keys)):
+            prev = memo[name]
+            p_lo, p_hi = np.searchsorted(prev[4], [start, tail_cut], side="left")
+            c_hi = int(np.searchsorted(cur[4], tail_cut, side="left"))
+            if p_hi - p_lo != c_hi:
+                return None
+            if not all(np.array_equal(p[p_lo:p_hi], c[:c_hi]) for p, c in zip(prev, cur)):
+                return None
+            c_head = int(np.searchsorted(cur[4], head_cut, side="left"))
+            bounds[name] = (c_head, c_hi, int(p_lo))
+        s_head, s_tail, _ = bounds["s"]
+        i_head, i_tail, i_prev_lo = bounds["i"]
+        matched = np.zeros(n_live, dtype=bool)
+        matched[:i_head] = _match_on_keys(
+            tuple(k[:s_head] for k in s_keys),
+            tuple(k[:i_head] for k in i_keys),
+        )
+        prev_matched = memo["matched"]
+        matched[i_head:i_tail] = prev_matched[i_prev_lo + i_head:i_prev_lo + i_tail]
+        matched[i_tail:] = _match_on_keys(
+            tuple(k[s_tail:] for k in s_keys),
+            tuple(k[i_tail:] for k in i_keys),
+        )
+        return matched
 
 
 def reconcile_symbol(
