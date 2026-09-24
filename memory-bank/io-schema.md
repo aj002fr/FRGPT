@@ -2452,7 +2452,7 @@ Complete I/O contracts for the code-mode MCP system.
 | flow_store.SEAL_DELAY_SEC | Constant | int | `10` | Minute sealed at end + 10 s |
 | flow_store.BACKFILL_SETTLE_MINUTES | Constant | int | `2` | Backfill never reaches the forming minute or the last 2 minutes |
 | flow_store.LEASE_HEARTBEAT_SEC / LEASE_STALE_SEC | Constant | int | `10` / `60` | Single-writer lease |
-| flow_store.COVERAGE_STALE_SEC / COVERAGE_HEAD_US / COVERAGE_TAIL_US | Constant | int | `60` s / `1_000_000` / `2_000_000` µs | Connection-level coverage margins |
+| flow_store.COVERAGE_STALE_SEC / COVERAGE_TAIL_US | Constant | int | `60` s / `2_000_000` µs | Coverage closes after 60 s without any record; each root opens at its own first record after (re)connect or overflow and extends to the newest record − 2 s |
 | flow_store.QUEUE_MAX | Constant | int | `200000` | Writer queue; overflow starts a new coverage epoch |
 | trade_tape / provisional_tape | Output | SQLite table | `trade_id TEXT PK = contract|ts_us|price_nanos|size|side|occurrence`, symbol, contract, ts_us, ts_event_ns, price_nanos, size, side, occurrence, source, sequence, ingested_utc, raw | `flow_tape.sqlite` |
 | coverage | Output | SQLite table | (symbol, start_us, end_us, source) healthy AccessAPI intervals; gaps = uncovered | live `accessapi_live`, backfill `accessapi_hist` |
@@ -2466,6 +2466,9 @@ Complete I/O contracts for the code-mode MCP system.
 | supervisor.CHECK_EVERY_SEC / FAILURES_BEFORE_RESTART | Constant | float / int | `10` / `3` | health cadence and restart rule |
 | supervisor.BACKOFF_BASE_SEC / BACKOFF_MAX_SEC / BACKOFF_RESET_AFTER_SEC | Constant | float | `5` / `300` / `600` | crash-loop backoff |
 | supervisor.WRITER_STATUS_STALE_SEC / WRITER_SEALED_STALE_SEC / BAR_STALE_SEC | Constant | float | `30` / `180` / `300` | phase-aware data health (bars only while OPEN) |
+| `<state_dir>/<app>.disabled` | Input | marker file | exists → the supervisor stops the app (writer via `stop.request`) and does not restart it; delete to resume | cutover rollback B/C |
+| supervisor profile ports | Constant | int | production 6053/6058/6063/6064/6065 (Tailscale repoints to these at cutover); rehearsal 7053/7058/7063/7064/7065 | `ops/supervisor/profiles.json` |
+| MDP_PG_HOST | EnvVar | str | optional; overrides `config.settings.PG_HOST` (default `100.82.143.79`, this PC's own Tailscale IP) | profiles set `127.0.0.1` so 5065 prices do not depend on Tailscale |
 | v22/v27 PRODUCER_POLL_SEC / PRODUCER_MAX_SEC | Constant | float | `1` / `20` | one evaluation per TBBO tick; requests read `_PRODUCED` |
 | feed.provisional / feed.source | Output | bool / str | true when newest bar is `databento_provisional` | 5064/5065 feed badge |
 | ECON_EVENTS_PG_DSN | EnvVar | str (secret) | libpq URI for role `economic_events_reader`; environment first, else `config/keys.env` (gitignored); hosts LAN first, Tailscale second; never `localhost` | `postgresql://economic_events_reader:***@172.30.86.68:5432,100.79.30.21:5432/economic_events` |

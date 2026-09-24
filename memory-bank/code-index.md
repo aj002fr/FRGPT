@@ -14,7 +14,11 @@ Reads V3's `/api/live/stream` for N seconds and prints event counts, bytes, time
 
 ### supervisor/profiles.json
 
-Process profiles for `scripts/dashboard_runtime/supervisor.py`: `rehearsal` (writer + V3/V2.2/V2.7/flow/supply on 6053/6058/6063/6064/6065, rehearsal DBs under `C:\dev\mdp_rehearsal\data`) and `production` (5053-5065, C: checkout DBs, writer with `--provisional`). `{python}` is replaced by the interpreter passed to the supervisor.
+Process profiles for `scripts/dashboard_runtime/supervisor.py`: `rehearsal` (writer + V3/V2.2/V2.7/flow/supply on 7053/7058/7063/7064/7065, rehearsal DBs under `C:\dev\mdp_rehearsal\data`) and `production` (6053-6065 so the cutover switch is a Tailscale repoint, C: checkout DBs, writer with `--provisional`). Both set `MDP_PG_HOST=127.0.0.1`. `{python}` is replaced by the interpreter passed to the supervisor.
+
+### docs/cutover_runbook.md
+
+Milestone 8 procedure: 16:45 go/no-go gates and open decisions (banner alerts, V2 signal log, local 50xx links), pre-window tag/backups/rollback worktree, halt steps with exact commands (disable the V1 watchdog, stop Y: apps, copy-then-`VACUUM INTO` migration, state copies, supervisor task, five `tailscale serve --https=<port>` repoints), reopen checks, and rollbacks A (before 18:00), B (one app, `<app>.disabled`), C (writer, V1 fallback on the local DB).
 
 ## Canonical flow store (`scripts/flow_store/`)
 
@@ -54,7 +58,7 @@ Milestone 3 check: for an interval, per-key trade counts vs AccessAPI historical
 
 ### supervisor.py
 
-Milestone 6 supervisor: starts the writer and the five apps headless, data-based health every 10 s (writer status/lease/sealed minute/queue; HTTP; newest-bar age for 5064/5065 only while OPEN), restart after three failed checks or on exit with 5-300 s backoff, `alerts.jsonl` + Windows Event Log, `metrics.jsonl` (CPU/RSS/threads/check ms), `supervisor_status.json`.
+Milestone 6 supervisor: starts the writer and the five apps headless, data-based health every 10 s (writer status/lease/sealed minute/queue; HTTP; newest-bar age for 5064/5065 only while OPEN), restart after three failed checks or on exit with 5-300 s backoff, `alerts.jsonl` + Windows Event Log, `metrics.jsonl` (CPU/RSS/threads/check ms), `supervisor_status.json`. A `<app>.disabled` file in the state dir stops that app and keeps it down.
 
 ## Event Parent/Component Mapping (`config/`)
 
