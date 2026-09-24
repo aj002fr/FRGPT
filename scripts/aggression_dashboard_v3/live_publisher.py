@@ -368,8 +368,9 @@ class LivePublisher:
         self._rebuild_event.set()
         self._inbox.put(("stop", None))
 
-    def subscribe(self) -> queue.Queue[str]:
-        q: queue.Queue[str] = queue.Queue(maxsize=SUBSCRIBER_QUEUE_MAX)
+    def subscribe(self, q: Optional[Any] = None) -> Any:
+        """Register a subscriber queue (a bounded queue.Queue unless one is passed) and fill its opening."""
+        q = q if q is not None else queue.Queue(maxsize=SUBSCRIBER_QUEUE_MAX)
         with self._lock:
             with self._subs_lock:
                 self._subs.append(q)

@@ -8,6 +8,7 @@ Does not edit, write, or restart V1 / V1.2 / V1.3 / V2.
 from __future__ import annotations
 
 import logging
+import os
 import queue as queue_module
 import sys
 import threading
@@ -864,8 +865,19 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5053)
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--server", choices=("werkzeug", "uvicorn"), default=os.environ.get("MDP_V3_SERVER", "werkzeug"),
+                        help="uvicorn serves the live stream as async fan-out (asgi.py); werkzeug is one thread per connection")
     args = parser.parse_args()
     _ensure_live_buffer()
+    if args.server == "uvicorn":
+        import uvicorn
+
+        from scripts.aggression_dashboard_v3.asgi import build_app
+        from scripts.aggression_dashboard_v3.live_publisher import SUBSCRIBER_QUEUE_MAX
+
+        asgi_app = build_app(app, _ensure_publisher, heartbeat_sec=HEARTBEAT_SEC, queue_max=SUBSCRIBER_QUEUE_MAX)
+        uvicorn.run(asgi_app, host=args.host, port=args.port, log_level="warning", timeout_keep_alive=30)
+        return
     app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)
 
 
