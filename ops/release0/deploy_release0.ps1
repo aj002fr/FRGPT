@@ -276,6 +276,9 @@ switch ($Action) {
         foreach ($p in 5050, 5053, 5064, 5065) { Write-Host ("port {0}: {1}" -f $p, $(if (Get-ListenerPid $p) { "listening pid $(Get-ListenerPid $p)" } else { 'DOWN' })) }
     }
     'deploy' {
+        if ($Item -eq 'v3' -and $ReleaseRef -eq 'release0') {
+            throw 'release0 v3 files predate the parallel V3 work now on Y:; pass an explicit -ReleaseRef built on the latest yshare-sync'
+        }
         $states = @{}
         foreach ($rel in $Items[$Item].Files) { $states[$rel] = File-State $rel }
         $other = @($states.Keys | Where-Object { $states[$_] -eq 'OTHER' })
