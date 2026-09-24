@@ -143,20 +143,29 @@ def _cap_list(items: List[Any], limit: int) -> None:
         del items[:extra]
 
 
-def _keep_newer_tail(rebuilt: pd.DataFrame, live: pd.DataFrame) -> pd.DataFrame:
-    """A history rebuild must not erase prints already drawn past its right edge."""
+def _keep_newer_tail(rebuilt: pd.DataFrame, live: pd.DataFrame) -> Tuple[pd.DataFrame, float]:
+    """A history rebuild must not erase prints already drawn past its right edge.
+
+    Also returns how far re-accumulating the tail moved its TotalAggress.
+    """
     if live is None or live.empty:
-        return rebuilt
+        return rebuilt, 0.0
     if rebuilt is None or rebuilt.empty:
-        return live
+        return live, 0.0
     live_idx = pd.DatetimeIndex(pd.to_datetime(live.index, utc=True))
     rebuilt_idx = pd.DatetimeIndex(pd.to_datetime(rebuilt.index, utc=True))
     if live_idx.max() <= rebuilt_idx.max():
-        return rebuilt
+        return rebuilt, 0.0
     tail = live.loc[live_idx > rebuilt_idx.max()].copy()
     if tail.empty:
-        return rebuilt
-    return pd.concat([rebuilt, _continue_session_sum(rebuilt, tail)]).sort_index()
+        return rebuilt, 0.0
+    before = pd.to_numeric(tail["total_aggress"], errors="coerce") if "total_aggress" in tail.columns else None
+    tail = _continue_session_sum(rebuilt, tail)
+    shift = 0.0
+    if before is not None:
+        moved = (pd.to_numeric(tail["total_aggress"], errors="coerce") - before).abs()
+        shift = float(moved.max()) if moved.notna().any() else 0.0
+    return pd.concat([rebuilt, tail]).sort_index(), shift
 
 
 def _continue_session_sum(rebuilt: pd.DataFrame, tail: pd.DataFrame) -> pd.DataFrame:
@@ -421,7 +430,7 @@ class LivePublisher:
         live_status = self.live_status()
         with self._lock:
             live_tail = self._pending_frame()
-        frame = _keep_newer_tail(frame, live_tail)
+        frame, tail_shift = _keep_newer_tail(frame, live_tail)
         display = clip_print_lookback(frame, self.lookback_hours)
         recent = _clip_with_margin(frame, display, SERIES_MARGIN)
         banner_as_of = frame.index.max() if frame is not None and not frame.empty else now
@@ -491,7 +500,9 @@ class LivePublisher:
         response["flow_dominance_series"] = series
         response["panels"]["p1_states"] = build_state_timeline_panel(series)
         event = self._revision_event(display, beta_payload)
-        self._store_picture(response, frame, display, session_path, beta_payload)
+        kept_shift = self._store_picture(response, frame, display, session_path, beta_payload)
+        if event is None and max(tail_shift, kept_shift) > PREFIX_TOLERANCE:
+            event = "history"
         if event:
             self._broadcast(event, response)
         self._catch_up_live(display.index.max() if not display.empty else lookback_start)
@@ -849,7 +860,8 @@ class LivePublisher:
         display: pd.DataFrame,
         session_path: pd.DataFrame,
         beta_payload: Dict[str, Any],
-    ) -> None:
+    ) -> float:
+        """Install the rebuilt picture. Returns how far prints applied meanwhile were moved."""
         p2 = ((response.get("panels") or {}).get("p2") or {}).get("data") or []
         last_p2 = p2[-1] if p2 else None
         anchor = None
@@ -877,6 +889,7 @@ class LivePublisher:
             self._loading = None
             self._frame = frame
             self._index_tape(display)
+            kept_shift = self._continue_kept(kept_rows, kept_points, anchor, beta_payload)
             for row in kept_rows:
                 self._push_tape(
                     int(row["ts_ns"]),
@@ -941,6 +954,40 @@ class LivePublisher:
                     (response.get("meta") or {}).get("live_status") or {},
                     {},
                 )
+        return kept_shift
+
+    def _continue_kept(
+        self,
+        rows: List[Dict[str, Any]],
+        points: List[Dict[str, Any]],
+        anchor: Optional[Tuple[float, float]],
+        beta_payload: Dict[str, Any],
+    ) -> float:
+        """Re-accumulate prints applied during the rebuild onto the rebuilt tape's sum."""
+        if not rows or not self._ag or self._ag[-1] is None:
+            return 0.0
+        running = float(self._ag[-1])
+        session = self._sid[-1] if self._sid else ""
+        totals: List[float] = []
+        shift = 0.0
+        for row in rows:
+            row_session = str(row.get("session_id") or "")
+            if row_session != session:
+                running = 0.0
+                session = row_session
+            running += float(row.get("delta_a") or 0.0)
+            previous = _finite_num(row.get("total_aggress"))
+            if previous is not None:
+                shift = max(shift, abs(running - previous))
+            row["total_aggress"] = running
+            totals.append(running)
+        if len(points) == len(rows):
+            beta_ref = _finite_num(beta_payload.get("beta_ref")) if beta_payload.get("ok") else None
+            for point, total in zip(points, totals):
+                point["total_aggress"] = total
+                if anchor is not None and beta_ref is not None:
+                    point["implied_price"] = anchor[0] + beta_ref * (total - anchor[1])
+        return shift
 
     def _revision_event(self, display: pd.DataFrame, beta_payload: Dict[str, Any]) -> Optional[str]:
         if self._snapshot is None:
