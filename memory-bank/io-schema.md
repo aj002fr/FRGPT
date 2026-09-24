@@ -2481,6 +2481,7 @@ Complete I/O contracts for the code-mode MCP system.
 | live_publisher.REPLAY_MAX | Constant | int | `20_000` | newest prints replayed to a new or resynced subscriber |
 | GET /api/live_status (V3) extra | Output | dict | `stream_lag_sec` (last broadcast minus newest print, s), `stream_resyncs`, `stream_subscribers` | supervisor `lag_alert_sec` 10 |
 | ops/rehearsal/stream_continuity.py | Input | CLI | `--url`, `--seconds`, `--max-step` (default 1,000,000 $DV01) | exit 1 if any consecutive-print TotalAggress step exceeds it |
+| MDP_V3_SERVER / V3 `--server` | EnvVar / Input | `werkzeug` or `uvicorn` | default `werkzeug`; `uvicorn` runs `asgi.build_app` (Starlette stream + Flask via a2wsgi) | C: profiles pass `--server uvicorn` |
 | MDP_PG_HOST | EnvVar | str | optional; overrides `config.settings.PG_HOST` (default `100.82.143.79`, this PC's own Tailscale IP) | profiles set `127.0.0.1` so 5065 prices do not depend on Tailscale |
 | v22/v27 PRODUCER_POLL_SEC / PRODUCER_MAX_SEC | Constant | float | `1` / `20` | one evaluation per TBBO tick; requests read `_PRODUCED` |
 | feed.provisional / feed.source | Output | bool / str | true when newest bar is `databento_provisional` | 5064/5065 feed badge |
