@@ -35,6 +35,8 @@ from scripts.aggression_dashboard_v3.core import (
     default_start_time,
 )
 from scripts.aggression_dashboard_v3.panels import (
+    BANNER_HOVER_FIELDS,
+    BANNER_SERIES_MIN_GAP,
     BUYSELL_DISPLAY_HALFLIFE,
     READY_STATE_COLORS,
     STATE_HEADLINE,
@@ -59,6 +61,7 @@ SUBSCRIBER_QUEUE_MAX = 128
 REBUILD_MIN_INTERVAL_SEC = 60.0
 WARMING_REBUILD_MIN_INTERVAL_SEC = 5.0
 CATCH_UP_BATCH = 2000
+REPLAY_MAX = 20_000
 TIP_SLACK_MIN = 1.0
 PREFIX_TOLERANCE = 0.5
 SERIES_MARGIN = pd.Timedelta(minutes=2 * WINDOW_MIN)
@@ -155,6 +158,21 @@ def _aggress_prefix(frame: pd.DataFrame) -> Tuple[Tuple[int, float], ...]:
     idx = pd.DatetimeIndex(pd.to_datetime(frame.index, utc=True))
     values = pd.to_numeric(frame["total_aggress"], errors="coerce").to_numpy(dtype=float)
     return tuple((int(ts), round(float(val), 6) if math.isfinite(val) else None) for ts, val in zip(idx.asi8, values))
+
+
+def _hover_row(point: Dict[str, Any]) -> Dict[str, Any]:
+    banner = point.get("banner") or {}
+    row = {key: banner.get(key) for key in BANNER_HOVER_FIELDS if banner.get(key) is not None}
+    row["x"] = point["x"]
+    return row
+
+
+def _wire_point(point: Dict[str, Any]) -> Dict[str, Any]:
+    """A print as sent: the hover banner rides along only when it is due (state change or 5 s)."""
+    out = {key: value for key, value in point.items() if key not in ("banner", "hover_due")}
+    if point.get("hover_due") and point.get("banner"):
+        out["banner"] = _hover_row(point)
+    return out
 
 
 def _finite_num(value: Any) -> Optional[float]:
@@ -332,6 +350,8 @@ class LivePublisher:
         self._beta_peek_mono = 0.0
         self.resyncs = 0
         self.last_stream_lag_sec: Optional[float] = None
+        self._hover_state: Optional[str] = None
+        self._hover_ns: Optional[int] = None
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -362,7 +382,7 @@ class LivePublisher:
         with self._lock:
             opening = self._snapshot_bytes
             through = self._snapshot_through_ns
-            replay_points = [item["point"] for item in self._recent_points if int(item["ts_ns"]) > through]
+            replay_points = [item["point"] for item in self._recent_points if int(item["ts_ns"]) > through][-REPLAY_MAX:]
             if opening is None:
                 if self._snapshot is not None:
                     opening = encode_sse("snapshot", self._snapshot)
@@ -373,7 +393,7 @@ class LivePublisher:
             messages = [opening]
             if replay_points:
                 messages.append(encode_sse("trade", {
-                    "prints": replay_points,
+                    "prints": [_wire_point(point) for point in replay_points],
                     "flow_dominance": replay_points[-1].get("banner"),
                     "live_status": self.live_status(),
                     "server_ts": time.time() * 1000.0,
@@ -623,7 +643,7 @@ class LivePublisher:
             if self._ts:
                 self.last_stream_lag_sec = max(0.0, server_ts - self._ts[-1] / 1e9)
             payload = {
-                "prints": prints,
+                "prints": [_wire_point(point) for point in prints],
                 "flow_dominance": banner,
                 "strip": strip,
                 "live_status": live_status,
@@ -707,9 +727,8 @@ class LivePublisher:
                 snap["flow_dominance"] = banner
                 series = snap.setdefault("flow_dominance_series", [])
                 for point in prints:
-                    hover = point.get("hover")
-                    if hover:
-                        series.append(hover)
+                    if point.get("hover_due") and point.get("banner"):
+                        series.append(_hover_row(point))
             if strip:
                 states = panels.setdefault("p1_states", {"data": []})
                 runs = states.setdefault("data", [])
@@ -791,9 +810,16 @@ class LivePublisher:
         buysell = self._update_buysell_ewm(ts, raw)
         implied = self._implied_price(total_aggress, price, beta_ref)
         x = _to_et_iso(ts)
-        hover = dict(banner)
-        hover["x"] = x
         self._remember(key)
+        state = banner.get("state") or banner.get("status")
+        hover_due = (
+            state != self._hover_state
+            or self._hover_ns is None
+            or ts_ns - self._hover_ns >= int(BANNER_SERIES_MIN_GAP.value)
+        )
+        if hover_due:
+            self._hover_state = state
+            self._hover_ns = ts_ns
         point = {
             "x": x,
             "price": price,
@@ -803,7 +829,7 @@ class LivePublisher:
             "sell_aggress": -abs(sell),
             "implied_price": implied,
             "banner": banner,
-            "hover": hover,
+            "hover_due": hover_due,
         }
         self._recent_points.append({"ts_ns": ts_ns, "point": point})
         return point
@@ -1068,7 +1094,7 @@ class LivePublisher:
                 self._broadcast_raw(opening)
                 if kept_points:
                     self._broadcast_raw(encode_sse("trade", {
-                        "prints": kept_points,
+                        "prints": [_wire_point(point) for point in kept_points],
                         "flow_dominance": kept_points[-1].get("banner"),
                         "live_status": live_status,
                     }))

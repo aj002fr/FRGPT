@@ -483,3 +483,20 @@ def test_trade_messages_carry_server_time_and_stream_lag():
                                  "size": 1, "side": "B", "dashboard_symbol": "TY"}])
     payload = json.loads(encoded.split("data: ", 1)[1])
     assert payload["server_ts"] > 0 and payload["stream_lag_sec"] >= 0
+
+
+def test_prints_carry_the_hover_banner_only_when_due():
+    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
+    pub.rebuild()
+    base = pub._frame.index.max()
+
+    def send(ms: int) -> Dict[str, Any]:
+        encoded = pub.apply_trades([{"ts": base + pd.Timedelta(milliseconds=ms), "price": 111.0, "size": 1,
+                                     "side": "B", "dashboard_symbol": "TY"}])
+        return json.loads(encoded.split("data: ", 1)[1])
+
+    first, soon, later = send(10), send(1_000), send(7_000)
+    assert first["prints"][0]["banner"]["x"] == first["prints"][0]["x"]
+    assert "banner" not in soon["prints"][0] and soon["flow_dominance"]
+    assert "banner" in later["prints"][0]
+    assert all("hover" not in p and "hover_due" not in p for msg in (first, soon, later) for p in msg["prints"])

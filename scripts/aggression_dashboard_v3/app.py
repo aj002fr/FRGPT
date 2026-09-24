@@ -821,7 +821,7 @@ def api_live_stream() -> Response:
 
     def generate():
         try:
-            yield ": connected\n" + (" " * 2048) + "\n\n"
+            yield "retry: 5000\n: connected\n" + (" " * 2048) + "\n\n"
             while True:
                 try:
                     yield incoming.get(timeout=HEARTBEAT_SEC)
