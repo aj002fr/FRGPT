@@ -449,3 +449,36 @@ def test_prints_applied_during_a_rebuild_continue_the_rebuilt_sum():
     prints = json.loads(replay.get_nowait().split("data: ", 1)[1])["prints"]
     assert [p["total_aggress"] for p in prints] == [rebuilt + 2.0, rebuilt + 4.0]
     del q
+
+
+def test_overflowing_subscriber_is_resynced_with_the_picture_and_replay():
+    from scripts.aggression_dashboard_v3 import live_publisher as lp
+
+    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
+    pub.rebuild()
+    q = pub.subscribe()
+    last_ts = pub._frame.index.max()
+    for k in range(lp.SUBSCRIBER_QUEUE_MAX + 5):
+        pub.apply_trades([{"ts": last_ts + pd.Timedelta(milliseconds=5 * (k + 1)), "price": 111.0, "size": 1,
+                           "side": "B", "dashboard_symbol": "TY"}])
+    assert pub.resyncs >= 1
+    messages = []
+    while not q.empty():
+        messages.append(q.get_nowait())
+    first_snapshot = next(i for i, m in enumerate(messages) if m.startswith("event: snapshot\n"))
+    replay = json.loads(messages[first_snapshot + 1].split("data: ", 1)[1])
+    after = [json.loads(m.split("data: ", 1)[1]) for m in messages[first_snapshot + 2:] if m.startswith("event: trade\n")]
+    stamps = [p["x"] for p in replay["prints"]] + [p["x"] for msg in after for p in msg["prints"]]
+    assert stamps == sorted(stamps) and len(stamps) == len(set(stamps)) == lp.SUBSCRIBER_QUEUE_MAX + 5
+
+
+def test_trade_messages_carry_server_time_and_stream_lag():
+    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
+    pub.rebuild()
+    q = pub.subscribe()
+    while not q.empty():
+        q.get_nowait()
+    encoded = pub.apply_trades([{"ts": pub._frame.index.max() + pd.Timedelta(milliseconds=2), "price": 111.0,
+                                 "size": 1, "side": "B", "dashboard_symbol": "TY"}])
+    payload = json.loads(encoded.split("data: ", 1)[1])
+    assert payload["server_ts"] > 0 and payload["stream_lag_sec"] >= 0

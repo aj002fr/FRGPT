@@ -87,6 +87,22 @@ function formatEtTime(date = new Date()) {
   }) + " ET";
 }
 
+let lastDelay = null;
+
+function delayText() {
+  if (!lastDelay) {
+    return "";
+  }
+  const parts = [];
+  if (lastDelay.stream != null && Number.isFinite(lastDelay.stream)) {
+    parts.push(`exchange to server ${lastDelay.stream.toFixed(1)}s`);
+  }
+  if (lastDelay.page != null && Number.isFinite(lastDelay.page)) {
+    parts.push(`server to page ${lastDelay.page.toFixed(1)}s`);
+  }
+  return parts.length ? ` · ${parts.join(" · ")}` : "";
+}
+
 function updateFreshnessBanner(liveStatus) {
   const status = liveStatus || {};
   const mode = MODE_SELECT.value;
@@ -111,7 +127,7 @@ function updateFreshnessBanner(liveStatus) {
     FRESHNESS_BANNER.textContent = `${source} DOWN${status.error ? ` - ${status.error}` : ""}`;
   } else if (age != null && age < 30) {
     FRESHNESS_BANNER.classList.add("live");
-    FRESHNESS_BANNER.textContent = `${source} LIVE - last tick ${formatAge(age)} ago`;
+    FRESHNESS_BANNER.textContent = `${source} LIVE - last tick ${formatAge(age)} ago${delayText()}`;
   } else {
     FRESHNESS_BANNER.classList.add("stale");
     FRESHNESS_BANNER.textContent = `${source} ${marketOpen ? "STALE" : "MARKET CLOSED"} - last tick ${formatAge(age)} ago`;
@@ -911,6 +927,9 @@ function applyTradeDelta(delta) {
   }
   if (delta.flow_dominance) {
     updateFlowDominanceBanner(delta.flow_dominance);
+  }
+  if (delta.server_ts != null) {
+    lastDelay = { stream: delta.stream_lag_sec, page: Math.max(0, (Date.now() - delta.server_ts) / 1000) };
   }
   if (delta.live_status) {
     updateFreshnessBanner(delta.live_status);

@@ -804,7 +804,14 @@ def api_config() -> Any:
 @app.get("/api/live_status")
 def api_live_status() -> Any:
     _ensure_live_buffer()
-    return jsonify(_live_status("live"))
+    status = dict(_live_status("live"))
+    publisher = _PUBLISHER
+    if publisher is not None:
+        status["stream_lag_sec"] = publisher.last_stream_lag_sec
+        status["stream_resyncs"] = publisher.resyncs
+        with publisher._subs_lock:
+            status["stream_subscribers"] = len(publisher._subs)
+    return jsonify(status)
 
 
 @app.get("/api/live/stream")

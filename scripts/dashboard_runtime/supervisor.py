@@ -60,6 +60,7 @@ class AppSpec:
     fresh_bars: bool = False
     env: dict[str, str] = field(default_factory=dict)
     grace_sec: float = 120.0
+    lag_alert_sec: Optional[float] = None
 
 
 @dataclass
@@ -72,6 +73,10 @@ class AppState:
     last_ok_at: Optional[float] = None
     last_detail: str = ""
     last_latency_ms: Optional[float] = None
+    last_lag_alert: float = 0.0
+
+
+LAG_ALERT_EVERY_SEC = 300.0
 
 
 def backoff_sec(restarts: int) -> float:
@@ -150,6 +155,13 @@ def check_http(spec: AppSpec, phase: str, fetch: Callable[[str], tuple[int, byte
         age = feed.get("age_sec")
         if age is None or float(age) > BAR_STALE_SEC:
             return False, f"newest bar {age}s old"
+    if spec.lag_alert_sec is not None and phase == "OPEN":
+        try:
+            lag = json.loads(body).get("stream_lag_sec")
+        except Exception:
+            lag = None
+        if lag is not None and float(lag) > spec.lag_alert_sec:
+            return True, f"HTTP {status}; stream lag {float(lag):.1f}s over {spec.lag_alert_sec:.0f}s"
     return True, f"HTTP {status}"
 
 
@@ -264,6 +276,9 @@ class Supervisor:
                     logger.info("%s healthy again: %s", spec.name, detail)
                 state.failures = 0
                 state.last_ok_at = now
+                if "stream lag" in detail and now - state.last_lag_alert >= LAG_ALERT_EVERY_SEC:
+                    state.last_lag_alert = now
+                    self.alert("warning", spec.name, detail)
                 continue
             state.failures += 1
             logger.warning("%s unhealthy (%s/%s): %s", spec.name, state.failures, FAILURES_BEFORE_RESTART, detail)
@@ -373,6 +388,7 @@ def load_profile(path: Path, name: str, python: str) -> tuple[list[AppSpec], dic
             name=app["name"], argv=argv, port=app.get("port"), health=app.get("health", "http"), url=app.get("url"),
             ok_statuses=tuple(app.get("ok_statuses", [200])), status_file=app.get("status_file"),
             fresh_bars=bool(app.get("fresh_bars")), env=app.get("env", {}), grace_sec=float(app.get("grace_sec", 120.0)),
+            lag_alert_sec=app.get("lag_alert_sec"),
         ))
     return specs, profile.get("env", {}), Path(profile["state_dir"])
 

@@ -321,6 +321,8 @@ class LivePublisher:
         self._dv01: Optional[Dict[str, float]] = None
         self._beta_bucket: Optional[str] = None
         self._beta_peek_mono = 0.0
+        self.resyncs = 0
+        self.last_stream_lag_sec: Optional[float] = None
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -340,28 +342,34 @@ class LivePublisher:
     def subscribe(self) -> queue.Queue[str]:
         q: queue.Queue[str] = queue.Queue(maxsize=SUBSCRIBER_QUEUE_MAX)
         with self._lock:
+            with self._subs_lock:
+                self._subs.append(q)
+            for message in self._opening_messages():
+                self._put(q, message)
+        return q
+
+    def _opening_messages(self) -> List[str]:
+        """What a new (or resynced) subscriber needs: the picture, then every print since it."""
+        with self._lock:
             opening = self._snapshot_bytes
             through = self._snapshot_through_ns
             replay_points = [item["point"] for item in self._recent_points if int(item["ts_ns"]) > through]
-            loading = None if opening else self._loading
-            snap = None if opening else self._snapshot
-            with self._subs_lock:
-                self._subs.append(q)
             if opening is None:
-                if snap is not None:
-                    opening = encode_sse("snapshot", snap)
-                elif loading is not None:
-                    opening = encode_sse("loading", loading)
+                if self._snapshot is not None:
+                    opening = encode_sse("snapshot", self._snapshot)
+                elif self._loading is not None:
+                    opening = encode_sse("loading", self._loading)
                 else:
                     opening = encode_sse("loading", {"reason": "Waiting for the live picture."})
-            self._put(q, opening)
+            messages = [opening]
             if replay_points:
-                self._put(q, encode_sse("trade", {
+                messages.append(encode_sse("trade", {
                     "prints": replay_points,
                     "flow_dominance": replay_points[-1].get("banner"),
                     "live_status": self.live_status(),
+                    "server_ts": time.time() * 1000.0,
                 }))
-        return q
+            return messages
 
     def unsubscribe(self, q: queue.Queue[str]) -> None:
         with self._subs_lock:
@@ -600,11 +608,16 @@ class LivePublisher:
                 self.offer_history()
                 return None
             strip = self._strip_edge(prints[-1])
+            server_ts = time.time()
+            if self._ts:
+                self.last_stream_lag_sec = max(0.0, server_ts - self._ts[-1] / 1e9)
             payload = {
                 "prints": prints,
                 "flow_dominance": banner,
                 "strip": strip,
                 "live_status": live_status,
+                "server_ts": server_ts * 1000.0,
+                "stream_lag_sec": self.last_stream_lag_sec,
                 "lookback_start": _to_et_iso(datetime.now(timezone.utc) - timedelta(hours=self.lookback_hours)),
                 "meta": {
                     "flow": {
@@ -1161,11 +1174,22 @@ class LivePublisher:
         try:
             q.put_nowait(encoded)
         except queue.Full:
-            try:
-                q.get_nowait()
-            except queue.Empty:
-                pass
-            try:
-                q.put_nowait(encoded)
-            except queue.Full:
-                pass
+            self._resync(q)
+
+    def _resync(self, q: queue.Queue[str]) -> None:
+        """A subscriber that cannot keep up gets the current picture again instead of gapped deltas.
+
+        The opening and replay already contain the message that overflowed the queue.
+        """
+        with self._lock:
+            while True:
+                try:
+                    q.get_nowait()
+                except queue.Empty:
+                    break
+            self.resyncs += 1
+            for message in self._opening_messages():
+                try:
+                    q.put_nowait(message)
+                except queue.Full:
+                    break

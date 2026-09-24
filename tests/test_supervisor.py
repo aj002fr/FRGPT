@@ -176,3 +176,24 @@ def test_disabled_marker_stops_the_app_and_keeps_it_down(tmp_path) -> None:
     (tmp_path / "flow.disabled").unlink()
     sup.tick()
     assert len(started) == 2
+
+
+def test_stream_lag_over_threshold_alerts_without_restarting(tmp_path) -> None:
+    spec = sv.AppSpec(name="v3", argv=["x"], url="http://x/api/live_status", lag_alert_sec=10.0)
+    bodies = iter([b'{"stream_lag_sec": 25.0}'] * 3)
+    started = []
+
+    def launcher(_spec):
+        proc = FakeProc()
+        started.append(proc)
+        return proc
+
+    sv_clock = Clock()
+    sup = sv.Supervisor([spec], state_dir=tmp_path, clock=sv_clock, launcher=launcher,
+                        fetch=lambda url: (200, next(bodies)), phase=lambda now: "OPEN")
+    for _ in range(3):
+        sup.tick()
+        sv_clock.t += 10
+    alerts = (tmp_path / "alerts.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    assert len(started) == 1 and len(alerts) == 1 and "stream lag 25.0s" in alerts[0]
+    assert sv.check_http(spec, "HALT", lambda url: (200, b'{"stream_lag_sec": 25.0}')) == (True, "HTTP 200")
