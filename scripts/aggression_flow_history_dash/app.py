@@ -25,7 +25,12 @@ from scripts.aggression_flow_history_dash.daily import (
     build_today_outlook,
     load_intraday,
 )
-from scripts.aggression_flow_history_dash.events import FAMILY_LABELS, load_tagged_events
+from scripts.aggression_flow_history_dash.events import (
+    FAMILY_LABELS,
+    events_status,
+    load_tagged_events,
+    start_events_cache,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -107,6 +112,7 @@ def api_status() -> Any:
         "label": STATUS_LABEL,
         "last_ts_utc": last_ts,
         "feed": feed_status(last_ts),
+        "events": events_status(),
     })
 
 
@@ -240,6 +246,7 @@ def main() -> None:
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
     logger.info("Starting flow-history viewer on %s:%s", args.host, args.port)
+    start_events_cache(f"mdp_{args.port}")
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 

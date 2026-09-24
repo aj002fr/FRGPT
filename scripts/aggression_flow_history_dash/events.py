@@ -1,18 +1,35 @@
-"""Read-only auction / supply / month-end / tier-1 tags for the flow-history viewer."""
+"""Read-only auction / supply / month-end / tier-1 tags for the flow-history viewer.
+
+Events come from Yaman's Postgres ``economic_events`` (read-only role) through a process-wide
+cache: one background thread refreshes it every minute and requests only read memory. An
+explicit ``db_path`` reads an events SQLite file instead (tests and one-off checks).
+"""
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import re
 import sqlite3
-from datetime import date, datetime
+import threading
+import time as time_module
+from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Sequence
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 EVENTS_DB = Path(r"Y:\Yaman\Fundamentals\Economic Events\Data\events.sqlite")
+EVENTS_PG_DSN_ENV = "ECON_EVENTS_PG_DSN"
+EVENTS_CACHE_DIR_ENV = "EVENTS_CACHE_DIR"
+EVENTS_REFRESH_SEC = 60.0
+EVENTS_COLD_WAIT_SEC = 5.0
+EVENTS_SOURCE_LABEL = "postgres economic_events (read-only)"
+KEYS_ENV_PATH = PROJECT_ROOT / "config" / "keys.env"
+EASTERN = ZoneInfo("America/New_York")
 MONTH_END_DAYS = 3
 
 AUCTION_NAMES = (
@@ -109,7 +126,7 @@ def describe_calendar_day(
     day: date,
     *,
     events: list[dict[str, Any]] | None = None,
-    db_path: Path = EVENTS_DB,
+    db_path: Path | None = None,
     month_end_days: int = MONTH_END_DAYS,
 ) -> dict[str, Any]:
     """Tag a calendar date from the events DB even when that day has no flow yet."""
@@ -246,28 +263,22 @@ def _row_to_event(day: date, family: str, name: str, stamp: datetime) -> dict[st
     }
 
 
-def _load_yaman_events(
-    conn: sqlite3.Connection,
+TAGGED_PARENTS = tuple(COUPON_SUPPLY_PARENTS) + tuple(TIER1_PARENTS)
+
+
+def _yaman_events_from_rows(
+    rows: Iterable[Sequence[Any]],
     *,
-    start: date | None,
-    end: date | None,
+    start: date | None = None,
+    end: date | None = None,
 ) -> list[dict[str, Any]]:
-    parents = list(COUPON_SUPPLY_PARENTS) + list(TIER1_PARENTS)
-    placeholders = ", ".join("?" for _ in parents)
-    sql = f"""
-        SELECT PARENT_EVENT, EVENT_NAME, COUNTRY_NAME, RELEASE_DATE, RELEASE_DATE_TIME
-        FROM events
-        WHERE RELEASE_DATE IS NOT NULL
-          AND PARENT_EVENT IN ({placeholders})
-        ORDER BY RELEASE_DATE ASC
-    """
-    rows = conn.execute(sql, parents).fetchall()
+    """Map (parent, event name, country, release date, release datetime) rows, in order, to tags."""
     out: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str]] = set()
-    for row in rows:
-        if not _is_us(row["COUNTRY_NAME"]):
+    for parent_raw, event_name, country, release_date, release_dt in rows:
+        if not _is_us(country):
             continue
-        stamp = _parse_event_dt(row["RELEASE_DATE_TIME"]) or _parse_event_dt(row["RELEASE_DATE"])
+        stamp = _parse_event_dt(release_dt) or _parse_event_dt(release_date)
         if stamp is None:
             continue
         day = stamp.date()
@@ -275,17 +286,46 @@ def _load_yaman_events(
             continue
         if end is not None and day > end:
             continue
-        parent = str(row["PARENT_EVENT"] or "").strip()
+        parent = str(parent_raw or "").strip()
         family = TIER1_PARENTS.get(parent) or ("auction" if parent in COUPON_SUPPLY_PARENTS else None)
         if family is None:
             continue
-        name = parent or str(row["EVENT_NAME"] or "")
+        name = parent or str(event_name or "")
         key = (day.isoformat(), family, name)
         if key in seen:
             continue
         seen.add(key)
         out.append(_row_to_event(day, family, name, stamp))
     return out
+
+
+def _load_yaman_events(
+    conn: sqlite3.Connection,
+    *,
+    start: date | None,
+    end: date | None,
+) -> list[dict[str, Any]]:
+    placeholders = ", ".join("?" for _ in TAGGED_PARENTS)
+    sql = f"""
+        SELECT PARENT_EVENT, EVENT_NAME, COUNTRY_NAME, RELEASE_DATE, RELEASE_DATE_TIME
+        FROM events
+        WHERE RELEASE_DATE IS NOT NULL
+          AND PARENT_EVENT IN ({placeholders})
+        ORDER BY RELEASE_DATE ASC
+    """
+    rows = conn.execute(sql, list(TAGGED_PARENTS)).fetchall()
+    return _yaman_events_from_rows((tuple(row) for row in rows), start=start, end=end)
+
+
+def events_from_pg_rows(rows: Iterable[Sequence[Any]]) -> list[dict[str, Any]]:
+    """Tag rows from ``economic_events.public.events``: (parent_event, event_name, country_name,
+    release_date, release_date_time, event_id).
+
+    Sorting by (release_date, parent_event, event_id) reproduces the SQLite reader's order, and so
+    its de-duplication, exactly (event_id numbers the original SQLite rows in load order).
+    """
+    ordered = sorted(rows, key=lambda row: (row[3], str(row[0] or ""), row[5]))
+    return _yaman_events_from_rows(row[:5] for row in ordered)
 
 
 def _load_legacy_events(
@@ -336,13 +376,210 @@ def _load_legacy_events(
     return out
 
 
+_PG_TAGGED_SQL = """
+    SELECT parent_event, event_name, country_name, release_date, release_date_time, event_id
+    FROM events
+    WHERE release_date IS NOT NULL AND parent_event = ANY(%s)
+"""
+_PG_FRESHNESS_SQL = """
+    SELECT count(*), max(event_id), max(release_date_time) FILTER (WHERE actual IS NOT NULL)
+    FROM events
+"""
+
+
+def _pg_dsn() -> str | None:
+    value = os.environ.get(EVENTS_PG_DSN_ENV)
+    if value:
+        return value.strip()
+    if KEYS_ENV_PATH.exists():
+        for line in KEYS_ENV_PATH.read_text(encoding="utf-8", errors="replace").splitlines():
+            key, sep, raw = line.partition("=")
+            if sep and key.strip() == EVENTS_PG_DSN_ENV and raw.strip():
+                return raw.strip()
+    return None
+
+
+def _cache_dir() -> Path:
+    override = os.environ.get(EVENTS_CACHE_DIR_ENV)
+    if override:
+        return Path(override)
+    base = os.environ.get("LOCALAPPDATA") or str(Path.home())
+    return Path(base) / "market_data_puller" / "cache"
+
+
+def fetch_pg_events(dsn: str, *, application_name: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """One short read-only session: tagged events plus table-level freshness facts."""
+    import psycopg2
+
+    conn = psycopg2.connect(
+        dsn,
+        connect_timeout=5,
+        application_name=application_name,
+        options="-c default_transaction_read_only=on -c statement_timeout=10000",
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(_PG_TAGGED_SQL, (list(TAGGED_PARENTS),))
+            rows = cur.fetchall()
+            cur.execute(_PG_FRESHNESS_SQL)
+            table_rows, max_event_id, latest_actual = cur.fetchone()
+        host = conn.info.host
+    finally:
+        conn.close()
+    facts = {
+        "host": host,
+        "table_rows": int(table_rows or 0),
+        "max_event_id": int(max_event_id) if max_event_id is not None else None,
+        "latest_actual_et": latest_actual.isoformat(sep=" ") if latest_actual is not None else None,
+    }
+    return events_from_pg_rows(rows), facts
+
+
+class EventsCache:
+    """Tagged events in memory, refreshed by one daemon thread; requests never touch the network."""
+
+    def __init__(self, fetch=fetch_pg_events, dsn_source=_pg_dsn, cache_dir=_cache_dir) -> None:
+        self._fetch = fetch
+        self._dsn_source = dsn_source
+        self._cache_dir = cache_dir
+        self._lock = threading.Lock()
+        self._ready = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._app_name = "mdp_events"
+        self._events: list[dict[str, Any]] | None = None
+        self._status: dict[str, Any] = {"ok": False, "last_error": None, "fallback": None}
+
+    def start(self, app_name: str | None = None) -> None:
+        with self._lock:
+            if app_name:
+                self._app_name = app_name
+            if self._thread is not None and self._thread.is_alive():
+                return
+            self._thread = threading.Thread(target=self._run, name="events-cache", daemon=True)
+            self._thread.start()
+
+    def events(self) -> list[dict[str, Any]]:
+        self.start()
+        if not self._ready.wait(EVENTS_COLD_WAIT_SEC):
+            with self._lock:
+                if self._events is None:
+                    self._load_file_locked("first Postgres load still running")
+        with self._lock:
+            return self._events or []
+
+    def status(self) -> dict[str, Any]:
+        with self._lock:
+            status = dict(self._status)
+            events = self._events
+        last_ok = status.get("last_ok_utc")
+        status["age_sec"] = round(time_module.time() - status["last_ok_epoch"], 1) if status.get("last_ok_epoch") else None
+        status.pop("last_ok_epoch", None)
+        status["rows"] = len(events) if events is not None else 0
+        status["calendar_horizon"] = max((e["date"] for e in events), default=None) if events else None
+        latest = status.get("latest_actual_et")
+        if latest:
+            now_et = datetime.now(timezone.utc).astimezone(EASTERN).replace(tzinfo=None)
+            status["feed_age_days"] = round((now_et - datetime.fromisoformat(latest)).total_seconds() / 86400.0, 2)
+        status["source"] = EVENTS_SOURCE_LABEL
+        status["last_ok_utc"] = last_ok
+        return status
+
+    def refresh(self) -> bool:
+        dsn = self._dsn_source()
+        try:
+            if not dsn:
+                raise RuntimeError(f"{EVENTS_PG_DSN_ENV} is not set (environment or config/keys.env)")
+            events, facts = self._fetch(dsn, application_name=self._app_name)
+        except Exception as exc:
+            logger.warning("events refresh failed: %s", exc)
+            with self._lock:
+                self._status["ok"] = False
+                self._status["last_error"] = f"{type(exc).__name__}: {exc}"
+                if self._events is None:
+                    self._load_file_locked(self._status["last_error"])
+            self._ready.set()
+            return False
+        now = time_module.time()
+        with self._lock:
+            self._events = events
+            self._status.update(facts)
+            self._status.update({
+                "ok": True,
+                "last_error": None,
+                "fallback": None,
+                "last_ok_epoch": now,
+                "last_ok_utc": datetime.fromtimestamp(now, timezone.utc).isoformat(),
+            })
+        self._ready.set()
+        self._write_file(events, facts)
+        return True
+
+    def _run(self) -> None:
+        while True:
+            self.refresh()
+            time_module.sleep(EVENTS_REFRESH_SEC)
+
+    def _file(self) -> Path:
+        safe = re.sub(r"[^A-Za-z0-9_.-]", "_", self._app_name)
+        return self._cache_dir() / f"events_tagged_{safe}.json"
+
+    def _write_file(self, events: list[dict[str, Any]], facts: dict[str, Any]) -> None:
+        path = self._file()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".json.tmp")
+            payload = {"saved_utc": datetime.now(timezone.utc).isoformat(), "facts": facts, "events": events}
+            tmp.write_text(json.dumps(payload), encoding="utf-8")
+            os.replace(tmp, path)
+        except Exception:
+            logger.exception("could not write events last-good file %s", path)
+
+    def _load_file_locked(self, reason: str) -> None:
+        path = self._file()
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            self._status["fallback"] = None
+            return
+        except Exception:
+            logger.exception("could not read events last-good file %s", path)
+            return
+        self._events = list(payload.get("events") or [])
+        self._status.update(payload.get("facts") or {})
+        self._status["fallback"] = f"last-good file saved {payload.get('saved_utc')} ({reason})"
+
+
+_EVENTS_CACHE = EventsCache()
+
+
+def start_events_cache(app_name: str) -> None:
+    """Start the background refresher for this app (names the Postgres session and cache file)."""
+    _EVENTS_CACHE.start(app_name)
+
+
+def events_status() -> dict[str, Any]:
+    return _EVENTS_CACHE.status()
+
+
 def load_tagged_events(
     *,
     start: date | None = None,
     end: date | None = None,
-    db_path: Path = EVENTS_DB,
+    db_path: Path | None = None,
 ) -> list[dict[str, Any]]:
-    """Load US coupon-supply and tier-1 rows. Empty list if the DB is missing."""
+    """US coupon-supply and tier-1 tags in [start, end].
+
+    Default: the in-memory Postgres cache (empty list until a first load or last-good file
+    exists). ``db_path`` reads an events SQLite file instead; empty list if it is missing.
+    """
+    if db_path is None:
+        lo = start.isoformat()[:10] if start is not None else None
+        hi = end.isoformat()[:10] if end is not None else None
+        return [
+            dict(event)
+            for event in _EVENTS_CACHE.events()
+            if (lo is None or event["date"] >= lo) and (hi is None or event["date"] <= hi)
+        ]
     if not db_path.exists():
         logger.warning("events db missing at %s", db_path)
         return []

@@ -18,6 +18,7 @@ except ImportError as exc:  # pragma: no cover
     raise SystemExit("Flask is required. Install with: pip install flask") from exc
 
 from scripts.aggression_flow_history_dash.cache import latest_bar_ts
+from scripts.aggression_flow_history_dash.events import events_status, start_events_cache
 from scripts.aggression_flow_history_dash.session import feed_status
 from scripts.supply_weeks_live.cache import build_payload
 
@@ -108,6 +109,7 @@ def api_bootstrap() -> Any:
                 "compare": payload.get("compare") or {},
                 "current": _public_current(payload["current"]),
                 "feed": feed_status(latest_bar_ts("TY")),
+                "events": events_status(),
             }
         )
     except ValueError as exc:
@@ -129,6 +131,7 @@ def api_live() -> Any:
                 "compare": payload.get("compare") or {},
                 "current": _public_current(payload["current"]),
                 "feed": feed_status(latest_bar_ts("TY")),
+                "events": events_status(),
             }
         )
     except ValueError as exc:
@@ -155,6 +158,7 @@ def main() -> None:
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
     logger.info("Starting supply-weeks live viewer on %s:%s", args.host, args.port)
+    start_events_cache(f"mdp_{args.port}")
     threading.Thread(target=_warmup, daemon=True).start()
     app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)
 
