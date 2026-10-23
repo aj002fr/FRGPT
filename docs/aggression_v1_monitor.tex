@@ -18,31 +18,25 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\lhead{Aggression Monitor V1}
-\rhead{Charts + six-state banner}
+\lhead{Aggression Monitor}
+\rhead{Charts + V3 banner}
 \cfoot{\thepage}
 
 \newcommand{\TotalAggress}{\texttt{TotalAggress}}
 \newcommand{\BuySell}{\texttt{BuySell Ratio}}
-\newcommand{\AggDom}{\texttt{AGGRESS DOMINANT}}
-\newcommand{\PassDom}{\texttt{IMPLIED PASSIVE DOMINANT}}
-\newcommand{\Balanced}{\texttt{BALANCED}}
-\newcommand{\Jointly}{\texttt{JOINTLY DRIVEN}}
-\newcommand{\Contested}{\texttt{CONTESTED}}
-\newcommand{\Quiet}{\texttt{QUIET}}
 \newcommand{\Warming}{\texttt{WARMING}}
 \newcommand{\Unavailable}{\texttt{UNAVAILABLE}}
 
-\title{\textbf{Aggression Monitor V1}\\[0.4em]
-\large What the live page measures, how each chart is drawn, and how the updated six-state banner is classified}
+\title{\textbf{Aggression Monitor}\\[0.4em]
+\large What the page measures, how each chart is drawn, and how the live V3 banner is classified}
 \author{}
-\date{Chart implementation as of 20 August 2026; banner specification revised 16 September 2026}
+\date{Chart implementation as of 20 August 2026; V3 banner table revised 28 September 2026; overnight window 1 October 2026; contract-roll handling specified 21 October 2026 (not yet live)}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-This note describes Aggression Monitor V1 (\texttt{scripts/aggression\_dashboard/}, port 5050, \url{https://aasthajain.tail174727.ts.net/}) with the revised banner specification. The page measures curve aggressive flow against a chosen Treasury-futures price. Every plot and every calculation uses a trade-to-trade clock: price is the last traded price of the selected contract, and each increment of aggression and price is the change from one print to the next. There is no one-minute resample, no mid or BBO price, and no OHLCV last-in-bucket price. The two lines labelled fair value are contemporaneous diagnostics under the same $\beta_{\mathrm{ref}}$ as the banner; they are not forecasts and they do not estimate a second beta. The live 5050 Panel~4 / Panel~5 OLS implementations are not this specification. The banner decomposes the latest 15 minutes of that trade-to-trade path using $\beta_{\mathrm{ref}}$ expressed in yield bp per \$1 million signed DV01. For now that reference is the rolling mean of the last 10 completed sessions; the intended form is the rolling mean of those sessions restricted to the last 3 hours before the displayed clock time. ``Implied passive'' is the residual price contribution left after subtracting that reference-beta aggression contribution. It is not observed resting-order identity. This note is the specification; it does not change the live dashboard.
+This note describes the trade-to-trade aggression page and the live V3 banner (\texttt{scripts/aggression\_dashboard\_v3/}, port 5053). The page measures curve aggressive flow against a chosen Treasury-futures price. Every plot and every calculation uses a trade-to-trade clock: price is the last traded price of the selected contract, and each increment of aggression and price is the change from one print to the next. There is no one-minute resample, no mid or BBO price, and no OHLCV last-in-bucket price. The two lines labelled fair value are contemporaneous diagnostics under the same $\beta_{\mathrm{ref}}$ as the banner; they are not forecasts and they do not estimate a second beta. The live 5050 Panel~4 / Panel~5 OLS implementations are not this specification. The V3 banner decomposes the latest window of that trade-to-trade path using $\beta_{\mathrm{ref}}$ expressed in yield bp per \$1 million signed DV01. That window is 15 minutes from 18:00 ET inclusive through 03:00 ET exclusive (6pm through 2am), and 5 minutes the rest of the time. That reference is today's day-tag beta (flow-history day OLS of day bps on net DV01 for that tag only), as of 9 October 2026. The earlier last-3-hour time-of-day mean was superseded on 24 September 2026; the 10-session whole-session mean was superseded on 9 October 2026. Each ready window is one coarse STATE and one fine STATE2 from the table in this note. ``Implied passive'' is the residual price contribution left after subtracting that reference-beta aggression contribution. It is not observed resting-order identity. In the six sessions of each quarterly contract roll, the page tracks the outgoing and incoming contracts as separate series, and the curve view uses roll-only betas (section ``Contract rolls''); that section is specified, not live. This note is the specification; it does not by itself restart a live dashboard.
 \end{abstract}
 
 \tableofcontents
@@ -54,15 +48,15 @@ V1 answers a measurement question: how much aggressive buying and selling is occ
 
 \begin{itemize}
     \item Panels 1--3 show the raw flow and price together.
-    \item Panels 4--5 draw the same $\beta_{\mathrm{ref}}$ change-on-change line (today, and over the last 10 sessions) and mark large residuals as diagnostics.
-    \item The banner's headline is one of \Quiet, \Balanced, \AggDom, \PassDom, \Jointly, or \Contested\ (or \Warming\ / \Unavailable). It reports the 15-minute price, aggression, and residual contributions in ticks under the 10-session reference beta.
+    \item Panel 4 draws today's $\beta_{\mathrm{ref}}$ change-on-change line and marks large residuals as diagnostics. The former Panel 5 (the last 10 sessions under the same line) was removed from live V3 on 23 October 2026.
+    \item The live V3 banner reports a coarse STATE and a fine STATE2 for the latest window (or \Warming\ / \Unavailable): 15 minutes from 18:00 ET inclusive through 03:00 ET exclusive (6pm through 2am), and 5 minutes otherwise. The states are THIN LIQ, QUIET, AGGRESS DOM, BALANCED, and EXHAUSTION, with the STATE2 names in the table below.
 \end{itemize}
 
 \section{Page, controls, and data}
 
 \subsection{What the user selects}
 
-Default live V3 view: price symbol TY, aggression symbols the whole curve FV+TU+TY+US, DV01 adjust on, lookback 2 hours, start time the current trading-day open (18:00 ET), auto-refresh on, live mode. $\beta_{\mathrm{ref}}$ is the 10-session last-3-hour TOD change-on-change mean for those selected chips versus TY last-trade price. TY-only remains an optional chip set, not the default.
+Default live V3 view: price symbol TY, aggression symbols the whole curve FV+TU+TY+US, DV01 adjust on, lookback 2 hours, start time the current trading-day open (18:00 ET), auto-refresh on, live mode. $\beta_{\mathrm{ref}}$ is today's day-tag beta for those selected chips versus TY last-trade price (see ``Reference beta''). TY-only remains an optional chip set, not the default. Live V3 follows the page's price symbol, chips and DV01 setting (one live view per selection; the default always runs, at most two others), and its banner uses a 15-minute window from 18:00 ET inclusive through 03:00 ET exclusive (6pm through 2am) and a 5-minute window otherwise, with the coarse/fine table in the section ``Live V3 banner (5053)'' below.
 
 \begin{center}
 \begin{tabular}{@{}p{0.24\textwidth}p{0.70\textwidth}@{}}
@@ -83,6 +77,8 @@ The default start is the current trading-day open, 18:00 ET.
 \subsection{Sources}
 
 Live trades come from AccessAPI (\url{ws://100.79.30.21:8001/ws/live/stream}) into an 18-hour in-memory buffer. If that feed is stale for 30 seconds, a Databento live TBBO backup can start; it stops after 60 seconds of primary recovery. Historical and backfill trades are Databento parent-symbol trade schema pulls for ZF, ZT, ZN, and ZB. Price is the last traded price of the selected price symbol. Quote updates, BBO mids, and one-minute OHLCV are not a price source for plots or calculations. When a selected aggression symbol prints and the price symbol does not, last-trade price is held at the previous print of the price symbol.
+
+Outside a roll window each root uses one contract per UTC date, the outright with the highest traded size that day. Inside a roll window the contracts come from the roll calendar instead (section ``Contract rolls'').
 
 
 
@@ -191,7 +187,7 @@ Read: the bars are the trade-to-trade activity; the black line is the running su
 
 Same axis: actual last-trade price (solid blue) and implied price (dashed red). Grey markers sit on actual price where $|z|\geq 2$.
 
-It uses the single $\beta_{\mathrm{ref}}$ defined below: the rolling mean of the last 10 sessions' change-on-change slopes (intended: last 3 hours to the displayed clock time; later, day-tagged). Do not regress absolute $P_k$ on absolute $A_k$.
+It uses the single $\beta_{\mathrm{ref}}$ defined below: today's day-tag beta from the flow-history day OLS. Do not regress absolute $P_k$ on absolute $A_k$.
 
 The implied print-to-print move is $\beta_{\mathrm{ref}}\,\Delta A_k$ (in price units). The dashed line is that path accumulated from the session's first last-trade price:
 \begin{equation}
@@ -203,29 +199,17 @@ z_k^{\mathrm{V1,live}}=e_k^{\mathrm{path}}/s_e,
 \end{equation}
 where $s_e$ is the sample standard deviation of those path residuals in the currently aligned trade frame. The residual mean is not subtracted. A point is marked large when $|z_k^{\mathrm{V1,live}}|\geq 2$.
 
-Read: the dashed line is where last-trade price would sit if each print-to-print price change equalled $\beta_{\mathrm{ref}}$ times that print's signed aggression. When solid price is above the dash, the residual is positive: price is rich relative to the 10-session reference. That is a description, not a prediction that price will revert.
+Read: the dashed line is where last-trade price would sit if each print-to-print price change equalled $\beta_{\mathrm{ref}}$ times that print's signed aggression. When solid price is above the dash, the residual is positive: price is rich relative to the reference beta. That is a description, not a prediction that price will revert.
 
-\subsection{Panel 5. Last 10 sessions under the same $\beta_{\mathrm{ref}}$}
+\subsection{Panel 5 (removed)}
 
-Same drawing as panel 4 (red $|z|\geq 2$ markers). Window: last 10 business days, from 18:00 ET on the first of those dates through now; refresh at most once per trading day. Same $\beta_{\mathrm{ref}}$ as panel 4 and the banner---no second pooled OLS. On each session $s$, start from that day's first last-trade price:
-\begin{equation}
-\widehat{P}_k^{(s)}=P_{1,s}+\beta_{\mathrm{ref}}(A_k-A_{1,s}).
-\end{equation}
-Compare today's residual to recent days under that yardstick. Contemporaneous diagnostic, not a walk-forward forecast.
+Live V3 no longer draws a last-10-sessions path. It was about 40\% of the first-load snapshot and was removed on 23 October 2026. Panels 1--4 and the banner are unchanged. Past states stay available by hovering any chart timestamp; the hover box looks up the banner row at or before that print.
 
-\section{The six-state flow-attribution banner}
+\section{Live V3 banner (5053)}
 
-The live banner answers one question: what kind of net flow is associated with the chosen contract's current 15-minute net last-trade price action? The path inside those 15 minutes is the trade-to-trade series. The six READY headlines are
-\[
-\Quiet,\quad \Balanced,\quad \AggDom,
-\]
-\[
-\PassDom,\quad \Jointly,\quad \Contested.
-\]
-Before classification is ready, the headline is \Warming\ or \Unavailable.
+Live V3 (\texttt{scripts/aggression\_dashboard\_v3/}, port 5053) answers one question: what kind of net flow is associated with the chosen contract's current net last-trade price action over the banner window? The path inside that window is the trade-to-trade series. Each ready window has one coarse STATE and one fine STATE2. Before classification is ready, the headline is \Warming\ or \Unavailable. A print gap longer than the window in force restarts it.
 
-
-Let $k(t)$ be the last print at or before wall time $t$, and $W=15$ minutes. Actual move and both contributions directly in ticks:
+Let $k(t)$ be the last print at or before wall time $t$. The lookback $W$ is 15 minutes from 18:00 ET inclusive through 03:00 ET exclusive (6pm through 2am), and 5 minutes the rest of the time. $d_t$, $a_t$, and $b_t$ are totals over that span, directly in ticks:
 \begin{align}
 d_t &= \frac{P_{k(t)}-P_{k(t-W)}}{\tau_c},\\
 a_t &= \frac{\beta_{\mathrm{ref}}\bigl(A_{k(t)}-A_{k(t-W)}\bigr)}{\tau_c},\\
@@ -240,68 +224,100 @@ Positive aggressive buying has a positive modeled futures-price contribution; ag
 
 \subsection{Reference beta}
 
-$\beta_{\mathrm{ref}}$ is the only beta on this page. The banner, panel 4, and panel 5 all use it. It is an attribution yardstick in yield bp per \$1 million signed DV01. It is not the live 5050 Panel~4 first-lock OLS and not the live Panel~5 pooled OLS. Every session slope is a change-on-change regression: $\Delta P_k$ on $\Delta A_k$ between consecutive prints. Convert that slope into yield bp per \$1 million before averaging.
+$\beta_{\mathrm{ref}}$ is the only beta on this page. The banner and panel 4 both use it. It is an attribution yardstick in price points per unit of signed aggression $A$ (contracts $\times$ DV01). It is not the live 5050 Panel~4 first-lock OLS and not the live Panel~5 pooled OLS.
 
-\paragraph{Live rule (V3).}
-Take the last 10 completed Globex sessions. For each session, estimate one OLS of last-trade price change on that print's signed aggression change over the last 3 hours ending at the displayed clock time (same time of day on each of those days): $\Delta P_k=\alpha_s+\beta_s\Delta A_k+e_k$. A banner shown at 10:44 ET averages the 07:44--10:44 ET windows, not each day's full 18:00--17:00 tape. $\beta_{\mathrm{ref}}$ is the rolling mean of those 10 $\beta_s$. Recalculate when the 5-minute clock bucket or the session set rolls.
+\paragraph{Live rule (V3, tagged day beta, 9 Oct 2026).}
+Each closed session day gets exactly one tag, in this order:
+\begin{enumerate}
+    \item an auction day takes its tenor, \texttt{2Y}, \texttt{3Y}, \texttt{5Y}, \texttt{7Y}, \texttt{10Y} or \texttt{30Y}; a 20Y auction or two tenors on one day is \texttt{AUCTION\_OTHER};
+    \item otherwise \texttt{MONTH\_END} when the day is one of the last 3 business days of the calendar month;
+    \item otherwise \texttt{TIER1} when NFP, CPI, FOMC, PCE or GDP prints that day;
+    \item otherwise \texttt{REGULAR}.
+\end{enumerate}
+An auction that is also month-end or tier-1 is an auction day, and its point trains only that auction tag. Inside a contract-roll window the curve view replaces this beta with a roll beta; the day tag is still computed, trained, and shown (section ``Contract rolls''). Tags come from the economic-events last-good file the viewers already keep (\texttt{events\_tagged\_*.json}); V3 does not query Postgres.
 
-\paragraph{Superseded full-session mean.}
-Averaging each day's entire Globex tape is no longer the live rule. It understated the TY-vs-TY morning slope.
+For each tag, the beta is the flow-history day regression, fitted only on closed days with that tag:
+\[
+y_d=\alpha+s\,x_d+e_d,\qquad
+x_d=\sum_{\text{selected contracts}}(\text{buy}-\text{sell contracts})\times\mathrm{DV01},\qquad
+y_d=\frac{P^{\text{last}}_d-P^{\text{first}}_d}{1/64}\times 0.25 .
+\]
+$P^{\text{first}}$ and $P^{\text{last}}$ are the first and last 1-minute trade prices of the price contract, and $y$ uses the flow-history convention of 4 ticks to a bp. The slope $s$ is reported in bp per \$1 million and converted to the attribution beta as
+\[
+\beta_{\mathrm{ref}}=s_{\text{bp}/\$1\text{mm}}\times 4\times\tfrac{1}{64}\big/10^6 .
+\]
+The page's yield display still converts $\beta_{\mathrm{ref}}$ with the price contract's DV01. A flow-history bp (4 ticks) is not a yield bp, so the two numbers differ.
 
-\paragraph{Later refinement.}
-$\beta_{\mathrm{ref}}$ may later be computed separately by day tag---for example auction days, month-end, or other calendar/liquidity tags---rather than pooling all recent sessions. Month-end Treasury liquidity and balance-sheet effects are documented in \href{https://libertystreeteconomics.newyorkfed.org/2024/09/end-of-month-liquidity-in-the-treasury-market/}{Duffie and Krishnamurthy, ``End-of-Month Liquidity in the Treasury Market,'' Liberty Street Economics, 16 September 2024}. Tagged betas are a planned option, not a current input.
+V3 looks up today's tag and uses that tag's beta for the whole session. Today's move is never in today's beta. A tag with fewer than 2 days, or a nonpositive slope, shows the beta as unavailable (WARMING). It does not borrow another tag's beta.
+
+The day points live in \texttt{workspace/analysis/aggression\_v3\_live/tag\_beta.json}, one entry per selection (price contract, aggression contracts, DV01 on/off). The first build reads V1's \texttt{flow\_history.sqlite} once with \texttt{query\_only}, in the background \texttt{v3-beta-ref} thread. On the 9 Oct 2026 build that took about 210~s for the curve view and 38~s for TY only, over 1{,}233 days from 3 Jan 2022. After each 17:00 ET close, the first page refresh after the 18:00 roll reads only the last few closed days through the \texttt{(symbol, ts\_utc)} index, adds the closed day to its tag and refits. The print path reads only the file.
+
+\paragraph{Superseded whole-session mean (25 Sep--9 Oct 2026).}
+The previous live rule took the last 10 completed Globex sessions and fitted, for each one, an OLS of last-trade price change on signed aggression change over the whole session: $\Delta P_k=\alpha_s+\beta_s\Delta A_k+e_k$, with at least 30 increments. $\beta_{\mathrm{ref}}$ was the mean of the valid $\beta_s$. The function is kept as \texttt{ensure\_session\_mean\_beta\_ref}. Archived-session pages prefer the same tagged day beta when \texttt{tag\_beta.json} is ready for that selection, and fall back to this 10-session mean only when the table is missing.
+
+\paragraph{Superseded time-of-day mean (24 Sep 2026).}
+The earlier live rule fitted only the last 3 hours before the displayed clock time on each session and recomputed every 5-minute bucket.
+
+Month-end Treasury liquidity and balance-sheet effects, one reason for the month-end tag, are documented in \href{https://libertystreeteconomics.newyorkfed.org/2024/09/end-of-month-liquidity-in-the-treasury-market/}{Duffie and Krishnamurthy, ``End-of-Month Liquidity in the Treasury Market,'' Liberty Street Economics, 16 September 2024}.
 
 The live 5050 dashboard is unchanged by this note: it still estimates separate session and 10-day OLS betas and does not use $\beta_{\mathrm{ref}}$ on the charts or the banner.
 
-\subsection{Complete state definitions}
+\subsection{Signs}
 
-Use a quiet threshold $q=1$ tick, a dominance ratio $r=1.5$, and
-\begin{equation}
-m_t=\max(|a_t|,|b_t|).
-\end{equation}
-The full, standalone conditions are:
+The quiet threshold is $q=1$ tick. For each of $a_t$, $d_t$, and $b_t$:
+\begin{itemize}
+    \item pos: the value is greater than $+q$;
+    \item neg: the value is less than $-q$;
+    \item small: the absolute value is at most $q$. Exactly $\pm q$ is small.
+\end{itemize}
 
-\begin{enumerate}[leftmargin=2.1em]
-    \item \Quiet: $|d_t|\leq q$ and $m_t\leq q$.
-    \item \Balanced: $|d_t|\leq q$ and $m_t>q$.
-    \item \AggDom: $|d_t|>q$ and $|a_t|\geq r|b_t|$.
-    \item \PassDom: $|d_t|>q$ and $|b_t|\geq r|a_t|$.
-    \item \Jointly: $|d_t|>q$, $|a_t|<r|b_t|$, $|b_t|<r|a_t|$, and $a_tb_t>0$.
-    \item \Contested: $|d_t|>q$, $|a_t|<r|b_t|$, $|b_t|<r|a_t|$, and $a_tb_t<0$.
-\end{enumerate}
+Aggression and price pick the state. The residual splits the state only when $a_t$ and $d_t$ are both pos or both neg. The identity $d_t=a_t+b_t$ leaves the 19 sign triples in the table. The states do not identify the path inside the window.
 
-Exact quiet-threshold ties remain in the quiet-price branch. Exact dominance-ratio ties go to the corresponding dominant state. With $r>1$, the six conditions are mutually exclusive and exhaustive for finite inputs satisfying $d_t=a_t+b_t$.
+\subsection{State table}
 
-\subsection{Meaning and examples}
-
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.23\textwidth}>{\raggedright\arraybackslash}p{0.20\textwidth}>{\raggedright\arraybackslash}p{0.49\textwidth}@{}}
+\begin{center}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.12}
+\begin{tabular}{@{}lll>{\raggedright\arraybackslash}p{0.13\textwidth}>{\raggedright\arraybackslash}p{0.27\textwidth}>{\raggedright\arraybackslash}p{0.23\textwidth}@{}}
 \toprule
-\textbf{Headline} & \textbf{Example $(a_t,b_t,d_t)$} & \textbf{Price action and flow covered} \\
+$a_t$ & $d_t$ & $b_t$ & STATE & STATE2 & Condition \\
 \midrule
-\endfirsthead
-\toprule
-\textbf{Headline} & \textbf{Example $(a_t,b_t,d_t)$} & \textbf{Price action and flow covered} \\
-\midrule
-\endhead
-\Quiet & $(+0.4,-0.4,0.0)$ & Price barely moved and both net modeled contributions were small. This does not imply low gross volume or low intrawindow volatility. \\
-\Balanced & $(+8.0,-7.5,+0.5)$ & Meaningful aggression and residual pressure opposed and nearly cancelled, leaving price quiet. Persistent one-sided aggression with little response is consistent with possible absorption, but does not prove it. \\
-\AggDom & $(+6.5,+1.5,+8.0)$ & Aggressive buying explains most of a rally; reversing every sign gives an aggression-led selloff. The smaller residual may reinforce or oppose aggression. \\
-\PassDom & $(+1.5,+5.5,+7.0)$ & Most of the rally is residual rather than explained by measured aggression. The aggressive contribution can also oppose the price move. \\
-\Jointly & $(+4.0,+3.0,+7.0)$ & Comparable aggression and residual contributions point in the same direction and reinforce the rally or selloff. \\
-\Contested & $(+5.0,-3.5,+1.5)$ & Comparable aggression and residual contributions oppose one another; neither is at least 1.5 times the other, and the net move follows the larger contribution. \\
+small & pos & small & THIN LIQ & SELLER STRIKE & $|a_t|\le q,\ d_t>q,\ |b_t|\le q$ \\
+small & pos & pos & THIN LIQ & SELLER STRIKE & $|a_t|\le q,\ d_t>q,\ b_t>q$ \\
+small & neg & small & THIN LIQ & BUYER STRIKE & $|a_t|\le q,\ d_t<-q,\ |b_t|\le q$ \\
+small & neg & neg & THIN LIQ & BUYER STRIKE & $|a_t|\le q,\ d_t<-q,\ b_t<-q$ \\
+small & small & small & QUIET & QUIET & $|a_t|\le q,\ |d_t|\le q,\ |b_t|\le q$ \\
+small & small & pos & QUIET & QUIET & $|a_t|\le q,\ |d_t|\le q,\ b_t>q$ \\
+small & small & neg & QUIET & QUIET & $|a_t|\le q,\ |d_t|\le q,\ b_t<-q$ \\
+pos & pos & small & AGGRESS DOM & AGGRESS DOM & $a_t>q,\ d_t>q,\ |b_t|\le q$ \\
+pos & pos & pos & AGGRESS DOM & AGGRESS DOM, THIN LIQUIDITY & $a_t>q,\ d_t>q,\ b_t>q$ \\
+pos & pos & neg & BALANCED & PASSIVE SELLERS ABSORBING BUYERS & $a_t>q,\ d_t>q,\ b_t<-q$ \\
+pos & neg & neg & EXHAUSTION & PASSIVE SELLERS DOMINATING BUYERS & $a_t>q,\ d_t<-q,\ b_t<-q$ \\
+pos & small & small & BALANCED & PASSIVE SELLERS OFFSETTING BUYERS & $a_t>q,\ |d_t|\le q,\ |b_t|\le q$ \\
+pos & small & neg & BALANCED & PASSIVE SELLERS OFFSETTING BUYERS & $a_t>q,\ |d_t|\le q,\ b_t<-q$ \\
+neg & pos & pos & EXHAUSTION & PASSIVE BUYERS DOMINATING SELLERS & $a_t<-q,\ d_t>q,\ b_t>q$ \\
+neg & neg & neg & AGGRESS DOM & AGGRESS DOM, THIN LIQUIDITY & $a_t<-q,\ d_t<-q,\ b_t<-q$ \\
+neg & neg & pos & BALANCED & PASSIVE BUYERS ABSORBING SELLERS & $a_t<-q,\ d_t<-q,\ b_t>q$ \\
+neg & neg & small & AGGRESS DOM & AGGRESS DOM & $a_t<-q,\ d_t<-q,\ |b_t|\le q$ \\
+neg & small & small & BALANCED & PASSIVE BUYERS OFFSETTING SELLERS & $a_t<-q,\ |d_t|\le q,\ |b_t|\le q$ \\
+neg & small & pos & BALANCED & PASSIVE BUYERS OFFSETTING SELLERS & $a_t<-q,\ |d_t|\le q,\ b_t>q$ \\
 \bottomrule
-\end{longtable}
+\end{tabular}
+\end{center}
 
-The states cover every valid endpoint combination of $a_t$, $b_t$, and $d_t$. They do not identify the path inside the window.
+Every ready window is one of these 19 rows and one of the 13 STATE2 names. EXHAUSTION on this banner is a flow label, separate from the move-exhaustion study. The banner is attribution only, never long or short.
 
 \subsection{Minimal banner display}
 
 The READY banner contains the headline, one contribution line, the reference beta, and an as-of time. For example:
 \begin{quote}
-\textbf{AGGRESS DOMINANT}\\
-15m price $+8.0$ ticks $\cdot$ aggression $+6.5$ $\cdot$ implied passive $+1.5$\\
-Reference beta: 10-session mean (display units: yield bp per \$1 million DV01) $\cdot$ as of 10:44 ET
+\textbf{AGGRESS DOM}\\
+5m price $+3.0$ ticks $\cdot$ aggression $+2.5$ $\cdot$ residual $+0.5$\\
+Reference beta: REGULAR day OLS, 603 days (display units: yield bp per \$1 million DV01) $\cdot$ as of 10:44 ET
 \end{quote}
+
+At 10:44 ET the contribution line is labelled 5m. From 18:00 ET through 02:59 ET the same line is labelled 15m.
 
 The fixed explanatory text is:
 \begin{quote}
@@ -313,12 +329,110 @@ Contribution z-scores, increasing / slowing labels, five-minute comparisons, sta
 \subsection{Readiness and resets}
 
 \begin{itemize}
-    \item \texttt{READY}: a last trade at or before now and at or before now minus 15 minutes, compatible units, a valid positive reference beta, and finite values satisfying $d_t=a_t+b_t$ within numerical tolerance.
-    \item \Warming: no print yet at the 15-minute-earlier endpoint since the session or configuration reset.
+    \item \texttt{READY}: a last trade at or before now and at or before now minus $W$, compatible units, a valid positive reference beta, and finite values satisfying $d_t=a_t+b_t$ within numerical tolerance. $W$ is 15 minutes from 18:00 ET inclusive through 03:00 ET exclusive, and 5 minutes otherwise.
+    \item \Warming: no print yet at the $W$-minute-earlier endpoint since the session or configuration reset.
     \item \Unavailable: missing or stale input, no last-trade price, a unit mismatch, an invalid configuration, or a contribution-identity failure.
 \end{itemize}
 
-Reset the banner window after a session boundary, data gap, selected-price change, aggression-root change, DV01-mode change, or beta-version change. Hold coefficients, units, and configuration fixed inside a classified window.
+Reset the banner window after a session boundary, data gap, selected-price change, aggression-root change, DV01-mode change, beta-version change, or primary-contract change in a roll window. Hold coefficients, units, and configuration fixed inside a classified window.
+
+\section{Contract rolls (specified 21 October 2026, not yet live)}
+
+For a few sessions before each quarterly roll, volume is split between the expiring contract and the next one. This section says which contracts V3 uses in those sessions, which beta it applies, and what the page draws. Outside the roll window nothing in the sections above changes.
+
+\subsection{Roll window}
+
+Sessions are numbered by their 17:00 ET close date. Weekdays with no prints are not counted. The anchor is the last session of February, May, August, or November. The roll window is the anchor and the five sessions before it: six sessions.
+
+For every root, the outgoing contract is the next quarterly expiry and the incoming contract is the one after it:
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Roll month} & \textbf{Outgoing} & \textbf{Incoming} \\
+\midrule
+February & March (H) & June (M) \\
+May & June (M) & September (U) \\
+August & September (U) & December (Z) \\
+November & December (Z) & March (H), next year \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The window comes from 65 rolls, August 2010 to August 2026, on the all-outright trade tape (\texttt{historical\_backfill/trades/}). A session counts as split when the incoming contract has 20--80\% of the outgoing-plus-incoming volume. Anchor$-5$ through the anchor is the shortest candidate window that contains at least 95\% of split sessions (95.8\%). For TY, the median incoming share is 0.1--0.2 at anchor$-5$, 0.35--0.47 at anchor$-2$, about 0.55 at anchor$-1$, and at least 0.9 from the anchor on. TY first passes 0.5 at anchor$-3$ in 2 rolls, anchor$-2$ in 16, anchor$-1$ in 17, and at the anchor in 30. In 85\% of root-rolls the other roots cross on the same session as TY.
+
+\subsection{Two contract series}
+
+Inside the window the highest-volume rule is not used. Each selected root has two contracts, $g\in\{\mathrm{out},\mathrm{in}\}$, and the page builds one trade-to-trade series per $g$:
+\begin{align}
+A_k^{g} &= \sum_{u\le k,\ u\in g}\Delta A_u, \\
+P_k^{g} &= \text{last traded price of the price root's contract } g \text{ at or before print } k.
+\end{align}
+A print of contract $g$ on any selected root steps $A^{g}$. A print of the other contract does not touch series $g$. Each series starts at its own first print after 18:00 ET.
+
+The crossover is the first closed session in the window on which the price root's incoming contract carries more than half of its outgoing-plus-incoming volume. The primary contract is
+\begin{itemize}
+    \item out, from anchor$-5$ until a crossover session has closed;
+    \item in, from the session after the crossover, and on the anchor session in every roll.
+\end{itemize}
+The secondary contract is the other one. It is drawn only while the primary is out. Once the primary is in, the outgoing contract is dropped. After the crossover its volume is thin, and its fit on those sessions is unstable (curve slope $2.2$ bp per \$1 million, $R^2=0.08$).
+
+\subsection{Roll beta}
+
+Two more tags, \texttt{ROLL\_OUT} and \texttt{ROLL\_IN}, are fitted per selection, with the same form and conversion as the day-tag fit:
+\[
+y_d^{g}=\frac{P^{g,\text{last}}_d-P^{g,\text{first}}_d}{1/64}\times 0.25,\qquad
+x_d^{g}=\sum_{\text{selected roots}}(\text{buy}-\text{sell contracts of }g)\times\mathrm{DV01}.
+\]
+$P^{g,\text{first}}_d$ and $P^{g,\text{last}}_d$ are the first and last prints of the price root's contract $g$ on session $d$. Each fit uses every closed roll-window session before today, from August 2010. V1's \texttt{flow\_history.sqlite} has no contract id, so these points come from the all-outright print tape (\texttt{historical\_backfill/trades/} plus the \texttt{trades\_v3\_*} cache). They are stored in \texttt{tag\_beta.json} next to the day tags. As with the day tags, fewer than 2 days or a nonpositive slope shows WARMING.
+
+Which beta applies on a roll session:
+\begin{itemize}
+    \item Curve view (more than one aggression root): series $g$ uses \texttt{ROLL\_}$g$. This overrides the day tag.
+    \item TY vs TY (the price root is the only aggression root): both series keep today's day-tag beta.
+    \item The day tag is still computed and shown next to the roll beta.
+\end{itemize}
+
+Roll sessions stay in the day-tag training sample. Each one still trains its own day tag.
+
+Evidence (walk-forward OLS, training strictly before each test day, tested from 2012, RMSE in flow-history bp of the day's move):
+\begin{center}
+\begin{tabular}{@{}llrr@{}}
+\toprule
+\textbf{View} & \textbf{Contract} & \textbf{Day-tag fit} & \textbf{Roll fit} \\
+\midrule
+Curve & out & 5.06 & 4.78 \\
+Curve & in & 5.45 & 5.27 \\
+Curve & front & 5.17 & 4.83 \\
+TY vs TY & out & 4.71 & 4.77 \\
+TY vs TY & in & 5.13 & 5.32 \\
+TY vs TY & front & 4.87 & 4.87 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Pooled curve slopes on roll sessions are $0.60$ (out, 95\% CI $0.46$--$0.76$) and $0.45$ (in, $0.33$--$0.59$) bp per \$1 million, against $1.01$ for REGULAR and $0.65$ for MONTH\_END. In the roll window, curve aggression moves TY about half as much as on a regular day. Splitting the roll fit before and after the crossover did not improve it.
+
+Dropping roll sessions from the day-tag fits does not help. Walk-forward RMSE on non-roll days, curve view, with and without roll sessions: MONTH\_END $4.62\to4.91$, 5Y $4.30\to4.66$, 7Y $4.95\to4.87$, 2Y $4.85\to4.81$, REGULAR $4.92\to4.93$. 77\% of roll sessions already carry another tag: 134 month-end, 89 regular, 58 7Y, 45 5Y, 39 2Y, 16 tier-1, and 9 other auction days. Every February/May/August/November month-end falls inside the window. Source: \texttt{workspace/analysis/aggression\_v3\_roll/readout.md}.
+
+\subsection{Page in the window}
+
+\begin{itemize}
+    \item Panels 1--3, the main lines on panel 4, and the first banner line use the primary contract.
+    \item While the secondary is drawn, panel 1 adds its \TotalAggress\ and last-trade price as dashed lines. Panel 4 adds its actual and implied path under its own beta. The banner adds a second line with its own $d_t$, $a_t$, $b_t$, STATE, and STATE2. Each line is labelled with its contract code.
+    \item The reference-beta line names the roll fit and the day tag.
+\end{itemize}
+
+For example, in the November 2026 roll with TYZ6 still primary:
+\begin{quote}
+\textbf{TYZ6 \quad AGGRESS DOM}\\
+5m price $+3.0$ ticks $\cdot$ aggression $+2.5$ $\cdot$ residual $+0.5$\\
+\textbf{TYH7 \quad BALANCED}\\
+5m price $+1.0$ ticks $\cdot$ aggression $+2.6$ $\cdot$ residual $-1.6$\\
+Reference beta: ROLL\_OUT / ROLL\_IN day OLS, 390 days (day tag MONTH\_END) $\cdot$ as of 10:44 ET
+\end{quote}
+
+\subsection{Live source of the second contract}
+
+AccessAPI streams only the front contract (\texttt{.v.0}). The second contract's live prints need either a Databento Live subscription opened only inside roll windows, or a \texttt{.v.1} stream on AccessAPI. That choice is open. Until it is made, live mode draws the primary contract only, while archived sessions draw both from the trade cache. The causal backfill states in \texttt{historical\_backfill/} must be rebuilt under the same rule with a new label version.
 
 \section{Parameter register}
 
@@ -333,7 +447,7 @@ Reset the banner window after a session boundary, data gap, selected-price chang
 \midrule
 \endhead
 Price default & TY last trade & Right-hand price series; not mid, not 1-minute OHLCV. \\
-Aggression default & TY only & Flow contributor; each print is one increment. FV/TU/US remain optional chips. \\
+Aggression default & FV+TU+TY+US & Flow contributor; each print is one increment. TY-only remains an optional chip set. \\
 Clock & trade-to-trade & All plots and calculations; interval is previous print to this print. \\
 \TotalAggress\ & sum of print increments from 18:00 ET & Same path on charts and both fits. \\
 DV01 FV/TU/TY/US & 42 / 36 / 85 / 125 & Dollars per bp; default on. \\
@@ -345,19 +459,19 @@ Backup stale / recover & 30s / 60s & Databento failover. \\
 Backfill period / overlap & 240s / 900s & Session history refresh. \\
 Trade-cache retention & 30 days & Historical parquet. \\
 Trade price filter & $[80,150]$ & Dropped otherwise. \\
-Front-month rule & max size by UTC date & One \texttt{instrument\_id} per root. \\
+Front-month rule & max size by UTC date & One \texttt{instrument\_id} per root, outside roll windows only. \\
+Roll window & anchor$-5$ .. anchor & Anchor is the last session of Feb/May/Aug/Nov; six sessions. Outgoing and incoming contracts come from the calendar, not volume. \\
+Roll crossover & incoming $>50\%$ of pair & First closed window session, on the price root. Out is primary until then, and in from the next session and on the anchor. \\
+Roll beta & \texttt{ROLL\_OUT}, \texttt{ROLL\_IN} day OLS & Curve view on roll sessions; TY vs TY keeps the day tag. Points from the all-outright print tape since Aug 2010. Day-tag fits keep roll sessions. \\
+Roll second contract & while primary is out & Dashed lines on panels 1 and 4 plus a second banner line. Live source not yet chosen. \\
 Regression form & $\Delta P_k$ on $\Delta A_k$ & Never absolute $P$ on absolute $A$. \\
-$\beta_{\mathrm{ref}}$ & mean of last 10 session $\beta_s$ (ideal: last 3h to display time) & Only beta: banner, panel 4, and panel 5. Later may be day-tagged. \\
-Session slope $\beta_s$ & OLS of $\Delta P$ on $\Delta A$ that session & Input to the 10-session mean; min 30 increments. \\
+$\beta_{\mathrm{ref}}$ & today's tag day-OLS beta & Only beta: banner and panel 4. File \texttt{tag\_beta.json}; print path reads the file. \\
+Tag day slope & OLS of day bps on net DV01 for that tag & Flow-history cards' regression; min 2 days; nonpositive slope $\to$ WARMING. \\
 Panel 4 line & $P_1+\beta_{\mathrm{ref}}(A_k-A_1)$ & Today's path under that same beta. \\
 Panel 4 large residual & $|z|\geq 2$ & Grey markers. \\
-Panel 5 window & last 10 business days from 18:00 ET & Same $\beta_{\mathrm{ref}}$, each day from that day's first print. \\
-Panel 5 refresh & once per trading day & Source refetch hourly if session rolled. \\
-Panel 5 large residual & $|z|\geq 2$ & Red markers. \\
-Banner window & 15 minutes of last-trade path & Endpoints are last prints at $t$ and $t-15$m; change is the sum of trade-to-trade increments. \\
+Banner window & 15 min, 18:00--03:00 ET exclusive; else 5 min & Endpoints are last prints at $t$ and $t-W$. 6pm through 2am uses 15 minutes; the rest of the day uses 5. A print gap longer than $W$ restarts the window. \\
 Banner impact & same $\beta_{\mathrm{ref}}$ & $a_t=\beta_{\mathrm{ref}}(A_{k(t)}-A_{k(t-W)})/\tau_c$. \\
-Banner dominance ratio $r$ & 1.5 & A dominant contribution is at least 1.5 times the other. \\
-Banner quiet threshold $q$ & 1 tick & Applied to the net last-trade price move and largest modeled contribution. \\
+Banner quiet threshold $q$ & 1 tick & pos above $+q$, neg below $-q$, small within $\pm q$. \\
 Banner z-scores & None & Historical normalization is not used for classification. \\
 Banner dynamics & None & No increasing / slowing, five-minute comparison, or state-duration category. \\
 Banner completed bars & Last completed print & No one-minute forming bar; unused quotes do not create a point. \\
@@ -367,39 +481,31 @@ Banner completed bars & Last completed print & No one-minute forming bar; unused
 
 \section{What we are watching}
 
-The page is for one question: what kind of net flow is associated with the chosen contract's current 15-minute net last-trade price action? Every increment on that page is trade-to-trade. Read the six banner states as follows.
+The page is for one question: what kind of net flow is associated with the chosen contract's current net last-trade price action over the banner window (15 minutes from 18:00 ET through 03:00 ET exclusive, 5 minutes otherwise)? Every increment on that page is trade-to-trade. Read the banner states as follows.
 
-\subsection{Aggression explains most of the move}
+\subsection{THIN LIQ}
 
-The banner is \AggDom. The reference-beta contribution from measured aggressive buying or selling is at least 1.5 times the residual contribution and determines the direction of the nonquiet price move.
+STATE is THIN LIQ when aggression is small and price is pos or neg. STATE2 is SELLER STRIKE when price is pos, and BUYER STRIKE when price is neg.
 
-\subsection{The residual explains most of the move}
+\subsection{QUIET}
 
-The banner is \PassDom. The residual is at least 1.5 times the aggression contribution and determines the direction of the nonquiet price move. This says the move is mostly unexplained by the measured aggressive flow; it does not identify observed passive orders.
+STATE and STATE2 are QUIET when aggression and price are both small. This does not mean the window had low gross volume, no two-way flow, or a smooth price path.
 
-\subsection{Both contributions reinforce}
+\subsection{AGGRESS DOM}
 
-The banner is \Jointly. Aggression and the residual are comparable and have the same sign, so both reinforce the rally or selloff.
+STATE is AGGRESS DOM when aggression and price are both pos, or both neg. STATE2 is AGGRESS DOM when the residual is small, and AGGRESS DOM, THIN LIQUIDITY when the residual has that same sign.
 
-\subsection{Comparable contributions compete}
+\subsection{BALANCED}
 
-The banner is \Contested. Aggression and the residual are comparable but have opposite signs. The net price move follows the larger contribution, although neither reaches the 1.5-to-1 dominance threshold.
+STATE is BALANCED for PASSIVE SELLERS ABSORBING BUYERS (aggression pos, price pos, residual neg), PASSIVE BUYERS ABSORBING SELLERS (aggression neg, price neg, residual pos), and the two OFFSETTING STATE2 names (aggression pos or neg while price is small).
 
-\subsection{Pressure is balanced while price remains quiet}
+\subsection{EXHAUSTION}
 
-The banner is \Balanced. At least one contribution is larger than one tick, but opposing contributions leave the net price move within one tick. Persistent one-sided aggression with little price response is consistent with possible absorption, but the available data do not prove it.
-
-\subsection{Little net price action or modeled pressure}
-
-The banner is \Quiet. The price move and both net modeled contributions are within one tick. This does not mean the window had low gross volume, no two-way flow, or a smooth price path.
+STATE is EXHAUSTION when aggression and price have opposite signs. STATE2 is PASSIVE SELLERS DOMINATING BUYERS when aggression is pos and price is neg, and PASSIVE BUYERS DOMINATING SELLERS when aggression is neg and price is pos. This label is the banner flow name, separate from the move-exhaustion study.
 
 \subsection{Chart context outside the state labels}
 
-Panels 1--3 can still show whether flow was concentrated, persistent, or two-way. Panels 4--5 can still show whether price is far from either fitted diagnostic line. These observations may suggest a breakout, range, reversal, or exhaustion pattern, but none of those is a banner category and the six states do not predict the next move.
-
-\subsection{Today vs the last 10 sessions}
-
-Panel 4 and panel 5 use the same $\beta_{\mathrm{ref}}$. They can still disagree on residuals: today may sit far from the reference line while the recent 10 days do not, or the reverse. That is today's path versus the same yardstick, not two different betas.
+Panels 1--3 can still show whether flow was concentrated, persistent, or two-way. Panel 4 can still show whether price is far from the reference line. Those chart readings are not extra banner states, and the states above do not predict the next move.
 
 \subsection{Curve vs chosen price}
 

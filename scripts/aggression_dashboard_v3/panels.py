@@ -3,15 +3,17 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
+import numpy as np
 import pandas as pd
 
 from scripts.aggression_dashboard_v3.banner import (
     BUY_COLOR,
     BUY_OFFSETTING_COLOR,
     GROUP_STYLE,
+    LABEL,
     QUIET_COLOR,
     SELL_COLOR,
     SELL_OFFSETTING_COLOR,
@@ -35,6 +37,13 @@ STATE_TIMELINE_CAPTION = (
     "Gaps are warming or unavailable. Attribution only; not a long/short signal."
 )
 READY_STATE_COLORS = {state: color for state, (_headline, color, _family, _group) in STATE_STYLE.items()}
+# Panels drawn from the shared print columns, and the fields each one reads.
+PRINT_PANEL_FIELDS: Dict[str, Tuple[str, ...]] = {
+    "p1": ("total_aggress", "price"),
+    "p3": ("buy_aggress", "sell_aggress", "total_aggress", "price"),
+    "p4": ("price", "implied_price"),
+}
+COLUMN_TRIM_CHUNK = 4096
 # STATE2 colours are shared across states, so that strip row's legend names colour groups.
 STATE2_COLOR_LEGEND = {
     BUY_COLOR: "Buy side",
@@ -105,13 +114,13 @@ def _build_axis_alignment(aligned: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
-def build_total_aggress_panel(frame: pd.DataFrame) -> Dict[str, Any]:
+def build_total_aggress_panel(frame: pd.DataFrame, *, with_data: bool = True) -> Dict[str, Any]:
     if frame is None or frame.empty:
         return {"title": "TotalAggress vs Price/Yield", "data": []}
     aligned = frame[["total_aggress", "price"]].dropna(subset=["total_aggress"])
     return {
         "title": "TotalAggress vs Price/Yield",
-        "data": _df_columns_to_points(aligned, "total_aggress", "price"),
+        "data": _df_columns_to_points(aligned, "total_aggress", "price") if with_data else [],
         "traces": [
             {"field": "total_aggress", "name": "TotalAggress", "axis": "y", "color": "#1f4ed8", "shape": "linear"},
             {"field": "price", "name": "Last trade", "axis": "y2", "color": "#d62728"},
@@ -164,14 +173,17 @@ def build_buysell_ratio_panel(frame: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
-def build_volume_panel(frame: pd.DataFrame) -> Dict[str, Any]:
+def build_volume_panel(frame: pd.DataFrame, *, with_data: bool = True) -> Dict[str, Any]:
     if frame is None or frame.empty:
         return {"title": "Buy Aggress, Sell Aggress, TotalAggress, and price", "data": []}
-    panel = frame[["buy_aggress", "sell_aggress", "total_aggress", "price"]].copy()
-    panel["sell_aggress"] = -panel["sell_aggress"].abs()
+    data: List[Dict[str, Any]] = []
+    if with_data:
+        panel = frame[["buy_aggress", "sell_aggress", "total_aggress", "price"]].copy()
+        panel["sell_aggress"] = -panel["sell_aggress"].abs()
+        data = _df_columns_to_points(panel, "buy_aggress", "sell_aggress", "total_aggress", "price")
     return {
         "title": "Buy Aggress, Sell Aggress, TotalAggress, and price",
-        "data": _df_columns_to_points(panel, "buy_aggress", "sell_aggress", "total_aggress", "price"),
+        "data": data,
         "traces": [
             {"field": "buy_aggress", "name": "Buy Aggress", "type": "bar", "axis": "y", "color": "#2ca02c"},
             {"field": "sell_aggress", "name": "Sell Aggress", "type": "bar", "axis": "y", "color": "#d62728"},
@@ -266,13 +278,13 @@ def build_state_timeline_panel(series: List[Dict[str, Any]] | None) -> Dict[str,
     }
 
 
-def _path_panel(title: str, frame: pd.DataFrame, *, marker_color: str) -> Dict[str, Any]:
+def _path_panel(title: str, frame: pd.DataFrame, *, marker_color: str, with_data: bool = True) -> Dict[str, Any]:
     if frame is None or frame.empty:
         return {"title": title, "data": [], "large_residuals": [], "traces": [], "layout": {"yaxis_title": "Last trade"}}
     large = frame.loc[frame.get("large_residual", False) == True] if "large_residual" in frame.columns else frame.iloc[0:0]
     return {
         "title": title,
-        "data": _df_columns_to_points(frame, "price", "implied_price"),
+        "data": _df_columns_to_points(frame, "price", "implied_price") if with_data else [],
         "large_residuals": [
             {"x": _to_et_iso(idx), "y": float(row["price"])}
             for idx, row in large.iterrows()
@@ -287,20 +299,175 @@ def _path_panel(title: str, frame: pd.DataFrame, *, marker_color: str) -> Dict[s
     }
 
 
+def state_styles_payload() -> Dict[str, Any]:
+    """Headline, colour, family and STATE per STATE2, sent once so hover rows can carry only `state`."""
+    return {
+        "states": {state: list(style) for state, style in STATE_STYLE.items()},
+        "groups": {group: list(style) for group, style in GROUP_STYLE.items()},
+        "label": LABEL,
+    }
+
+
+def _column_values(values: Iterable[Any]) -> List[Optional[float]]:
+    array = pd.to_numeric(pd.Series(values), errors="coerce").to_numpy(dtype=float)
+    return [None if np.isnan(value) else float(value) for value in array]
+
+
+def _row_spec(rows: np.ndarray, start: int, n: int) -> Dict[str, Any]:
+    """Panel rows as a slice of the shared columns: from `from` to the end, minus `skip`."""
+    if len(rows) == 0:
+        return {"from": n - start, "skip": []}
+    first = int(rows[0])
+    skip = np.setdiff1d(np.arange(first, n), rows, assume_unique=True)
+    return {"from": first - start, "skip": [int(i) - start for i in skip]}
+
+
+def _shares_print_index(frame: pd.DataFrame, path: pd.DataFrame) -> bool:
+    if path is None or path.empty or len(path) != len(frame):
+        return False
+    if "price" not in path.columns or "implied_price" not in path.columns:
+        return False
+    if not pd.DatetimeIndex(path.index).equals(pd.DatetimeIndex(frame.index)):
+        return False
+    ours = pd.to_numeric(frame["price"], errors="coerce").to_numpy(dtype=float)
+    theirs = pd.to_numeric(path["price"], errors="coerce").to_numpy(dtype=float)
+    return bool(np.array_equal(ours, theirs, equal_nan=True))
+
+
+def build_print_columns(
+    frame: pd.DataFrame,
+    path: pd.DataFrame,
+) -> Tuple[Dict[str, List[Any]], Dict[str, Dict[str, Any]]]:
+    """One column per print field for Panels 1, 3 and 4, plus the row spec of each panel.
+
+    Each spec selects exactly the rows `_df_columns_to_points` would draw: Panel 1 drops prints
+    without TotalAggress and keeps the last TICK_PLOT_MAX_POINTS; Panels 3 and 4 keep the last
+    TICK_PLOT_MAX_POINTS prints and drop the ones with every field missing. Panel 4 shares the
+    columns only when its path has the same prints and prices; otherwise it is left out.
+    """
+    n = len(frame)
+    limit = TICK_PLOT_MAX_POINTS
+    values = {
+        "total_aggress": _column_values(frame["total_aggress"]),
+        "price": _column_values(frame["price"]),
+        "buy_aggress": _column_values(frame["buy_aggress"]),
+        "sell_aggress": _column_values(-pd.to_numeric(frame["sell_aggress"], errors="coerce").abs()),
+    }
+    shared_path = _shares_print_index(frame, path)
+    if shared_path:
+        values["implied_price"] = _column_values(path["implied_price"])
+
+    def present(field: str) -> np.ndarray:
+        return np.array([value is not None for value in values[field]], dtype=bool)
+
+    tail = np.arange(max(0, n - limit), n)
+    has_total = present("total_aggress")
+    p1_rows = np.flatnonzero(has_total)[-limit:]
+    p3_any = has_total | present("price") | present("buy_aggress") | present("sell_aggress")
+    rows = {"p1": p1_rows, "p3": tail[p3_any[tail]]}
+    if shared_path:
+        p4_any = present("price") | present("implied_price")
+        rows["p4"] = tail[p4_any[tail]]
+    firsts = [int(r[0]) for r in rows.values() if len(r)]
+    start = min(firsts) if firsts else n
+    stamps = pd.DatetimeIndex(frame.index[start:])
+    columns: Dict[str, List[Any]] = {"x": [_to_et_iso(ts) for ts in stamps]}
+    for field, column in values.items():
+        columns[field] = column[start:]
+    return columns, {key: _row_spec(r, start, n) for key, r in rows.items()}
+
+
+def print_panel_rows(columns: Dict[str, List[Any]], spec: Dict[str, Any], fields: Iterable[str]) -> List[Dict[str, Any]]:
+    """The panel's row dicts, as `_df_columns_to_points` builds them. Mirrors `expandPrintColumns` in dashboard.js."""
+    skip = set(spec.get("skip") or [])
+    fields = tuple(fields)
+    return [
+        {"x": columns["x"][i], **{field: columns[field][i] for field in fields}}
+        for i in range(int(spec.get("from") or 0), len(columns["x"]))
+        if i not in skip
+    ]
+
+
+def _cap_spec(spec: Dict[str, Any], n: int, limit: int) -> None:
+    skip = spec.get("skip") or []
+    extra = (n - int(spec["from"]) - len(skip)) - int(limit)
+    if extra <= 0:
+        return
+    position = int(spec["from"])
+    if not skip:
+        spec["from"] = position + extra
+        return
+    skipped = set(skip)
+    while extra > 0:
+        if position not in skipped:
+            extra -= 1
+        position += 1
+    spec["from"] = position
+    spec["skip"] = [i for i in skip if i >= position]
+
+
+def append_print_rows(payload: Dict[str, Any], points: List[Dict[str, Any]], limit: int = TICK_PLOT_MAX_POINTS) -> None:
+    """Append live prints to the shared columns, unfiltered, and keep each panel's last `limit` rows."""
+    columns = payload.get("prints")
+    if not columns:
+        return
+    for point in points:
+        for field, column in columns.items():
+            column.append(point.get(field))
+    n = len(columns["x"])
+    specs = [
+        panel["rows"]
+        for key in PRINT_PANEL_FIELDS
+        if (panel := (payload.get("panels") or {}).get(key)) and panel.get("rows")
+    ]
+    for spec in specs:
+        _cap_spec(spec, n, limit)
+    cut = min((int(spec["from"]) for spec in specs), default=0)
+    if cut < COLUMN_TRIM_CHUNK:
+        return
+    for column in columns.values():
+        del column[:cut]
+    for spec in specs:
+        spec["from"] = int(spec["from"]) - cut
+        spec["skip"] = [i - cut for i in spec.get("skip") or []]
+
+
 def build_dashboard_payload(
     session_frame: pd.DataFrame,
     session_path: pd.DataFrame,
-    tenday_path: pd.DataFrame,
     meta: Dict[str, Any],
+    *,
+    columnar: bool = True,
 ) -> Dict[str, Any]:
+    """Live picture. With `columnar`, Panels 1, 3 and 4 are row specs over one shared `prints` table."""
+    meta = {**meta, "state_styles": state_styles_payload()}
+    if not columnar or session_frame is None or session_frame.empty:
+        return {
+            "success": True,
+            "panels": {
+                "p1": build_total_aggress_panel(session_frame),
+                "p2": build_buysell_ratio_panel(session_frame),
+                "p3": build_volume_panel(session_frame),
+                "p4": _path_panel("Intraday path under beta_ref", session_path, marker_color="#7f7f7f"),
+            },
+            "meta": meta,
+        }
+    columns, specs = build_print_columns(session_frame, session_path)
+    p1 = build_total_aggress_panel(session_frame, with_data=False)
+    p3 = build_volume_panel(session_frame, with_data=False)
+    p4 = _path_panel(
+        "Intraday path under beta_ref",
+        session_path,
+        marker_color="#7f7f7f",
+        with_data="p4" not in specs,
+    )
+    for key, panel in (("p1", p1), ("p3", p3), ("p4", p4)):
+        if key in specs:
+            panel.pop("data", None)
+            panel["rows"] = specs[key]
     return {
         "success": True,
-        "panels": {
-            "p1": build_total_aggress_panel(session_frame),
-            "p2": build_buysell_ratio_panel(session_frame),
-            "p3": build_volume_panel(session_frame),
-            "p4": _path_panel("Intraday path under beta_ref", session_path, marker_color="#7f7f7f"),
-            "p5": _path_panel("Last 10 sessions under the same beta_ref", tenday_path, marker_color="#d62728"),
-        },
+        "prints": columns,
+        "panels": {"p1": p1, "p2": build_buysell_ratio_panel(session_frame), "p3": p3, "p4": p4},
         "meta": meta,
     }

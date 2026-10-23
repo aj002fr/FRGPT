@@ -13,7 +13,6 @@ import queue as queue_module
 import sys
 import threading
 import time as time_module
-from collections import OrderedDict
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -36,8 +35,6 @@ from scripts.aggression_dashboard_v3.core import (
     EASTERN,
     LIVE_STORE_DIR,
     SYMBOL_PARENT_MAP,
-    apply_beta_ref_path,
-    build_print_frame,
     default_start_time,
     fetch_curve_trades,
     last_n_business_day_window,
@@ -47,7 +44,6 @@ from scripts.aggression_dashboard_v3.core import (
     parse_dashboard_datetime,
     prune_trades_cache,
     globex_session_end,
-    session_labels,
     trading_day_start,
 )
 from scripts.aggression_dashboard_v3.history_client import HistoryWorkerError, build_history_service
@@ -100,10 +96,6 @@ _TENDAY_THREAD: threading.Thread | None = None
 _LAST_CACHE_PRUNE_DATE = None
 _BETA_WARM_LOCK = threading.Lock()
 _BETA_WARM_KEYS: set[tuple] = set()
-TENDAY_PATH_SLOTS = 3
-_TENDAY_PATH_LOCK = threading.Lock()
-_TENDAY_PATHS: "OrderedDict[tuple, pd.DataFrame]" = OrderedDict()
-_TENDAY_PATH_BUILDING: set[tuple] = set()
 
 # A live selection: (price symbol, aggression chips in SYMBOL_PARENT_MAP order, DV01 adjust).
 LiveKey = Tuple[str, Tuple[str, ...], bool]
@@ -160,73 +152,6 @@ def _kick_beta_ref(
     thread = threading.Thread(target=_run, name="v3-beta-ref", daemon=True)
     thread.start()
     return thread
-
-
-def _tenday_path_key(
-    aggression_symbols: Tuple[str, ...],
-    price_symbol: str,
-    dv01_adjust: bool,
-    beta_ref: Optional[float],
-) -> tuple:
-    beta_part = None if beta_ref is None else round(float(beta_ref), 16)
-    return (tuple(aggression_symbols), price_symbol, bool(dv01_adjust), beta_part)
-
-
-def _snapshot_tenday_path(key: tuple) -> pd.DataFrame:
-    """Shared 10-session path frame. Callers must not modify it in place."""
-    with _TENDAY_PATH_LOCK:
-        frame = _TENDAY_PATHS.get(key)
-        if frame is None:
-            return pd.DataFrame()
-        _TENDAY_PATHS.move_to_end(key)
-        return frame
-
-
-def _store_tenday_path(key: tuple, frame: pd.DataFrame) -> None:
-    with _TENDAY_PATH_LOCK:
-        _TENDAY_PATHS[key] = frame
-        _TENDAY_PATHS.move_to_end(key)
-        while len(_TENDAY_PATHS) > TENDAY_PATH_SLOTS:
-            _TENDAY_PATHS.popitem(last=False)
-
-
-def _kick_tenday_path(
-    aggression_symbols: Tuple[str, ...],
-    price_symbol: str,
-    dv01_adjust: bool,
-    beta_ref: Optional[float],
-    dv01_table: Dict[str, float],
-) -> None:
-    if beta_ref is None:
-        return
-    key = _tenday_path_key(aggression_symbols, price_symbol, dv01_adjust, beta_ref)
-    with _TENDAY_PATH_LOCK:
-        if key in _TENDAY_PATHS or key in _TENDAY_PATH_BUILDING:
-            return
-        _TENDAY_PATH_BUILDING.add(key)
-
-    def _run() -> None:
-        try:
-            trades = _snapshot_tenday_trades(aggression_symbols)
-            if trades:
-                frame, _ = build_print_frame(
-                    trades,
-                    price_symbol=price_symbol,
-                    dv01_table=dv01_table,
-                    dv01_adjust=dv01_adjust,
-                )
-                if not frame.empty:
-                    frame = _tag_sessions(frame)
-                    frame["total_aggress"] = frame.groupby("session_id")["delta_a"].cumsum()
-                    frame = apply_beta_ref_path(frame, float(beta_ref), session_col="session_id")
-                    _store_tenday_path(key, frame)
-        except Exception:
-            logger.exception("V3 background 10-session path failed")
-        finally:
-            with _TENDAY_PATH_LOCK:
-                _TENDAY_PATH_BUILDING.discard(key)
-
-    threading.Thread(target=_run, name="v3-tenday-path", daemon=True).start()
 
 
 def _ensure_live_buffer() -> None:
@@ -288,21 +213,12 @@ def _make_publisher(key: LiveKey) -> LivePublisher:
     def kick_beta() -> None:
         _kick_beta_ref(price_symbol, symbols, dv01_adjust, trades_window=_snapshot_tenday_trades(symbols) or None)
 
-    def tenday_path(beta_ref: Optional[float]) -> pd.DataFrame:
-        return _snapshot_tenday_path(_tenday_path_key(symbols, price_symbol, dv01_adjust, beta_ref))
-
-    def kick_tenday(beta_ref: Optional[float], dv01_table: Dict[str, float]) -> None:
-        if beta_ref is not None:
-            _kick_tenday_path(symbols, price_symbol, dv01_adjust, float(beta_ref), dv01_table)
-
     return LivePublisher(
         assemble_trades=assemble,
         load_cached_window=cached_window,
         peek_beta=peek_beta,
         kick_beta=kick_beta,
         live_status=lambda: _live_status("live"),
-        tenday_path=tenday_path,
-        kick_tenday=kick_tenday,
         load_dv01=load_dv01_table,
         price_symbol=price_symbol,
         aggression_symbols=symbols,
@@ -673,20 +589,6 @@ def _snapshot_tenday_trades(symbols: Tuple[str, ...]) -> Dict[str, pd.DataFrame]
             for symbol, df in (_TENDAY.get("trades") or {}).items()
             if symbol in symbols
         }
-
-
-def _tag_sessions(frame: pd.DataFrame) -> pd.DataFrame:
-    if frame.empty:
-        return frame
-    out = frame.copy()
-    et = pd.DatetimeIndex(out.index)
-    if et.tz is None:
-        et = et.tz_localize("UTC")
-    et = et.tz_convert(EASTERN)
-    start_dates = et.normalize()
-    start_dates = start_dates.where(et.hour >= 18, start_dates - pd.Timedelta(days=1))
-    out["session_id"] = session_labels(pd.DatetimeIndex(start_dates))
-    return out
 
 
 def _parse_payload(payload: Dict[str, Any]) -> AggressionRequest:

@@ -49,7 +49,13 @@ const EXHAUSTION_SOUND = ensureExhaustionSoundControl();
 const PANEL2_CAPTION = document.getElementById("panel-p2-caption");
 const PANEL1_STATES_CAPTION = document.getElementById("panel-p1-states-caption");
 const LABEL_TEXT = "PROVISIONAL / RESEARCH-ONLY / TRADE-TO-TRADE / NON-EXECUTABLE";
-const PANEL_IDS = ["panel-p1", "panel-p1-states", "panel-p2", "panel-p3", "panel-p4", "panel-p5"];
+const PANEL_IDS = ["panel-p1", "panel-p1-states", "panel-p2", "panel-p3", "panel-p4"];
+// Panels drawn from the snapshot's shared `prints` columns, and the fields each reads (panels.PRINT_PANEL_FIELDS).
+const PRINT_PANEL_FIELDS = {
+  p1: ["total_aggress", "price"],
+  p3: ["buy_aggress", "sell_aggress", "total_aggress", "price"],
+  p4: ["price", "implied_price"],
+};
 const EXHAUSTION_SOUND_STORAGE_KEY = "aggression-v3-exhaustion-sound";
 const DEPLOYMENT_VALIDATOR_STORAGE_KEY = "aggression-v3-dashboard-validator";
 const DEPLOYMENT_POLL_MS = 30000;
@@ -68,6 +74,7 @@ let liveSource = null;
 let paused = false;
 let bannerSeries = [];
 let bannerByX = new Map();
+let stateStyles = null;
 let hoverEventsBound = false;
 let hoveredBannerX = null;
 let lastStripRuns = [];
@@ -286,6 +293,61 @@ function bannerHoverEnabled() {
   return Boolean(BANNER_ON_HOVER && BANNER_ON_HOVER.checked);
 }
 
+// Hover rows arrive compact (status, state, as_of, window_min, contribution_line, reason).
+// Rebuild the rest the way banner._payload does; full rows from an older server pass through.
+function expandBanner(row) {
+  if (!row || row.headline !== undefined) {
+    return row;
+  }
+  const styles = stateStyles || {};
+  const style = (styles.states || {})[row.state];
+  const headline = style ? style[0] : String(row.state || "").replaceAll("_", " ");
+  const group = style ? style[3] : null;
+  const groupStyle = group ? (styles.groups || {})[group] : null;
+  return {
+    ...row,
+    headline,
+    color: style ? style[1] : null,
+    family: style ? style[2] : "neutral",
+    group,
+    group_headline: groupStyle ? groupStyle[0] : headline,
+    group_color: groupStyle ? groupStyle[1] : null,
+    label: styles.label || LABEL_TEXT,
+    reason: row.reason ?? null,
+    contribution_line: row.contribution_line ?? null,
+    parameters: { window_min: row.window_min },
+  };
+}
+
+// Rebuild Panel 1/3/4 rows from the shared columns: `from` to the end, minus `skip` (panels.print_panel_rows).
+function expandPrintColumns(payload) {
+  const columns = payload && payload.prints;
+  const panels = payload && payload.panels;
+  if (!columns || !panels || !Array.isArray(columns.x)) {
+    return;
+  }
+  Object.entries(PRINT_PANEL_FIELDS).forEach(([key, fields]) => {
+    const panel = panels[key];
+    if (!panel || !panel.rows || Array.isArray(panel.data)) {
+      return;
+    }
+    const skip = new Set(panel.rows.skip || []);
+    const rows = [];
+    for (let i = panel.rows.from || 0; i < columns.x.length; i += 1) {
+      if (skip.has(i)) {
+        continue;
+      }
+      const row = { x: columns.x[i] };
+      fields.forEach((field) => {
+        const value = columns[field] ? columns[field][i] : null;
+        row[field] = value === undefined ? null : value;
+      });
+      rows.push(row);
+    }
+    panel.data = rows;
+  });
+}
+
 function storeBannerSeries(rows) {
   bannerSeries = Array.isArray(rows) ? rows.slice() : [];
   bannerByX = new Map();
@@ -322,7 +384,7 @@ function lookupBannerSnapshot(x) {
   const keys = candidateXKeys(x);
   for (const key of keys) {
     if (bannerByX.has(key)) {
-      return bannerByX.get(key);
+      return expandBanner(bannerByX.get(key));
     }
   }
   const hoverDate = x instanceof Date
@@ -344,7 +406,7 @@ function lookupBannerSnapshot(x) {
       break;
     }
   }
-  return found;
+  return expandBanner(found);
 }
 
 function hoverBannerDetail(flow) {
@@ -449,7 +511,6 @@ const ZOOM_RERENDER = {
   "panel-p2": (panels) => panels.p2 && renderDualAxisPanel("panel-p2", panels.p2),
   "panel-p3": (panels) => panels.p3 && renderVolumePanel("panel-p3", panels.p3),
   "panel-p4": (panels) => panels.p4 && renderPredictionPanel("panel-p4", panels.p4),
-  "panel-p5": (panels) => panels.p5 && renderPredictionPanel("panel-p5", panels.p5),
 };
 
 function onPanelRelayout(elementId, eventData) {
@@ -824,6 +885,10 @@ function renderPredictionPanel(elementId, panel) {
 }
 
 function renderPayload(payload) {
+  if (payload.meta && payload.meta.state_styles) {
+    stateStyles = payload.meta.state_styles;
+  }
+  expandPrintColumns(payload);
   currentPanels = payload.panels || {};
   const p1Rows = payload.panels && payload.panels.p1 && payload.panels.p1.data;
   if (p1Rows && p1Rows.length) {
@@ -847,7 +912,6 @@ function renderPayload(payload) {
   }
   renderVolumePanel("panel-p3", payload.panels.p3);
   renderPredictionPanel("panel-p4", payload.panels.p4);
-  renderPredictionPanel("panel-p5", payload.panels.p5);
   const flow = payload.meta?.flow || {};
   const beta = payload.meta?.beta_ref || {};
   updateFreshnessBanner(payload.meta?.live_status);
@@ -1023,7 +1087,7 @@ function renderLiveCharts() {
 
 function appendBannerRows(prints) {
   prints.forEach((row) => {
-    const hover = row.hover || row.banner;
+    const hover = row.h || row.hover || row.banner;
     if (!hover) {
       return;
     }

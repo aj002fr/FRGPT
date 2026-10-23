@@ -24,6 +24,11 @@ The top banner is the current 15-minute window. A second hover banner (default o
 
 Live mode is a viewer. One publisher on 5053 applies each trade and pushes the same bytes on `GET /api/live/stream`. The page listens; it does not poll `/api/aggression` or `/api/live_status`. Historical mode still uses `POST /api/aggression`.
 
+The live page draws Panels 1–4; the last-10-sessions Panel 5 was removed on 2026-10-23. To keep the stream small without changing any drawn value:
+
+- The `snapshot` event carries one `prints` table (`x`, `total_aggress`, `price`, `buy_aggress`, `sell_aggress`, `implied_price` columns). Panels 1, 3 and 4 each carry `rows: {from, skip}`, which select exactly the rows the old per-panel `data` lists held (`panels.print_panel_rows`; `expandPrintColumns` in `dashboard.js` rebuilds them). Panel 2 keeps its own `data`.
+- Hover rows (`flow_dominance_series`, and `h` on each live print) carry only `status`, `state`, `as_of`, `window_min`, `contribution_line`, `reason` and `x` (`live_publisher.compact_banner`). The page rebuilds headline, colours and label from `meta.state_styles` (`banner.STATE_STYLE` / `GROUP_STYLE`). The top banner (`flow_dominance`) stays the full payload.
+
 Every plot and the banner use a trade-to-trade clock. Price is the last traded price of the selected contract (default TY). Wing prints step TotalAggress and hold price. Live `beta_ref` is today's day-tag beta from `tag_beta.json` (flow-history day OLS of day bps on net DV01 for auction tenor / other auction / month-end / tier-1 / regular). The print path reads that file; a background thread updates it after each 17:00 ET close. The superseded 10-session whole-session mean is `ensure_session_mean_beta_ref`. Attribution only, never long/short. File changes do not appear until you restart 5053 yourself.
 
 ## Banner states

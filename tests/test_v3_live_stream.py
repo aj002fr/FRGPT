@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
@@ -16,6 +17,20 @@ from scripts.aggression_dashboard_v3.live_publisher import (
     frame_has_window_print,
 )
 from scripts.aggression_dashboard_v3.banner import GROUP_STYLE, build_banner
+from scripts.aggression_dashboard_v3.panels import PRINT_PANEL_FIELDS, print_panel_rows
+
+
+def _panel_rows(snapshot: Dict[str, Any], key: str) -> list:
+    """Rows a panel draws, whether it carries `data` or a `rows` spec over `prints`."""
+    panel = snapshot["panels"][key]
+    if panel.get("rows"):
+        return print_panel_rows(snapshot["prints"], panel["rows"], PRINT_PANEL_FIELDS[key])
+    return panel["data"]
+
+
+def _sse_payload(encoded: str) -> Dict[str, Any]:
+    data = next(line for line in encoded.splitlines() if line.startswith("data: "))
+    return json.loads(data[len("data: "):])
 
 
 @pytest.fixture(autouse=True)
@@ -93,8 +108,6 @@ def _publisher(
         },
         kick_beta=lambda: None,
         live_status=lambda: {"connected": True, "source": "accessapi", "market_open": True},
-        tenday_path=lambda _beta: pd.DataFrame(),
-        kick_tenday=lambda _beta, _dv01: None,
         load_dv01=lambda: {"TY": 1.0, "FV": 1.0, "TU": 1.0, "US": 1.0},
         aggression_symbols=("TY",),
         price_symbol="TY",
@@ -208,9 +221,40 @@ def test_trade_updates_shared_snapshot_tip():
         "dashboard_symbol": "TY",
     }])
     snap = pub.last_snapshot()
-    p1 = ((snap or {}).get("panels") or {}).get("p1") or {}
-    assert p1.get("data")
-    assert p1["data"][-1]["x"] == snap["flow_dominance_series"][-1]["x"]
+    rows = _panel_rows(snap, "p1")
+    assert rows
+    assert rows[-1]["x"] == snap["flow_dominance_series"][-1]["x"]
+    assert len({len(column) for column in snap["prints"].values()}) == 1
+    assert "p5" not in snap["panels"]
+
+
+def test_trade_event_carries_compact_hover_only():
+    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
+    pub.rebuild()
+    last = pub._frame.iloc[-1]
+    encoded = pub.apply_trades([{
+        "ts": pub._frame.index.max() + pd.Timedelta(milliseconds=2),
+        "price": float(last["price"]) + (1.0 / 64.0),
+        "size": 1,
+        "side": "A",
+        "dashboard_symbol": "TY",
+    }])
+    payload = _sse_payload(encoded)
+    point = payload["prints"][-1]
+    assert set(point) == set(live_publisher.WIRE_POINT_FIELDS) | {"h"}
+    full = payload["flow_dominance"]
+    assert full["headline"] and "parameters" in full
+    assert point["h"] == live_publisher.compact_banner(full)
+    assert "headline" not in point["h"]
+
+
+def test_snapshot_series_is_compact_and_has_no_panel5():
+    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
+    snapshot = pub.rebuild()
+    assert set(snapshot["panels"]) == {"p1", "p2", "p3", "p4", "p1_states"}
+    assert snapshot["meta"]["state_styles"]["states"]
+    for row in snapshot["flow_dominance_series"]:
+        assert set(row) <= {"status", "state", "as_of", "window_min", "contribution_line", "reason", "x"}
 
 
 def test_empty_tape_warming_helper():
@@ -228,7 +272,7 @@ def test_lookback_clips_the_chart_but_not_the_session_sum():
     pub = _publisher(_tape(_recent_start(20), minutes=20, n=40, side="B"), lookback_hours=0.1)
     snapshot = pub.rebuild()
     assert snapshot and snapshot.get("success")
-    p1 = snapshot["panels"]["p1"]["data"]
+    p1 = _panel_rows(snapshot, "p1")
     assert 0 < len(p1) < 40
     assert p1[0]["total_aggress"] == 40 - len(p1) + 1
     assert p1[-1]["total_aggress"] == 40
@@ -253,8 +297,8 @@ def test_longer_tape_keeps_values_and_sends_no_history():
     pub.assemble_trades = lambda _s, _e: (longer, {}, {})
     second = pub.rebuild()
     assert q.empty()
-    before = {row["x"]: row["total_aggress"] for row in first["panels"]["p1"]["data"]}
-    after = {row["x"]: row["total_aggress"] for row in second["panels"]["p1"]["data"]}
+    before = {row["x"]: row["total_aggress"] for row in _panel_rows(first, "p1")}
+    after = {row["x"]: row["total_aggress"] for row in _panel_rows(second, "p1")}
     shared = set(before) & set(after)
     assert shared
     assert all(before[x] == after[x] for x in shared)
@@ -338,13 +382,10 @@ class _FakePublisher:
 
 @pytest.fixture
 def v3app(monkeypatch):
-    from collections import OrderedDict
-
     from scripts.aggression_dashboard_v3 import app
 
     monkeypatch.setattr(app, "_PUBLISHERS", {})
     monkeypatch.setattr(app, "_PUBLISHER_IDLE_SINCE", {})
-    monkeypatch.setattr(app, "_TENDAY_PATHS", OrderedDict())
     monkeypatch.setattr(app, "_make_publisher", _FakePublisher)
     monkeypatch.setattr(app.LIVE_BUFFER, "set_hooks", lambda **_kwargs: None)
     return app
@@ -422,15 +463,3 @@ def test_stream_replaces_the_oldest_extra_instead_of_refusing(v3app):
     publisher = v3app._ensure_publisher(v3app.live_key_from_args({"chips": "FV"}), claim=True)
     assert oldest.stopped and publisher.started
     assert ("TY", ("FV",), True) in v3app._PUBLISHERS
-
-
-def test_tenday_path_cache_holds_several_selections(v3app):
-    frames = {name: pd.DataFrame({"x": [i]}) for i, name in enumerate(("curve", "ty", "us", "fv"))}
-    v3app._store_tenday_path("curve", frames["curve"])
-    v3app._store_tenday_path("ty", frames["ty"])
-    assert v3app._snapshot_tenday_path("curve") is frames["curve"]
-    assert v3app._snapshot_tenday_path("ty") is frames["ty"]
-    v3app._store_tenday_path("us", frames["us"])
-    v3app._store_tenday_path("fv", frames["fv"])
-    assert v3app._snapshot_tenday_path("curve").empty
-    assert v3app._snapshot_tenday_path("ty") is frames["ty"]

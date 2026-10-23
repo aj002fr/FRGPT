@@ -41,6 +41,7 @@ from scripts.aggression_dashboard_v3.panels import (
     BUYSELL_DISPLAY_HALFLIFE,
     _to_et_iso,
     advance_runs,
+    append_print_rows,
     apply_strip_edge,
     build_dashboard_payload,
     build_state_timeline_panel,
@@ -59,6 +60,30 @@ SUBSCRIBER_QUEUE_MAX = 128
 TIP_SLACK_MIN = 1.0
 PREFIX_TOLERANCE = 0.5
 SERIES_MARGIN = pd.Timedelta(minutes=2 * OVERNIGHT_WINDOW_MIN)
+WIRE_POINT_FIELDS = ("x", "price", "total_aggress", "buysell_ratio", "buy_aggress", "sell_aggress", "implied_price")
+
+
+def compact_banner(banner: Dict[str, Any]) -> Dict[str, Any]:
+    """Hover row: the banner fields the page cannot rebuild from `state` and `meta.state_styles`."""
+    row: Dict[str, Any] = {
+        "status": banner.get("status"),
+        "state": banner.get("state"),
+        "as_of": banner.get("as_of"),
+        "window_min": (banner.get("parameters") or {}).get("window_min"),
+    }
+    for key in ("contribution_line", "reason", "x"):
+        if banner.get(key) is not None:
+            row[key] = banner[key]
+    return row
+
+
+def wire_point(point: Dict[str, Any]) -> Dict[str, Any]:
+    """One print as sent to viewers: chart fields plus the compact hover row `h`."""
+    out = {field: point.get(field) for field in WIRE_POINT_FIELDS}
+    banner = point.get("banner")
+    if banner:
+        out["h"] = compact_banner(banner)
+    return out
 
 
 def _json_default(value: Any) -> Any:
@@ -224,8 +249,6 @@ class LivePublisher:
         peek_beta: Callable[[datetime], Dict[str, Any]],
         kick_beta: Callable[[], None],
         live_status: Callable[[], Dict[str, Any]],
-        tenday_path: Callable[[Optional[float]], pd.DataFrame],
-        kick_tenday: Callable[[Optional[float], Dict[str, float]], None],
         load_dv01: Callable[[], Dict[str, float]],
         price_symbol: str = DEFAULT_PRICE_SYMBOL,
         aggression_symbols: Tuple[str, ...] = DEFAULT_AGGRESSION_SYMBOLS,
@@ -237,8 +260,6 @@ class LivePublisher:
         self.peek_beta = peek_beta
         self.kick_beta = kick_beta
         self.live_status = live_status
-        self.tenday_path = tenday_path
-        self.kick_tenday = kick_tenday
         self.load_dv01 = load_dv01
         self.price_symbol = price_symbol
         self.aggression_symbols = tuple(aggression_symbols)
@@ -318,7 +339,7 @@ class LivePublisher:
             self._put(q, opening)
             if replay_points:
                 self._put(q, encode_sse("trade", {
-                    "prints": replay_points,
+                    "prints": [wire_point(point) for point in replay_points],
                     "flow_dominance": replay_points[-1].get("banner"),
                     "live_status": self.live_status(),
                 }))
@@ -464,9 +485,6 @@ class LivePublisher:
         beta_ref = beta_payload.get("beta_ref") if beta_payload.get("ok") else None
         path_beta = float(beta_ref) if beta_ref else 0.0
         session_path = apply_beta_ref_path(frame, path_beta)
-        tenday_frame = self.tenday_path(float(beta_ref) if beta_ref else None)
-        if tenday_frame.empty and beta_ref:
-            self.kick_tenday(float(beta_ref), dv01_table)
         display_path = clip_print_lookback(session_path, self.lookback_hours)
         meta = {
             "request": {
@@ -502,7 +520,7 @@ class LivePublisher:
             "live_status": live_status,
             "label": "PROVISIONAL / RESEARCH-ONLY / TRADE-TO-TRADE / NON-EXECUTABLE",
         }
-        response = build_dashboard_payload(display, display_path, tenday_frame, meta)
+        response = build_dashboard_payload(display, display_path, meta)
         series = build_banner_series(
             recent,
             beta_payload,
@@ -510,7 +528,7 @@ class LivePublisher:
             as_of_index=display.index if not display.empty else None,
         )
         response["flow_dominance"] = banner
-        response["flow_dominance_series"] = series
+        response["flow_dominance_series"] = [compact_banner(row) for row in series]
         response["panels"]["p1_states"] = build_state_timeline_panel(series)
         event = self._revision_event(display, beta_payload)
         kept_shift = self._store_picture(response, frame, display, session_path, beta_payload)
@@ -547,7 +565,7 @@ class LivePublisher:
         live_status = self.live_status()
         strip = self._strip_edge(prints[-1])
         payload = {
-            "prints": prints,
+            "prints": [wire_point(point) for point in prints],
             "flow_dominance": banner,
             "strip": strip,
             "live_status": live_status,
@@ -617,9 +635,10 @@ class LivePublisher:
                 "p3": ("buy_aggress", "sell_aggress", "total_aggress", "price"),
                 "p4": ("price", "implied_price"),
             }
+            append_print_rows(snap, prints)
             for key, fields in field_map.items():
                 panel = panels.get(key)
-                if not panel:
+                if not panel or panel.get("rows"):
                     continue
                 data = panel.setdefault("data", [])
                 for point in prints:
@@ -630,7 +649,7 @@ class LivePublisher:
                 for point in prints:
                     hover = point.get("hover")
                     if hover:
-                        series.append(hover)
+                        series.append(compact_banner(hover))
             if strip:
                 states = panels.setdefault("p1_states", {"data": [], "group_data": []})
                 apply_strip_edge(states.setdefault("data", []), strip.get("state"))
