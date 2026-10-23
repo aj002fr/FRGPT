@@ -1,9 +1,9 @@
-"""Six-state trade-to-trade attribution banner for Aggression V3."""
+"""Trade-to-trade flow-attribution banner for Aggression V3."""
 
 from __future__ import annotations
 
 import math
-from datetime import datetime
+from datetime import datetime, time
 from typing import Any, Iterable, Optional
 from zoneinfo import ZoneInfo
 
@@ -15,24 +15,93 @@ from scripts.aggression_dashboard_v3.core import tick_size
 EASTERN = ZoneInfo("America/New_York")
 BANNER_SERIES_MAX_POINTS = 4000
 LABEL = "PROVISIONAL / RESEARCH-ONLY / TRADE-TO-TRADE / NON-EXECUTABLE"
-WINDOW_MIN = 15
-DOMINANCE_RATIO = 1.5
+WINDOW_MIN = 5
+OVERNIGHT_WINDOW_MIN = 15
+OVERNIGHT_START = time(18, 0)
+OVERNIGHT_END = time(3, 0)
 QUIET_TICKS = 1.0
 IDENTITY_TOL = 1e-6
-GAP_SEC = 15 * 60
+GAP_SEC = WINDOW_MIN * 60
+NS = 1_000_000_000
+
+
+def window_minutes(ts: Any) -> int:
+    """15 minutes from 18:00 ET inclusive through 03:00 ET exclusive; 5 minutes otherwise."""
+    value = pd.Timestamp(ts)
+    if value.tzinfo is None:
+        value = value.tz_localize("UTC")
+    else:
+        value = value.tz_convert("UTC")
+    clock = value.tz_convert(EASTERN).time()
+    if clock >= OVERNIGHT_START or clock < OVERNIGHT_END:
+        return OVERNIGHT_WINDOW_MIN
+    return WINDOW_MIN
+
+
+def window_minutes_for_ns(ts_ns: Any) -> np.ndarray:
+    """Per-print window length, matching `window_minutes` on each UTC nanosecond timestamp."""
+    stamps = pd.to_datetime(np.asarray(ts_ns, dtype=np.int64), unit="ns", utc=True).tz_convert(EASTERN)
+    minute_of_day = np.asarray(stamps.hour, dtype=np.int64) * 60 + np.asarray(stamps.minute, dtype=np.int64)
+    overnight = (minute_of_day >= 18 * 60) | (minute_of_day < 3 * 60)
+    return np.where(overnight, OVERNIGHT_WINDOW_MIN, WINDOW_MIN).astype(np.int64)
+
+
+def earlier_print_reason(minutes: int) -> str:
+    return f"No print yet at the {minutes}-minute-earlier endpoint since the session or configuration reset."
+
+
+NO_EARLIER_PRINT_REASON = earlier_print_reason(WINDOW_MIN)
 IMPLIED_PASSIVE_TEXT = (
-    "Implied passive is price movement left unexplained by measured aggression "
+    "Residual (implied passive) is price movement left unexplained by measured aggression "
     "under the displayed reference beta; it is not observed passive order flow."
 )
-HEADLINE = {
-    "QUIET": "QUIET",
-    "BALANCED": "BALANCED",
-    "AGGRESS_DOMINANT": "AGGRESS DOMINANT",
-    "IMPLIED_PASSIVE_DOMINANT": "IMPLIED PASSIVE DOMINANT",
-    "JOINTLY_DRIVEN": "JOINTLY DRIVEN",
-    "CONTESTED": "CONTESTED",
-    "WARMING": "WARMING",
-    "UNAVAILABLE": "UNAVAILABLE",
+# STATE (coarse) -> (headline, colour).
+GROUP_STYLE: dict[str, tuple[str, str]] = {
+    "THIN_LIQ": ("THIN LIQ", "#747474"),
+    "QUIET": ("QUIET", "#E8E8E8"),
+    "AGGRESS_DOM": ("AGGRESS DOM", "#D86DCD"),
+    "BALANCED": ("BALANCED", "#FFFF00"),
+    "EXHAUSTION": ("EXHAUSTION", "#8ED974"),
+}
+BUY_COLOR = "#A7C9EC"
+BUY_OFFSETTING_COLOR = "#D9E9F8"
+SELL_COLOR = "#E7776B"
+SELL_OFFSETTING_COLOR = "#F6C7AB"
+QUIET_COLOR = "#E8E8E8"
+# STATE2 (fine) -> (headline, colour, family, STATE). Blue is buy-side pressure, red sell-side.
+STATE_STYLE: dict[str, tuple[str, str, str, str]] = {
+    "SELLER_STRIKE": ("SELLER STRIKE", BUY_COLOR, "buy", "THIN_LIQ"),
+    "BUYER_STRIKE": ("BUYER STRIKE", SELL_COLOR, "sell", "THIN_LIQ"),
+    "QUIET": ("QUIET", QUIET_COLOR, "neutral", "QUIET"),
+    "AGGRESS_DOM_BUY": ("AGGRESS DOM", BUY_COLOR, "buy", "AGGRESS_DOM"),
+    "AGGRESS_DOM_THIN_LIQ_BUY": ("AGGRESS DOM, THIN LIQUIDITY", BUY_COLOR, "buy", "AGGRESS_DOM"),
+    "PASSIVE_SELLERS_ABSORBING_BUYERS": ("PASSIVE SELLERS ABSORBING BUYERS", BUY_COLOR, "buy", "BALANCED"),
+    "PASSIVE_SELLERS_DOMINATING_BUYERS": ("PASSIVE SELLERS DOMINATING BUYERS", SELL_COLOR, "sell", "EXHAUSTION"),
+    "PASSIVE_SELLERS_OFFSETTING_BUYERS": ("PASSIVE SELLERS OFFSETTING BUYERS", BUY_OFFSETTING_COLOR, "buy", "BALANCED"),
+    "PASSIVE_BUYERS_DOMINATING_SELLERS": ("PASSIVE BUYERS DOMINATING SELLERS", BUY_COLOR, "buy", "EXHAUSTION"),
+    "AGGRESS_DOM_THIN_LIQ_SELL": ("AGGRESS DOM, THIN LIQUIDITY", SELL_COLOR, "sell", "AGGRESS_DOM"),
+    "PASSIVE_BUYERS_ABSORBING_SELLERS": ("PASSIVE BUYERS ABSORBING SELLERS", SELL_COLOR, "sell", "BALANCED"),
+    "AGGRESS_DOM_SELL": ("AGGRESS DOM", SELL_COLOR, "sell", "AGGRESS_DOM"),
+    "PASSIVE_BUYERS_OFFSETTING_SELLERS": ("PASSIVE BUYERS OFFSETTING SELLERS", SELL_OFFSETTING_COLOR, "sell", "BALANCED"),
+}
+# (sign a, sign d) -> STATE2; sign is +1 above q, -1 below -q, else 0.
+_BY_AGGRESS_AND_PRICE: dict[tuple[int, int], str] = {
+    (0, 1): "SELLER_STRIKE",
+    (0, 0): "QUIET",
+    (0, -1): "BUYER_STRIKE",
+    (1, 0): "PASSIVE_SELLERS_OFFSETTING_BUYERS",
+    (1, -1): "PASSIVE_SELLERS_DOMINATING_BUYERS",
+    (-1, 0): "PASSIVE_BUYERS_OFFSETTING_SELLERS",
+    (-1, 1): "PASSIVE_BUYERS_DOMINATING_SELLERS",
+}
+# Aggression and price move the same way: (sign a, sign r) -> STATE2.
+_SAME_DIRECTION: dict[tuple[int, int], str] = {
+    (1, 0): "AGGRESS_DOM_BUY",
+    (1, 1): "AGGRESS_DOM_THIN_LIQ_BUY",
+    (1, -1): "PASSIVE_SELLERS_ABSORBING_BUYERS",
+    (-1, 0): "AGGRESS_DOM_SELL",
+    (-1, -1): "AGGRESS_DOM_THIN_LIQ_SELL",
+    (-1, 1): "PASSIVE_BUYERS_ABSORBING_SELLERS",
 }
 
 
@@ -44,22 +113,135 @@ def _finite(value: Any) -> Optional[float]:
     return number if math.isfinite(number) else None
 
 
-def classify_six_state(d: float, a: float, b: float, *, q: float = QUIET_TICKS, r: float = DOMINANCE_RATIO) -> str:
-    """Classify one READY window. Quiet-threshold ties stay quiet-price; ratio ties go dominant."""
-    m = max(abs(a), abs(b))
-    if abs(d) <= q and m <= q:
-        return "QUIET"
-    if abs(d) <= q and m > q:
-        return "BALANCED"
-    if abs(d) > q and abs(a) >= r * abs(b):
-        return "AGGRESS_DOMINANT"
-    if abs(d) > q and abs(b) >= r * abs(a):
-        return "IMPLIED_PASSIVE_DOMINANT"
-    if abs(d) > q and (a * b) > 0:
-        return "JOINTLY_DRIVEN"
-    if abs(d) > q and (a * b) < 0:
-        return "CONTESTED"
-    return "UNAVAILABLE"
+def _sign_class(value: float, q: float) -> int:
+    if value > q:
+        return 1
+    if value < -q:
+        return -1
+    return 0
+
+
+def classify_state(d: float, a: float, r: float, *, q: float = QUIET_TICKS) -> str:
+    """STATE2 for one READY window from actual move d, aggression a and residual r (ticks).
+
+    |x| == q counts as small. Aggression and price pick the state; the residual only splits
+    windows where aggression and price move the same way.
+    """
+    sign_a, sign_d, sign_r = _sign_class(a, q), _sign_class(d, q), _sign_class(r, q)
+    if sign_a != 0 and sign_a == sign_d:
+        return _SAME_DIRECTION[(sign_a, sign_r)]
+    return _BY_AGGRESS_AND_PRICE[(sign_a, sign_d)]
+
+
+def state_style(state: str) -> tuple[str, Optional[str], str, Optional[str]]:
+    """(headline, colour, family, STATE) for any banner state, including WARMING / UNAVAILABLE."""
+    return STATE_STYLE.get(state, (str(state).replace("_", " "), None, "neutral", None))
+
+
+STATE_IDS: tuple[str, ...] = tuple(STATE_STYLE)
+STATUS_NAMES: tuple[str, ...] = ("READY", "WARMING", "UNAVAILABLE")
+STATUS_READY, STATUS_WARMING, STATUS_UNAVAILABLE = 0, 1, 2
+MISSING_ENDPOINT_REASON = "Missing last-trade price or aggression at an endpoint."
+
+
+def _build_state_lookup() -> np.ndarray:
+    index = {state: position for position, state in enumerate(STATE_IDS)}
+    lookup = np.zeros((3, 3, 3), dtype=np.int8)
+    for sign_a in (-1, 0, 1):
+        for sign_d in (-1, 0, 1):
+            for sign_r in (-1, 0, 1):
+                if sign_a != 0 and sign_a == sign_d:
+                    state = _SAME_DIRECTION[(sign_a, sign_r)]
+                else:
+                    state = _BY_AGGRESS_AND_PRICE[(sign_a, sign_d)]
+                lookup[sign_a + 1, sign_d + 1, sign_r + 1] = index[state]
+    return lookup
+
+
+_STATE_LOOKUP = _build_state_lookup()
+
+
+def classify_states(d: Any, a: Any, r: Any, *, q: float = QUIET_TICKS) -> np.ndarray:
+    """Vectorised `classify_state`: an index into STATE_IDS per window. Inputs must be finite."""
+    codes = [
+        np.where(values > q, 2, np.where(values < -q, 0, 1))
+        for values in (np.asarray(a, dtype=float), np.asarray(d, dtype=float), np.asarray(r, dtype=float))
+    ]
+    return _STATE_LOOKUP[codes[0], codes[1], codes[2]]
+
+
+def window_states(
+    ts_ns: Any,
+    prices: Any,
+    aggress: Any,
+    sessions: Any,
+    beta: Any,
+    tau: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """The clock's window ending at every print, with the live banner's rules.
+
+    The start endpoint is the last print at or before `t - W(t)`, where W is 15 minutes from
+    18:00 to 03:00 ET and 5 minutes otherwise. It must be in the same session and after the last
+    print gap longer than W(t). `beta` is a scalar or one value per print. Returns
+    (status, state, d, a, r); state is -1 when status is not READY.
+    """
+    ts = np.asarray(ts_ns, dtype=np.int64)
+    n = len(ts)
+    status = np.full(n, STATUS_WARMING, dtype=np.int8)
+    state = np.full(n, -1, dtype=np.int8)
+    d = np.full(n, np.nan)
+    a = np.full(n, np.nan)
+    r = np.full(n, np.nan)
+    if n == 0:
+        return status, state, d, a, r
+    price_arr = np.asarray(prices, dtype=float)
+    aggress_arr = np.asarray(aggress, dtype=float)
+    session_arr = np.asarray(sessions)
+    beta_arr = np.broadcast_to(np.asarray(beta, dtype=float), (n,))
+    minutes = window_minutes_for_ns(ts)
+    prev = np.searchsorted(ts, ts - minutes * np.int64(60 * NS), side="right") - 1
+    has_prev = prev >= 0
+    prev = np.clip(prev, 0, None)
+    last_gap = np.where(
+        minutes == OVERNIGHT_WINDOW_MIN,
+        _last_gap_ts(ts, np.int64(OVERNIGHT_WINDOW_MIN * 60 * NS)),
+        _last_gap_ts(ts, np.int64(WINDOW_MIN * 60 * NS)),
+    )
+    has_prev &= (last_gap < 0) | (ts[prev] >= last_gap)
+    has_prev &= session_arr[prev] == session_arr
+    with np.errstate(invalid="ignore"):
+        dd = (price_arr - price_arr[prev]) / tau
+        aa = beta_arr * (aggress_arr - aggress_arr[prev]) / tau
+        rr = dd - aa
+    beta_ok = np.isfinite(beta_arr) & (beta_arr > 0)
+    finite = np.isfinite(dd) & np.isfinite(aa)
+    ready = has_prev & beta_ok & finite
+    status[has_prev & beta_ok & ~finite] = STATUS_UNAVAILABLE
+    status[ready] = STATUS_READY
+    d[ready] = dd[ready]
+    a[ready] = aa[ready]
+    r[ready] = rr[ready]
+    if ready.any():
+        state[ready] = classify_states(dd[ready], aa[ready], rr[ready])
+    return status, state, d, a, r
+
+
+def contribution_line(d: float, a: float, b: float, minutes: int = WINDOW_MIN) -> str:
+    return f"{minutes}m price {d:+.1f} ticks · aggression {a:+.1f} · residual {b:+.1f}"
+
+
+def _last_gap_ts(ts: np.ndarray, gap_ns: int) -> np.ndarray:
+    """Timestamp of the first print after the latest gap longer than `gap_ns`, or -1."""
+    last = np.full(len(ts), np.int64(-1))
+    if len(ts) < 2:
+        return last
+    gap_starts = ts[1:][np.diff(ts) > gap_ns]
+    if len(gap_starts) == 0:
+        return last
+    position = np.searchsorted(gap_starts, ts, side="right") - 1
+    valid = position >= 0
+    last[valid] = gap_starts[position[valid]]
+    return last
 
 
 def config_key(
@@ -85,7 +267,11 @@ def _to_et_naive_iso(ts: Any) -> str:
     return value.tz_convert(EASTERN).tz_localize(None).isoformat()
 
 
-def _last_gap_reset(frame: pd.DataFrame, as_of: Optional[pd.Timestamp] = None) -> Optional[pd.Timestamp]:
+def _last_gap_reset(
+    frame: pd.DataFrame,
+    as_of: Optional[pd.Timestamp] = None,
+    gap_sec: float = GAP_SEC,
+) -> Optional[pd.Timestamp]:
     if frame.empty or len(frame) < 2:
         return None
     work = frame
@@ -97,7 +283,7 @@ def _last_gap_reset(frame: pd.DataFrame, as_of: Optional[pd.Timestamp] = None) -
     if idx.tz is None:
         idx = idx.tz_localize("UTC")
     deltas = idx.to_series().diff().dt.total_seconds()
-    gaps = idx[deltas > GAP_SEC]
+    gaps = idx[deltas > gap_sec]
     if len(gaps) == 0:
         return None
     return pd.Timestamp(gaps[-1])
@@ -117,6 +303,32 @@ def _cell(frame: pd.DataFrame, ts: pd.Timestamp, column: str) -> Any:
     return value
 
 
+def _beta_line_text(
+    *,
+    beta_ref: Optional[float],
+    beta_display: Optional[float],
+    beta_payload: Optional[dict[str, Any]] = None,
+) -> Optional[str]:
+    """One banner line naming the beta source: tag day-OLS when present, else the legacy mean."""
+    payload = beta_payload or {}
+    tag = payload.get("tag")
+    if tag:
+        head = f"Reference beta: {tag} day OLS"
+        n = payload.get("n_sessions_used")
+        if n:
+            head += f", {n} days"
+        head += " (display units: yield bp per $1 million DV01)"
+    elif payload.get("window") == "whole_session" or payload.get("version") == "whole_session_v1":
+        head = "Reference beta: 10-session mean (display units: yield bp per $1 million DV01)"
+    else:
+        head = "Reference beta: day-tag OLS (display units: yield bp per $1 million DV01)"
+    if beta_display is not None and math.isfinite(beta_display):
+        return f"{head} {beta_display:+.4f}"
+    if beta_ref is not None and math.isfinite(beta_ref):
+        return head
+    return None
+
+
 def _payload(
     status: str,
     state: str,
@@ -127,27 +339,26 @@ def _payload(
     b: Optional[float] = None,
     beta_ref: Optional[float] = None,
     beta_display: Optional[float] = None,
+    beta_payload: Optional[dict[str, Any]] = None,
     as_of: Optional[str] = None,
     tick: Optional[float] = None,
 ) -> dict[str, Any]:
-    headline = HEADLINE.get(state, state.replace("_", " "))
+    headline, color, family, group = state_style(state)
+    group_headline, group_color = GROUP_STYLE.get(group, (headline, None))
     contribution = None
+    minutes = window_minutes(as_of) if as_of is not None else WINDOW_MIN
     if status == "READY" and d is not None and a is not None and b is not None:
-        contribution = (
-            f"15m price {d:+.1f} ticks · aggression {a:+.1f} · implied passive {b:+.1f}"
-        )
-    beta_line = None
-    if beta_display is not None and math.isfinite(beta_display):
-        beta_line = (
-            f"Reference beta: 10-session mean (display units: yield bp per $1 million DV01) "
-            f"{beta_display:+.4f}"
-        )
-    elif beta_ref is not None and math.isfinite(beta_ref):
-        beta_line = "Reference beta: 10-session mean (display units: yield bp per $1 million DV01)"
+        contribution = contribution_line(d, a, b, minutes)
+    beta_line = _beta_line_text(beta_ref=beta_ref, beta_display=beta_display, beta_payload=beta_payload)
     return {
         "status": status,
         "state": state,
         "headline": headline,
+        "color": color,
+        "family": family,
+        "group": group,
+        "group_headline": group_headline,
+        "group_color": group_color,
         "label": LABEL,
         "non_directional": True,
         "predictive": False,
@@ -162,8 +373,7 @@ def _payload(
         "beta_ref": beta_ref,
         "beta_display_yield_bp_per_1m": beta_display,
         "parameters": {
-            "window_min": WINDOW_MIN,
-            "dominance_ratio": DOMINANCE_RATIO,
+            "window_min": minutes,
             "quiet_ticks": QUIET_TICKS,
             "tick_size": tick,
         },
@@ -180,7 +390,7 @@ def build_banner(
     reset_key: Optional[tuple] = None,
     prior_key: Optional[tuple] = None,
 ) -> dict[str, Any]:
-    """Classify the latest 15-minute trade-to-trade window."""
+    """Classify the latest WINDOW_MIN trade-to-trade window."""
     tau = tick_size(price_symbol)
     as_of_ts = pd.Timestamp(as_of or datetime.now())
     if as_of_ts.tzinfo is None:
@@ -204,6 +414,7 @@ def build_banner(
             reason=(beta_payload or {}).get("reason") or "Waiting for a valid reference beta.",
             beta_ref=beta_ref,
             beta_display=beta_display,
+            beta_payload=beta_payload,
             as_of=as_of_iso,
             tick=tau,
         )
@@ -211,7 +422,8 @@ def build_banner(
     work = frame.copy()
     work.index = pd.to_datetime(work.index, utc=True)
     work = work.sort_index()
-    gap_reset = _last_gap_reset(work, as_of_ts)
+    minutes = window_minutes(as_of_ts)
+    gap_reset = _last_gap_reset(work, as_of_ts, gap_sec=minutes * 60)
     if gap_reset is not None:
         work = work.loc[work.index >= gap_reset]
         if work.empty:
@@ -221,11 +433,12 @@ def build_banner(
                 reason="Waiting for prints after a data gap.",
                 beta_ref=beta_ref,
                 beta_display=beta_display,
+                beta_payload=beta_payload,
                 as_of=as_of_iso,
                 tick=tau,
             )
 
-    earlier = as_of_ts - pd.Timedelta(minutes=WINDOW_MIN)
+    earlier = as_of_ts - pd.Timedelta(minutes=minutes)
     k_now = _endpoint(work, as_of_ts)
     k_prev = _endpoint(work, earlier)
     if (
@@ -240,6 +453,7 @@ def build_banner(
             reason="Banner window reset after a session boundary.",
             beta_ref=beta_ref,
             beta_display=beta_display,
+            beta_payload=beta_payload,
             as_of=as_of_iso,
             tick=tau,
         )
@@ -249,9 +463,10 @@ def build_banner(
         return _payload(
             "WARMING",
             "WARMING",
-            reason="No print yet at the 15-minute-earlier endpoint since the session or configuration reset.",
+            reason=earlier_print_reason(minutes),
             beta_ref=beta_ref,
             beta_display=beta_display,
+            beta_payload=beta_payload,
             as_of=as_of_iso,
             tick=tau,
         )
@@ -265,6 +480,7 @@ def build_banner(
         tau=tau,
         beta_ref=beta_ref,
         beta_display=beta_display,
+        beta_payload=beta_payload,
         p_now=p_now,
         p_prev=p_prev,
         a_now=a_now,
@@ -305,6 +521,7 @@ def banner_from_endpoints(
             reason=(beta_payload or {}).get("reason") or "Waiting for a valid reference beta.",
             beta_ref=beta_ref,
             beta_display=beta_display,
+            beta_payload=beta_payload,
             as_of=as_of_iso,
             tick=tau,
         )
@@ -315,6 +532,7 @@ def banner_from_endpoints(
             reason=window_reason,
             beta_ref=beta_ref,
             beta_display=beta_display,
+            beta_payload=beta_payload,
             as_of=as_of_iso,
             tick=tau,
         )
@@ -323,6 +541,7 @@ def banner_from_endpoints(
         tau=tau,
         beta_ref=beta_ref,
         beta_display=beta_display,
+        beta_payload=beta_payload,
         p_now=p_now,
         p_prev=p_prev,
         a_now=a_now,
@@ -340,6 +559,7 @@ def _ready_from_points(
     p_prev: Optional[float],
     a_now: Optional[float],
     a_prev: Optional[float],
+    beta_payload: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     if None in (p_now, p_prev, a_now, a_prev):
         return _payload("UNAVAILABLE", "UNAVAILABLE", reason="Missing last-trade price or aggression at an endpoint.", as_of=as_of_iso, tick=tau)
@@ -350,7 +570,7 @@ def _ready_from_points(
         return _payload("UNAVAILABLE", "UNAVAILABLE", reason="Non-finite contribution.", as_of=as_of_iso, tick=tau)
     if abs(d - (a + b)) > IDENTITY_TOL:
         return _payload("UNAVAILABLE", "UNAVAILABLE", reason="Contribution identity d = a + b failed.", as_of=as_of_iso, tick=tau)
-    state = classify_six_state(d, a, b)
+    state = classify_state(d, a, b)
     return _payload(
         "READY",
         state,
@@ -359,6 +579,7 @@ def _ready_from_points(
         b=b,
         beta_ref=beta_ref,
         beta_display=beta_display,
+        beta_payload=beta_payload,
         as_of=as_of_iso,
         tick=tau,
     )
@@ -384,7 +605,7 @@ def build_banner_series(
     price_symbol: str,
     as_of_index: Optional[Iterable] = None,
 ) -> list[dict[str, Any]]:
-    """Six-state snapshots for chart hover. Does not change the live banner."""
+    """State snapshots for chart hover. Does not change the live banner."""
     if frame is None or frame.empty or "price" not in frame.columns or "total_aggress" not in frame.columns:
         return []
     work = frame.copy()
@@ -414,6 +635,7 @@ def build_banner_series(
                 reason=reason,
                 beta_ref=beta_ref,
                 beta_display=beta_display,
+                beta_payload=beta_payload,
                 as_of=pd.Timestamp(ts).isoformat(),
                 tick=tau,
             )
@@ -424,25 +646,35 @@ def build_banner_series(
     idx = pd.DatetimeIndex(work.index)
     idx_ns = idx.asi8
     t_ns = sample.asi8
-    window_ns = np.int64(WINDOW_MIN * 60 * 1_000_000_000)
+    sample_minutes = window_minutes_for_ns(t_ns)
+    window_ns = sample_minutes * np.int64(60 * NS)
     prices = pd.to_numeric(work["price"], errors="coerce").to_numpy(dtype=float)
     aggress = pd.to_numeric(work["total_aggress"], errors="coerce").to_numpy(dtype=float)
     sessions = work["session_id"].astype(str).to_numpy() if "session_id" in work.columns else None
 
-    if len(idx) >= 2:
-        deltas = np.diff(idx_ns) / 1_000_000_000.0
-        gap_ns = idx_ns[1:][deltas > GAP_SEC]
-    else:
-        gap_ns = np.array([], dtype=np.int64)
+    def gap_starts(gap_sec: float) -> np.ndarray:
+        if len(idx_ns) < 2:
+            return np.array([], dtype=np.int64)
+        deltas = np.diff(idx_ns) / float(NS)
+        return idx_ns[1:][deltas > gap_sec]
+
+    def last_gap(starts: np.ndarray) -> np.ndarray:
+        out = np.full(len(sample), -1, dtype=np.int64)
+        if len(starts) == 0:
+            return out
+        gpos = np.searchsorted(starts, t_ns, side="right") - 1
+        valid_g = gpos >= 0
+        out[valid_g] = starts[gpos[valid_g]]
+        return out
+
+    last_gap_ns = np.where(
+        sample_minutes == OVERNIGHT_WINDOW_MIN,
+        last_gap(gap_starts(OVERNIGHT_WINDOW_MIN * 60)),
+        last_gap(gap_starts(WINDOW_MIN * 60)),
+    )
 
     now_pos = np.searchsorted(idx_ns, t_ns, side="right") - 1
     prev_pos = np.searchsorted(idx_ns, t_ns - window_ns, side="right") - 1
-    last_gap_ns = np.full(len(sample), -1, dtype=np.int64)
-    if len(gap_ns):
-        gpos = np.searchsorted(gap_ns, t_ns, side="right") - 1
-        valid_g = gpos >= 0
-        last_gap_ns[valid_g] = gap_ns[gpos[valid_g]]
-
     now_ok = now_pos >= 0
     prev_ok = prev_pos >= 0
     now_ts_ns = np.where(now_ok, idx_ns[np.clip(now_pos, 0, None)], np.int64(-1))
@@ -462,6 +694,7 @@ def build_banner_series(
                 reason="No last-trade price at the current endpoint.",
                 beta_ref=beta_ref,
                 beta_display=beta_display,
+                beta_payload=beta_payload,
                 as_of=as_of_iso,
                 tick=tau,
             )
@@ -469,9 +702,10 @@ def build_banner_series(
             payload = _payload(
                 "WARMING",
                 "WARMING",
-                reason="No print yet at the 15-minute-earlier endpoint since the session or configuration reset.",
+                reason=earlier_print_reason(int(sample_minutes[i])),
                 beta_ref=beta_ref,
                 beta_display=beta_display,
+                beta_payload=beta_payload,
                 as_of=as_of_iso,
                 tick=tau,
             )
@@ -482,6 +716,7 @@ def build_banner_series(
                 reason="Banner window reset after a session boundary.",
                 beta_ref=beta_ref,
                 beta_display=beta_display,
+                beta_payload=beta_payload,
                 as_of=as_of_iso,
                 tick=tau,
             )
@@ -497,6 +732,7 @@ def build_banner_series(
                     reason="Missing last-trade price or aggression at an endpoint.",
                     beta_ref=beta_ref,
                     beta_display=beta_display,
+                    beta_payload=beta_payload,
                     as_of=as_of_iso,
                     tick=tau,
                 )
@@ -511,18 +747,20 @@ def build_banner_series(
                         reason="Non-finite contribution.",
                         beta_ref=beta_ref,
                         beta_display=beta_display,
+                        beta_payload=beta_payload,
                         as_of=as_of_iso,
                         tick=tau,
                     )
                 else:
                     payload = _payload(
                         "READY",
-                        classify_six_state(d, a, b),
+                        classify_state(d, a, b),
                         d=d,
                         a=a,
                         b=b,
                         beta_ref=beta_ref,
                         beta_display=beta_display,
+                        beta_payload=beta_payload,
                         as_of=as_of_iso,
                         tick=tau,
                     )

@@ -1,11 +1,16 @@
-"""Interim 10-session change-on-change reference beta for Aggression V3."""
+"""Reference beta for Aggression V3.
+
+Live path: ``ensure_beta_ref`` looks up today's day tag in ``tag_beta.json``
+(flow-history day OLS per tag). The superseded 10-session whole-session mean
+is ``ensure_session_mean_beta_ref``.
+"""
 
 from __future__ import annotations
 
 import json
 import logging
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -26,12 +31,34 @@ from scripts.aggression_dashboard_v3.core import (
     load_dv01_table,
     point_value_usd,
 )
+from scripts.aggression_dashboard_v3 import tag_beta
 
 logger = logging.getLogger(__name__)
 
-BETA_VERSION = "last_3h_tod_v1"
+BETA_VERSION = "whole_session_v1"
 CACHE_PATH = LIVE_STORE_DIR / "beta_ref.json"
 _CACHE_LOCK = threading.Lock()
+# A session counts as covered by in-memory trades if they start no later than this after its open.
+WINDOW_COVER_SLACK = pd.Timedelta(hours=1)
+
+
+def _trades_window_start(
+    trades_window: Optional[Dict[str, pd.DataFrame]],
+    symbols: Iterable[str],
+) -> Optional[pd.Timestamp]:
+    """Latest first print across the selected symbols' in-memory trades.
+
+    None when any selected symbol has no in-memory prints, so every session is read from the cache.
+    """
+    if not trades_window:
+        return None
+    starts = []
+    for symbol in symbols:
+        df = trades_window.get(symbol)
+        if df is None or df.empty or "ts" not in df.columns:
+            return None
+        starts.append(pd.to_datetime(df["ts"], utc=True).min())
+    return max(starts) if starts else None
 
 
 def _entry_identity(payload: Dict[str, Any]) -> tuple:
@@ -184,6 +211,14 @@ def _session_key(start: datetime) -> str:
     return start.astimezone(timezone.utc).isoformat()
 
 
+def session_set_mean(slopes: Iterable[Optional[float]]) -> Tuple[Optional[float], int]:
+    """Mean of the finite per-session slopes given, and how many were used."""
+    values = [float(value) for value in slopes if value is not None and np.isfinite(float(value))]
+    if not values:
+        return None, 0
+    return float(np.mean(values)), len(values)
+
+
 def _load_cache() -> Dict[str, Any]:
     if not CACHE_PATH.exists():
         return {}
@@ -209,7 +244,7 @@ def compute_session_beta(
     trades_by_symbol: Optional[Dict[str, pd.DataFrame]] = None,
     now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
-    """Fit the last-3-hour TOD window on one completed session."""
+    """Fit one completed session's change-on-change slope; with ``now``, only its last-3-hour TOD window."""
     end = globex_session_end(session_start)
     symbols = tuple(aggression_symbols)
     trades = trades_by_symbol
@@ -248,15 +283,56 @@ def ensure_beta_ref(
     now: Optional[datetime] = None,
     trades_window: Optional[Dict[str, pd.DataFrame]] = None,
     compute: bool = True,
-    refresh_stale: bool = False,
 ) -> Dict[str, Any]:
-    """Return the 10-session mean of last-3-hour TOD change-on-change slopes.
+    """Return the live reference beta: today's day tag and that tag's day-level OLS beta.
 
-    A cached entry from an earlier TOD bucket is returned with ``bucket_stale``
-    unless both ``compute`` and ``refresh_stale`` are set. A failed refresh
-    keeps that last-good entry.
+    ``compute=False`` only reads ``tag_beta.json``. ``compute=True`` first brings the table
+    through the last closed session (one read-only V1 query) when it is behind.
+    Cache hits come back with ``cached`` set. ``trades_window`` is unused.
     """
-    now_utc = bucket_display_time(now or datetime.now(timezone.utc))
+    symbols = tuple(aggression_symbols)
+    kwargs = dict(price_symbol=price_symbol, aggression_symbols=symbols, dv01_adjust=dv01_adjust, now=now)
+    payload = tag_beta.beta_for_session(**kwargs)
+    cached = not payload.get("stale")
+    if payload.get("stale") and compute:
+        update = tag_beta.update_table(**kwargs)
+        payload = tag_beta.beta_for_session(**kwargs)
+        if payload.get("stale") and update.get("reason"):
+            payload = {**payload, "stale": False, "reason": update["reason"]}
+    beta = payload.get("beta_ref")
+    through = payload.get("checked_through")
+    last_end = None
+    if through:
+        last_end = datetime.combine(date.fromisoformat(through), time(17, 0), tzinfo=EASTERN).isoformat()
+    return {
+        **payload,
+        "beta_display_yield_bp_per_1m": (
+            beta_to_yield_bp_per_1m(beta, price_symbol, load_dv01_table()) if beta is not None else None
+        ),
+        "last_session_end": last_end,
+        "sessions": [],
+        "bucket_stale": False,
+        "cached": cached,
+    }
+
+
+def ensure_session_mean_beta_ref(
+    *,
+    price_symbol: str,
+    aggression_symbols: Iterable[str],
+    dv01_adjust: bool,
+    now: Optional[datetime] = None,
+    trades_window: Optional[Dict[str, pd.DataFrame]] = None,
+    compute: bool = True,
+) -> Dict[str, Any]:
+    """Return the mean of the last 10 completed sessions' whole-session change-on-change slopes.
+
+    Superseded on the live page by the tagged day beta; kept for archived-session audits.
+
+    One value per completed-session set; it only changes at the 18:00 ET roll.
+    Cache hits come back with ``cached`` set.
+    """
+    now_utc = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     starts = completed_session_starts(now_utc, n=BETA_REF_SESSIONS)
     start_keys = [_session_key(start) for start in starts]
     symbols = tuple(aggression_symbols)
@@ -266,15 +342,13 @@ def ensure_beta_ref(
         "aggression_symbols": list(symbols),
         "dv01_adjust": bool(dv01_adjust),
         "sessions": start_keys,
-        "lookback_hours": BETA_REF_LOOKBACK_HOURS,
-        "tod_bucket": now_utc.astimezone(EASTERN).strftime("%H:%M"),
+        "window": "whole_session",
+        "last_session_end": globex_session_end(starts[-1]).isoformat() if starts else None,
     }
     with _CACHE_LOCK:
         cached = _usable_entry(_entries_from_disk(), cache_id)
     if cached:
-        stale = cached.get("tod_bucket") != cache_id["tod_bucket"]
-        if not (compute and refresh_stale and stale):
-            return {**cached, "bucket_stale": bool(stale)}
+        return {**cached, "bucket_stale": False, "cached": True}
     if not compute:
         return {
             **cache_id,
@@ -289,9 +363,10 @@ def ensure_beta_ref(
     dv01_table = load_dv01_table()
     session_rows: List[Dict[str, Any]] = []
     betas: List[float] = []
+    window_start = _trades_window_start(trades_window, symbols)
     for start in starts:
         scoped = None
-        if trades_window:
+        if window_start is not None and window_start <= pd.Timestamp(start) + WINDOW_COVER_SLACK:
             scoped = {}
             end = globex_session_end(start)
             start_ts = pd.Timestamp(start)
@@ -310,15 +385,12 @@ def ensure_beta_ref(
             dv01_adjust=dv01_adjust,
             dv01_table=dv01_table,
             trades_by_symbol=scoped,
-            now=now_utc,
         )
         session_rows.append(row)
         if row.get("ok") and row.get("beta") is not None and np.isfinite(float(row["beta"])):
             betas.append(float(row["beta"]))
 
     if len(betas) < 1:
-        if cached:
-            return {**cached, "bucket_stale": True}
         payload = {
             **cache_id,
             "ok": False,
@@ -345,10 +417,10 @@ def ensure_beta_ref(
     }
     _save_entry(payload)
     logger.info(
-        "V3 beta_ref %.6e from %s last-3h windows ending %s for %s",
+        "V3 beta_ref %.6e from %s whole sessions ending %s for %s",
         beta_ref,
         len(betas),
-        cache_id["tod_bucket"],
+        cache_id["last_session_end"],
         price_symbol,
     )
     return payload

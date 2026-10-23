@@ -2,10 +2,9 @@ const STATUS = document.getElementById("status");
 const META = document.getElementById("meta");
 const REFRESH_BTN = document.getElementById("refresh-btn");
 const PAUSE_BTN = document.getElementById("pause-btn");
-const AUTO_REFRESH = document.getElementById("auto-refresh");
-const MODE_SELECT = document.getElementById("mode-select");
-const END_TIME_GROUP = document.getElementById("end-time-group");
 const FRESHNESS_BANNER = document.getElementById("freshness-banner");
+const FLOW_STATE_BANNER = document.getElementById("flow-state-banner");
+const FLOW_STATE_MAIN = document.getElementById("flow-state-main");
 const FLOW_DOMINANCE_BANNER = document.getElementById("flow-dominance-banner");
 const FLOW_DOMINANCE_MAIN = document.getElementById("flow-dominance-main");
 const FLOW_DOMINANCE_DETAIL = document.getElementById("flow-dominance-detail");
@@ -15,55 +14,181 @@ const FLOW_DOMINANCE_LABEL = document.getElementById("flow-dominance-label");
 const FLOW_DOMINANCE_HOVER = document.getElementById("flow-dominance-hover");
 const FLOW_DOMINANCE_HOVER_ASOF = document.getElementById("flow-dominance-hover-asof");
 const FLOW_DOMINANCE_HOVER_MAIN = document.getElementById("flow-dominance-hover-main");
+const FLOW_HOVER_GROUP = document.getElementById("flow-hover-group");
+const FLOW_HOVER_GROUP_MAIN = document.getElementById("flow-hover-group-main");
+const FLOW_HOVER_FINE = document.getElementById("flow-hover-fine");
 const FLOW_DOMINANCE_HOVER_DETAIL = document.getElementById("flow-dominance-hover-detail");
 const FLOW_DOMINANCE_HOVER_LABEL = document.getElementById("flow-dominance-hover-label");
 const BANNER_ON_HOVER = document.getElementById("banner-on-hover");
+const DASHBOARD_ASSET_URL = document.currentScript
+  ? document.currentScript.src
+  : new URL("/static/dashboard.js", window.location.href).href;
+
+function ensureExhaustionSoundControl() {
+  const existing = document.getElementById("exhaustion-sound");
+  if (existing) {
+    return existing;
+  }
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.id = "exhaustion-sound";
+  const label = document.createElement("label");
+  label.className = "inline";
+  label.append(input, document.createTextNode(" Exhaustion sound"));
+  const anchor = BANNER_ON_HOVER && BANNER_ON_HOVER.closest("label");
+  const actions = document.querySelector(".control-col.actions");
+  if (anchor) {
+    anchor.after(label);
+  } else if (actions) {
+    actions.append(label);
+  }
+  return input;
+}
+
+const EXHAUSTION_SOUND = ensureExhaustionSoundControl();
 const PANEL2_CAPTION = document.getElementById("panel-p2-caption");
 const PANEL1_STATES_CAPTION = document.getElementById("panel-p1-states-caption");
 const LABEL_TEXT = "PROVISIONAL / RESEARCH-ONLY / TRADE-TO-TRADE / NON-EXECUTABLE";
 const PANEL_IDS = ["panel-p1", "panel-p1-states", "panel-p2", "panel-p3", "panel-p4", "panel-p5"];
+const EXHAUSTION_SOUND_STORAGE_KEY = "aggression-v3-exhaustion-sound";
+const DEPLOYMENT_VALIDATOR_STORAGE_KEY = "aggression-v3-dashboard-validator";
+const DEPLOYMENT_POLL_MS = 30000;
 const HOVER_BANNER_IDLE = {
   status: "WARMING",
   state: "WARMING",
-  headline: "HOVER BANNER",
-  reason: "Hover any chart timestamp to see the 15-minute six-state at that print.",
+  group_headline: "STATE",
+  headline: "STATE2",
+  reason: "Hover any chart timestamp to see the states at that print.",
 };
 const LIVE_FLUSH_MS = 1000;
 const LIVE_MAX_POINTS = 80000;
 const BANNER_ROWS_MAX = 100000;
 
-let refreshTimer = null;
-let statusTimer = null;
 let liveSource = null;
 let paused = false;
-let inFlight = false;
 let bannerSeries = [];
 let bannerByX = new Map();
 let hoverEventsBound = false;
 let hoveredBannerX = null;
 let lastStripRuns = [];
+let lastGroupRuns = [];
+let lastStateLegend = [
+  { legend: "THIN LIQ", color: "#747474" },
+  { legend: "QUIET", color: "#E8E8E8" },
+  { legend: "AGGRESS DOM", color: "#D86DCD" },
+  { legend: "BALANCED", color: "#FFFF00" },
+  { legend: "EXHAUSTION", color: "#8ED974" },
+];
 let lastLookbackStart = null;
 let currentPanels = null;
 let pendingPrints = [];
 let flushTimer = null;
 let chartsDirty = false;
 let stripDirty = false;
+let lastReadyFlowGroup = null;
+let audioContext = null;
+let deploymentValidator = null;
+let pendingDeploymentValidator = null;
+let deploymentCheckRunning = false;
+
+try {
+  EXHAUSTION_SOUND.checked = localStorage.getItem(EXHAUSTION_SOUND_STORAGE_KEY) === "1";
+} catch (_error) {
+  EXHAUSTION_SOUND.checked = false;
+}
+
+async function playExhaustionChime() {
+  if (!EXHAUSTION_SOUND.checked) {
+    return;
+  }
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+  try {
+    audioContext = audioContext || new AudioContextClass();
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+    const start = audioContext.currentTime;
+    [
+      { frequency: 659.25, offset: 0 },
+      { frequency: 880, offset: 0.16 },
+    ].forEach(({ frequency, offset }) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      const noteStart = start + offset;
+      const noteEnd = noteStart + 0.13;
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, noteStart);
+      gain.gain.setValueAtTime(0.0001, noteStart);
+      gain.gain.exponentialRampToValueAtTime(0.16, noteStart + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(noteStart);
+      oscillator.stop(noteEnd);
+    });
+  } catch (_error) {
+    // Audio remains armed; another user interaction may satisfy browser policy.
+  }
+}
+
+function dashboardValidator(response) {
+  return response.headers.get("etag") || response.headers.get("last-modified");
+}
+
+function reloadForDeployment(validator) {
+  try {
+    localStorage.setItem(DEPLOYMENT_VALIDATOR_STORAGE_KEY, validator);
+  } catch (_error) {
+    // Reload protection also comes from accepting the new validator on startup.
+  }
+  const target = new URL(window.location.href);
+  target.searchParams.set("ui_v", String(Date.now()));
+  window.location.replace(target.toString());
+}
+
+async function checkDashboardDeployment() {
+  if (document.hidden || deploymentCheckRunning) {
+    return;
+  }
+  deploymentCheckRunning = true;
+  try {
+    const response = await fetch(DASHBOARD_ASSET_URL, {
+      method: "HEAD",
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return;
+    }
+    const validator = dashboardValidator(response);
+    if (!validator) {
+      return;
+    }
+    if (deploymentValidator === null) {
+      deploymentValidator = validator;
+      try {
+        localStorage.setItem(DEPLOYMENT_VALIDATOR_STORAGE_KEY, validator);
+      } catch (_error) {
+        // Deployment checks still work for this page without persistent storage.
+      }
+      return;
+    }
+    if (validator !== deploymentValidator) {
+      pendingDeploymentValidator = validator;
+      reloadForDeployment(validator);
+    }
+  } catch (_error) {
+    // A transient network failure should not interrupt the live dashboard.
+  } finally {
+    deploymentCheckRunning = false;
+  }
+}
 
 function selectedAggressionSymbols() {
   return Array.from(document.querySelectorAll("#aggression-symbols input:checked"))
     .map((input) => input.value);
-}
-
-function requestPayload() {
-  return {
-    aggression_symbols: selectedAggressionSymbols(),
-    price_symbol: document.getElementById("price-symbol").value,
-    start_iso: document.getElementById("start-time").value,
-    end_iso: MODE_SELECT.value === "historical" ? document.getElementById("end-time").value : null,
-    mode: MODE_SELECT.value,
-    dv01_adjust: document.getElementById("dv01-adjust").checked,
-    lookback_hours: Number(document.getElementById("lookback").value || 2),
-  };
 }
 
 function setStatus(message, kind = "") {
@@ -87,31 +212,9 @@ function formatEtTime(date = new Date()) {
   }) + " ET";
 }
 
-let lastDelay = null;
-
-function delayText() {
-  if (!lastDelay) {
-    return "";
-  }
-  const parts = [];
-  if (lastDelay.stream != null && Number.isFinite(lastDelay.stream)) {
-    parts.push(`exchange to server ${lastDelay.stream.toFixed(1)}s`);
-  }
-  if (lastDelay.page != null && Number.isFinite(lastDelay.page)) {
-    parts.push(`server to page ${lastDelay.page.toFixed(1)}s`);
-  }
-  return parts.length ? ` · ${parts.join(" · ")}` : "";
-}
-
 function updateFreshnessBanner(liveStatus) {
   const status = liveStatus || {};
-  const mode = MODE_SELECT.value;
   FRESHNESS_BANNER.className = "freshness-banner";
-  if (mode === "historical") {
-    FRESHNESS_BANNER.classList.add("historical");
-    FRESHNESS_BANNER.textContent = "HISTORICAL MODE";
-    return;
-  }
   const age = status.last_tick_age_sec;
   const hasConn = Object.prototype.hasOwnProperty.call(status, "connected");
   const connected = Boolean(status.connected);
@@ -127,37 +230,50 @@ function updateFreshnessBanner(liveStatus) {
     FRESHNESS_BANNER.textContent = `${source} DOWN${status.error ? ` - ${status.error}` : ""}`;
   } else if (age != null && age < 30) {
     FRESHNESS_BANNER.classList.add("live");
-    FRESHNESS_BANNER.textContent = `${source} LIVE - last tick ${formatAge(age)} ago${delayText()}`;
+    FRESHNESS_BANNER.textContent = `${source} LIVE - last tick ${formatAge(age)} ago`;
   } else {
     FRESHNESS_BANNER.classList.add("stale");
     FRESHNESS_BANNER.textContent = `${source} ${marketOpen ? "STALE" : "MARKET CLOSED"} - last tick ${formatAge(age)} ago`;
   }
 }
 
-function flowBannerStyle(state) {
-  const styleByState = {
-    AGGRESS_DOMINANT: "aggress",
-    IMPLIED_PASSIVE_DOMINANT: "passive",
-    JOINTLY_DRIVEN: "jointly",
-    CONTESTED: "contested",
-    BALANCED: "balanced",
-    QUIET: "quiet",
-    WARMING: "warming",
-    UNAVAILABLE: "unavailable",
-  };
-  return styleByState[state] || "unavailable";
+function windowLabel(flow) {
+  const minutes = flow && flow.parameters && flow.parameters.window_min;
+  return minutes ? `${minutes}-minute ` : "";
+}
+
+function applyBannerStyle(element, color, status, baseClass) {
+  if (color) {
+    element.className = `${baseClass} state-colored`;
+    element.style.setProperty("--state-color", color);
+    return;
+  }
+  element.className = `${baseClass} ${status === "WARMING" ? "warming" : "unavailable"}`;
+  element.style.removeProperty("--state-color");
 }
 
 function updateFlowDominanceBanner(context) {
   const flow = context || {};
   const status = flow.status || "UNAVAILABLE";
-  const state = flow.state || status;
-  FLOW_DOMINANCE_BANNER.className = `flow-dominance-banner ${flowBannerStyle(state)}`;
-  FLOW_DOMINANCE_MAIN.textContent = flow.headline || String(state || "UNAVAILABLE").replaceAll("_", " ");
+  const fallback = String(flow.state || status).replaceAll("_", " ");
+  if (status === "READY" && flow.group) {
+    if (
+      lastReadyFlowGroup !== null
+      && lastReadyFlowGroup !== "EXHAUSTION"
+      && flow.group === "EXHAUSTION"
+    ) {
+      playExhaustionChime();
+    }
+    lastReadyFlowGroup = flow.group;
+  }
+  applyBannerStyle(FLOW_STATE_BANNER, flow.group_color, status, "flow-dominance-banner flow-state-banner");
+  FLOW_STATE_MAIN.textContent = flow.group_headline || fallback;
+  applyBannerStyle(FLOW_DOMINANCE_BANNER, flow.color, status, "flow-dominance-banner");
+  FLOW_DOMINANCE_MAIN.textContent = flow.headline || fallback;
   if (status === "READY" && flow.contribution_line) {
     FLOW_DOMINANCE_DETAIL.textContent = flow.contribution_line;
   } else {
-    FLOW_DOMINANCE_DETAIL.textContent = flow.reason || "Waiting for a 15-minute trade-to-trade window.";
+    FLOW_DOMINANCE_DETAIL.textContent = flow.reason || `Waiting for a ${windowLabel(flow)}trade-to-trade window.`;
   }
   const asOf = flow.as_of ? ` · as of ${formatEtTime(new Date(flow.as_of))}` : "";
   FLOW_DOMINANCE_BETA.textContent = flow.beta_line ? `${flow.beta_line}${asOf}` : "";
@@ -236,7 +352,7 @@ function hoverBannerDetail(flow) {
   if (status === "READY" && flow.contribution_line) {
     return flow.contribution_line;
   }
-  return flow.reason || "No 15-minute window at this timestamp.";
+  return flow.reason || `No ${windowLabel(flow)}window at this timestamp.`;
 }
 
 function updateHoverBanner(context, hovered) {
@@ -247,14 +363,17 @@ function updateHoverBanner(context, hovered) {
     FLOW_DOMINANCE_HOVER.classList.add("hidden");
     return;
   }
+  FLOW_DOMINANCE_HOVER.classList.remove("hidden");
   const flow = context || HOVER_BANNER_IDLE;
   const status = flow.status || "UNAVAILABLE";
-  const state = flow.state || status;
-  FLOW_DOMINANCE_HOVER.className = `flow-dominance-banner flow-dominance-hover ${flowBannerStyle(state)}`;
+  const fallback = String(flow.state || status).replaceAll("_", " ");
+  applyBannerStyle(FLOW_HOVER_GROUP, flow.group_color, status, "flow-dominance-banner flow-hover-block");
+  FLOW_HOVER_GROUP_MAIN.textContent = flow.group_headline || fallback;
+  applyBannerStyle(FLOW_HOVER_FINE, flow.color, status, "flow-dominance-banner flow-hover-block");
+  FLOW_DOMINANCE_HOVER_MAIN.textContent = flow.headline || fallback;
   FLOW_DOMINANCE_HOVER_ASOF.textContent = hovered && flow.as_of
     ? `AS OF ${formatEtTime(new Date(flow.as_of))}`
     : "HOVER A TIMESTAMP";
-  FLOW_DOMINANCE_HOVER_MAIN.textContent = flow.headline || String(state || "UNAVAILABLE").replaceAll("_", " ");
   FLOW_DOMINANCE_HOVER_DETAIL.textContent = hoverBannerDetail(flow);
   FLOW_DOMINANCE_HOVER_LABEL.textContent = flow.label || LABEL_TEXT;
 }
@@ -290,8 +409,9 @@ function onPanelHover(event) {
     updateHoverBanner({
       status: "WARMING",
       state: "WARMING",
+      group_headline: "WARMING",
       headline: "WARMING",
-      reason: "No six-state snapshot at or before this timestamp.",
+      reason: "No state snapshot at or before this timestamp.",
     }, true);
     return;
   }
@@ -466,7 +586,7 @@ function baseLayout(panel, height = 420) {
     title: { text: panel.title, x: 0.02, xanchor: "left", font: { size: 15 } },
     template: "plotly",
     height,
-    uirevision: MODE_SELECT.value,
+    uirevision: panel.uirevision || "live",
     margin: { l: 68, r: 82, t: 58, b: 86 },
     hovermode: "x unified",
     legend: {
@@ -588,9 +708,8 @@ function panelTimeRange(panel) {
   return [rows[0].x, rows[rows.length - 1].x];
 }
 
-function renderStateTimeline(elementId, panel, rangeX) {
-  const runs = (panel && panel.data) || [];
-  const byState = new Map();
+function stripRowTraces(runs, base, rowName, shownLegends) {
+  const buckets = new Map();
   runs.forEach((run) => {
     const start = new Date(String(run.x0 || "").replace(" ", "T"));
     const end = new Date(String(run.x1 || run.x0 || "").replace(" ", "T"));
@@ -601,33 +720,88 @@ function renderStateTimeline(elementId, panel, rangeX) {
     if (!Number.isFinite(width) || width <= 0) {
       width = 1000;
     }
-    const mid = new Date(start.getTime() + width / 2);
-    if (!byState.has(run.state)) {
-      byState.set(run.state, {
-        xs: [],
-        ys: [],
-        widths: [],
-        color: run.color,
-        name: run.headline || String(run.state || "").replaceAll("_", " "),
-      });
+    const legend = run.legend || run.headline || String(run.state || "").replaceAll("_", " ");
+    const key = `${legend}|${run.color}`;
+    if (!buckets.has(key)) {
+      buckets.set(key, { legend, color: run.color, xs: [], widths: [], names: [] });
     }
-    const bucket = byState.get(run.state);
-    bucket.xs.push(mid);
-    bucket.ys.push(1);
+    const bucket = buckets.get(key);
+    bucket.xs.push(new Date(start.getTime() + width / 2));
     bucket.widths.push(width);
+    bucket.names.push(run.headline || legend);
   });
-  const traces = Array.from(byState.values()).map((bucket) => ({
-    type: "bar",
-    x: bucket.xs,
-    y: bucket.ys,
-    width: bucket.widths,
-    name: bucket.name,
-    marker: { color: bucket.color },
-    hovertemplate: `${bucket.name}<br>%{x}<extra></extra>`,
-  }));
+  return Array.from(buckets.values()).map((bucket) => {
+    const showlegend = !shownLegends.has(bucket.legend);
+    shownLegends.add(bucket.legend);
+    return {
+      type: "bar",
+      x: bucket.xs,
+      y: bucket.xs.map(() => 1),
+      base,
+      width: bucket.widths,
+      name: bucket.legend,
+      legendgroup: bucket.legend,
+      showlegend,
+      marker: { color: bucket.color },
+      text: bucket.names,
+      textposition: "none",
+      hovertemplate: `${rowName}: %{text}<br>%{x}<extra></extra>`,
+    };
+  });
+}
+
+function persistentStateTraces(entries, shownLegends, anchorX) {
+  const x = anchorX || "2000-01-01T00:00:00";
+  return (entries || []).filter((entry) => entry && entry.legend && entry.color).map((entry) => {
+    shownLegends.add(entry.legend);
+    return {
+      type: "bar",
+      x: [x],
+      y: [0.01],
+      base: -1,
+      width: [1],
+      marker: { color: entry.color },
+      name: entry.legend,
+      legendgroup: entry.legend,
+      showlegend: true,
+      hoverinfo: "skip",
+    };
+  });
+}
+
+function legendAnchor(panel, rangeX) {
+  if (rangeX && rangeX[0]) {
+    return rangeX[0];
+  }
+  const runs = (panel && (panel.group_data || panel.data)) || [];
+  const first = runs.find((run) => run && run.x0);
+  return first ? first.x0 : null;
+}
+
+function renderStateTimeline(elementId, panel, rangeX) {
+  const shownLegends = new Set();
+  const legend = (panel && panel.state_legend && panel.state_legend.length)
+    ? panel.state_legend
+    : lastStateLegend;
+  if (panel && panel.state_legend && panel.state_legend.length) {
+    lastStateLegend = panel.state_legend;
+  }
+  const traces = [
+    ...persistentStateTraces(legend, shownLegends, legendAnchor(panel, rangeX)),
+    ...stripRowTraces((panel && panel.group_data) || [], 1.1, "STATE", shownLegends),
+    ...stripRowTraces((panel && panel.data) || [], 0, "STATE2", shownLegends),
+  ];
   const layout = baseLayout(panel || {}, 280);
   layout.margin = { l: 68, r: 82, t: 36, b: 36 };
-  layout.yaxis = { visible: false, range: [0, 1.15], fixedrange: true, showticklabels: false };
+  layout.yaxis = {
+    range: [0, 2.2],
+    fixedrange: true,
+    tickvals: [1.6, 0.5],
+    ticktext: ["STATE", "STATE2"],
+    showgrid: false,
+    zeroline: false,
+  };
+  layout.barmode = "overlay";
   layout.bargap = 0;
   layout.legend = {
     orientation: "h",
@@ -649,71 +823,21 @@ function renderPredictionPanel(elementId, panel) {
   Plotly.react(elementId, traces, baseLayout(panel), { responsive: true });
 }
 
-const TAPE_PANEL_FIELDS = {
-  p1: ["total_aggress", "price"],
-  p3: ["buy_aggress", "sell_aggress", "total_aggress", "price"],
-  p4: ["price", "implied_price"],
-};
-
-function isoFromUs(us) {
-  const ms = Math.floor(us / 1000);
-  return new Date(ms).toISOString().slice(0, 23) + String(us - ms * 1000).padStart(3, "0");
-}
-
-function compactRows(block, fields) {
-  const dt = (block && block.dt) || [];
-  const cols = (block && block.cols) || {};
-  const names = fields || Object.keys(cols);
-  const rows = new Array(dt.length);
-  let us = block ? block.x0 : 0;
-  for (let i = 0; i < dt.length; i += 1) {
-    us += dt[i];
-    const row = { x: isoFromUs(us) };
-    names.forEach((field) => {
-      const col = cols[field];
-      row[field] = col ? col[i] : null;
-    });
-    rows[i] = row;
-  }
-  return rows;
-}
-
-// Compact live snapshots carry columns and decimated history (panels.py); rebuild the row format.
-function expandCompactPayload(payload) {
-  const panels = payload && payload.panels;
-  if (!panels) {
-    return;
-  }
-  const tape = payload.tape;
-  Object.entries(panels).forEach(([key, panel]) => {
-    if (!panel) {
-      return;
-    }
-    if (panel.compact) {
-      panel.data = compactRows(panel.compact).concat(panel.data || []);
-      panel.compact = null;
-    } else if (tape && panel.from_tape && TAPE_PANEL_FIELDS[key]) {
-      panel.data = compactRows(tape, TAPE_PANEL_FIELDS[key]).concat(panel.data || []);
-      panel.from_tape = false;
-    }
-    if (panel.large_residuals_compact) {
-      panel.large_residuals = compactRows(panel.large_residuals_compact, ["price"]).map((row) => ({ x: row.x, y: row.price }));
-      panel.large_residuals_compact = null;
-    }
-  });
-  payload.tape = null;
-}
-
 function renderPayload(payload) {
-  expandCompactPayload(payload);
   currentPanels = payload.panels || {};
   const p1Rows = payload.panels && payload.panels.p1 && payload.panels.p1.data;
   if (p1Rows && p1Rows.length) {
     lastLookbackStart = p1Rows[0].x;
   }
   renderDualAxisPanel("panel-p1", payload.panels.p1);
-  lastStripRuns = ((payload.panels.p1_states && payload.panels.p1_states.data) || []).map((run) => ({ ...run }));
-  renderStateTimeline("panel-p1-states", payload.panels.p1_states || { data: lastStripRuns }, panelTimeRange(payload.panels.p1));
+  const statesPanel = payload.panels.p1_states || {};
+  lastStripRuns = (statesPanel.data || []).map((run) => ({ ...run }));
+  lastGroupRuns = (statesPanel.group_data || []).map((run) => ({ ...run }));
+  renderStateTimeline(
+    "panel-p1-states",
+    { ...statesPanel, data: lastStripRuns, group_data: lastGroupRuns },
+    panelTimeRange(payload.panels.p1),
+  );
   if (PANEL1_STATES_CAPTION) {
     PANEL1_STATES_CAPTION.textContent = (payload.panels.p1_states && payload.panels.p1_states.caption) || "";
   }
@@ -731,10 +855,20 @@ function renderPayload(payload) {
   storeBannerSeries(payload.flow_dominance_series);
   bindBannerHoverEvents();
   restoreHoverBanner();
+  const lastSession = beta.last_tag_day
+    ? new Date(`${beta.last_tag_day}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })
+    : beta.last_session_end
+    ? new Date(beta.last_session_end).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" })
+    : "?";
+  const betaTag = beta.tag ? `${beta.tag}${beta.tag_detail ? ` (${beta.tag_detail})` : ""}` : "";
   const betaText = beta.ok
-    ? `beta_ref: ${Number(beta.beta_ref).toExponential(2)} | last ${beta.lookback_hours || 3}h to ${beta.tod_bucket || "?"} ET | yield display: ${Number(beta.beta_display_yield_bp_per_1m).toFixed(4)}`
-    : `beta_ref: unavailable${beta.reason ? ` (${beta.reason})` : ""}`;
-  META.textContent = `Prints: ${(flow.trade_count || 0).toLocaleString()} | Aggress final: ${(flow.total_aggress_final || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} | ${betaText}`;
+    ? (beta.tag
+      ? `beta_ref: ${Number(beta.beta_ref).toExponential(2)} | ${betaTag} day OLS, ${beta.n_sessions_used} days to ${lastSession}, ${Number(beta.slope_bps_per_mm).toFixed(3)} bp/$1mm | yield display: ${Number(beta.beta_display_yield_bp_per_1m).toFixed(4)}`
+      : `beta_ref: ${Number(beta.beta_ref).toExponential(2)} | ${beta.n_sessions_used || 10} whole sessions to ${lastSession} | yield display: ${Number(beta.beta_display_yield_bp_per_1m).toFixed(4)}`)
+    : `beta_ref: unavailable${betaTag ? ` [${betaTag}]` : ""}${beta.reason ? ` (${beta.reason})` : ""}`;
+  const request = payload.meta?.request || {};
+  const viewLabel = request.aggression_symbols ? `${liveSelectionLabel(request)} | ` : "";
+  META.textContent = `${viewLabel}Prints: ${(flow.trade_count || 0).toLocaleString()} | Aggress final: ${(flow.total_aggress_final || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} | ${betaText}`;
   const lastX = p1Rows && p1Rows.length ? p1Rows[p1Rows.length - 1].x : null;
   if (lastX != null) {
     pendingPrints = pendingPrints.filter((row) => row.x > lastX);
@@ -877,9 +1011,10 @@ function renderLiveCharts() {
   }
   if (stripDirty) {
     trimRowsBefore(lastStripRuns, lastLookbackStart, (run) => run.x1 || run.x0, 0);
+    trimRowsBefore(lastGroupRuns, lastLookbackStart, (run) => run.x1 || run.x0, 0);
     renderStateTimeline(
       "panel-p1-states",
-      { data: lastStripRuns, title: "Six-state through lookback" },
+      { data: lastStripRuns, group_data: lastGroupRuns, title: "States through lookback" },
       panelTimeRange(currentPanels.p1),
     );
     stripDirty = false;
@@ -898,20 +1033,30 @@ function appendBannerRows(prints) {
   });
 }
 
+function applyRunEdge(runs, edge) {
+  if (!edge || !edge.run) {
+    return false;
+  }
+  if ((edge.action === "extend" || edge.action === "close") && runs.length) {
+    runs[runs.length - 1] = { ...edge.run };
+    return true;
+  }
+  if (edge.action === "open") {
+    runs.push({ ...edge.run });
+    return true;
+  }
+  return false;
+}
+
 function applyStripEdge(strip) {
   if (!strip) {
     return;
   }
-  if (strip.action === "extend" && strip.run && lastStripRuns.length) {
-    lastStripRuns[lastStripRuns.length - 1] = { ...strip.run };
-  } else if (strip.action === "open" && strip.run) {
-    lastStripRuns.push({ ...strip.run });
-  } else if (strip.action === "close" && strip.run && lastStripRuns.length) {
-    lastStripRuns[lastStripRuns.length - 1] = { ...strip.run };
-  } else {
-    return;
+  const fineChanged = applyRunEdge(lastStripRuns, strip.state);
+  const groupChanged = applyRunEdge(lastGroupRuns, strip.group);
+  if (fineChanged || groupChanged) {
+    stripDirty = true;
   }
-  stripDirty = true;
 }
 
 function applyTradeDelta(delta) {
@@ -927,9 +1072,6 @@ function applyTradeDelta(delta) {
   }
   if (delta.flow_dominance) {
     updateFlowDominanceBanner(delta.flow_dominance);
-  }
-  if (delta.server_ts != null) {
-    lastDelay = { stream: delta.stream_lag_sec, page: Math.max(0, (Date.now() - delta.server_ts) / 1000) };
   }
   if (delta.live_status) {
     updateFreshnessBanner(delta.live_status);
@@ -964,13 +1106,77 @@ function closeLiveStream() {
   pendingPrints = [];
 }
 
+function liveSelection() {
+  return {
+    price: document.getElementById("price-symbol").value,
+    chips: selectedAggressionSymbols(),
+    dv01: document.getElementById("dv01-adjust").checked,
+  };
+}
+
+function liveStreamUrl() {
+  const selection = liveSelection();
+  const params = new URLSearchParams({
+    price: selection.price,
+    chips: selection.chips.join(","),
+    dv01: selection.dv01 ? "1" : "0",
+  });
+  return `/api/live/stream?${params.toString()}`;
+}
+
+function liveSelectionLabel(request) {
+  const chips = (request.aggression_symbols || []).join("+") || "?";
+  const dv01 = request.dv01_adjust === false ? " (DV01 off)" : "";
+  return `Live: ${request.price_symbol || "?"} price vs ${chips}${dv01}`;
+}
+
+function clearLiveView(reason) {
+  closeLiveStream();
+  lastReadyFlowGroup = null;
+  currentPanels = {};
+  lastStripRuns = [];
+  lastGroupRuns = [];
+  chartsDirty = false;
+  stripDirty = false;
+  storeBannerSeries([]);
+  PANEL_IDS.forEach((id) => {
+    const element = document.getElementById(id);
+    if (element && element.data) {
+      Plotly.react(element, [], element.layout);
+    }
+  });
+  updateFlowDominanceBanner({ status: "WARMING", state: "WARMING", reason });
+  clearHoverBanner();
+  META.textContent = "";
+}
+
+let selectionTimer = null;
+const SELECTION_DEBOUNCE_MS = 400;
+
+function onSelectionChange() {
+  if (selectionTimer !== null) {
+    clearTimeout(selectionTimer);
+  }
+  selectionTimer = setTimeout(() => {
+    selectionTimer = null;
+    const selection = liveSelection();
+    clearLiveView(`Switching the live view to ${selection.price} price vs ${selection.chips.join("+")}.`);
+    refreshDashboard(false);
+  }, SELECTION_DEBOUNCE_MS);
+}
+
 function openLiveStream() {
   if (paused) {
     return;
   }
   closeLiveStream();
   setStatus("Connecting live stream...", "loading");
-  liveSource = new EventSource("/api/live/stream");
+  liveSource = new EventSource(liveStreamUrl());
+  liveSource.addEventListener("limit", (event) => {
+    const payload = parseStreamPayload(event) || {};
+    closeLiveStream();
+    setStatus(payload.reason || "Too many live views are open; try the default chips.", "error");
+  });
   liveSource.addEventListener("snapshot", (event) => {
     const payload = parseStreamPayload(event);
     if (!payload) {
@@ -1015,139 +1221,346 @@ function openLiveStream() {
     if (payload.live_status) {
       updateFreshnessBanner(payload.live_status);
     }
-    setStatus(payload.reason || "Waiting for 15-minute history...", "loading");
+    setStatus(payload.reason || "Waiting for banner-window history...", "loading");
   });
   liveSource.onerror = () => {
     setStatus("Live stream reconnecting...", "error");
   };
 }
 
-async function refreshDashboard(silent = false) {
-  if (MODE_SELECT.value === "live") {
-    if (paused) {
-      setStatus("Paused.", "");
-      closeLiveStream();
-      return;
-    }
-    openLiveStream();
-    return;
-  }
-  closeLiveStream();
+function refreshDashboard() {
   if (paused) {
     setStatus("Paused.", "");
+    closeLiveStream();
     return;
   }
-  if (inFlight) {
+  openLiveStream();
+}
+
+function updatePauseButton() {
+  PAUSE_BTN.textContent = paused ? "Resume" : "Pause Live";
+}
+
+const HISTORY_SECTION = document.getElementById("history");
+const HISTORY_START = document.getElementById("history-start");
+const HISTORY_END = document.getElementById("history-end");
+const HISTORY_VIEW = document.getElementById("history-view");
+const HISTORY_LOAD = document.getElementById("history-load");
+const HISTORY_LAST = document.getElementById("history-last");
+const HISTORY_LAST5 = document.getElementById("history-last5");
+const HISTORY_STATUS = document.getElementById("history-status");
+const HISTORY_WARNINGS = document.getElementById("history-warnings");
+const HISTORY_STATE_BANNER = document.getElementById("history-state-banner");
+const HISTORY_STATE_MAIN = document.getElementById("history-state-main");
+const HISTORY_FINE_BANNER = document.getElementById("history-fine-banner");
+const HISTORY_FINE_MAIN = document.getElementById("history-fine-main");
+const HISTORY_FINE_DETAIL = document.getElementById("history-fine-detail");
+const HISTORY_FINE_BETA = document.getElementById("history-fine-beta");
+const HISTORY_STRIP_CAPTION = document.getElementById("history-p1-states-caption");
+const HISTORY_ZOOM_DEBOUNCE_MS = 500;
+const HISTORY_SLOW_MS = 1500;
+const HISTORY_IDLE = {
+  status: "WARMING",
+  state: "WARMING",
+  group_headline: "STATE",
+  headline: "STATE2",
+  reason: "Load a range to see the states at its end; hover the history charts for any time.",
+};
+
+let historyRange = null;
+let historyHover = [];
+let historyEndState = null;
+let historyRevision = "history";
+let historySeq = 0;
+let historyZoomTimer = null;
+let historyQuick = {};
+let historyStarted = false;
+let historyEventsBound = false;
+
+function formatEtDateTime(date) {
+  return `${date.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    hour12: false,
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })} ET`;
+}
+
+function historyKey(value) {
+  if (value == null) {
+    return "";
+  }
+  if (value instanceof Date) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+  }
+  return String(value).trim().replace(" ", "T").slice(0, 19);
+}
+
+function historyShortLabel(value) {
+  const text = String(value || "").replace("T", " ");
+  return `${text.slice(5, 7)}/${text.slice(8, 10)} ${text.slice(11, 16)}`;
+}
+
+function setHistoryStatus(message, kind = "") {
+  HISTORY_STATUS.textContent = message;
+  HISTORY_STATUS.className = `history-status ${kind}`.trim();
+}
+
+function renderHistoryWarnings(warnings) {
+  const items = Array.isArray(warnings) ? warnings : [];
+  HISTORY_WARNINGS.replaceChildren();
+  HISTORY_WARNINGS.classList.toggle("hidden", !items.length);
+  if (!items.length) {
     return;
   }
-  const symbols = selectedAggressionSymbols();
-  if (!symbols.length) {
-    setStatus("Select at least one aggression symbol.", "error");
+  const list = document.createElement("ul");
+  items.forEach((text) => {
+    const item = document.createElement("li");
+    item.textContent = text;
+    list.appendChild(item);
+  });
+  HISTORY_WARNINGS.appendChild(list);
+}
+
+function applyHistoryBanner(flow, hovered) {
+  const state = flow || HISTORY_IDLE;
+  const status = state.status || "UNAVAILABLE";
+  const fallback = String(state.state || status).replaceAll("_", " ");
+  applyBannerStyle(HISTORY_STATE_BANNER, state.group_color, status, "flow-dominance-banner flow-state-banner");
+  HISTORY_STATE_MAIN.textContent = state.group_headline || fallback;
+  applyBannerStyle(HISTORY_FINE_BANNER, state.color, status, "flow-dominance-banner");
+  HISTORY_FINE_MAIN.textContent = state.headline || fallback;
+  const asOf = state.as_of ? `${hovered ? "Hovered" : "End of range"}, as of ${formatEtDateTime(new Date(state.as_of))}` : "";
+  const detail = status === "READY" && state.contribution_line ? state.contribution_line : state.reason || "";
+  HISTORY_FINE_DETAIL.textContent = [asOf, detail].filter(Boolean).join(" · ");
+  HISTORY_FINE_BETA.textContent = state.beta_line || (historyEndState && historyEndState.beta_line) || "";
+}
+
+function historyRowAt(x) {
+  const key = historyKey(x);
+  let lo = 0;
+  let hi = historyHover.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (historyHover[mid].x <= key) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo > 0 ? historyHover[lo - 1] : null;
+}
+
+function renderHistory(payload) {
+  historyHover = Array.isArray(payload.hover) ? payload.hover : [];
+  historyEndState = payload.flow_dominance || null;
+  const panels = payload.panels || {};
+  const p1 = { ...(panels.p1 || { data: [] }), uirevision: historyRevision };
+  const strip = { ...(panels.p1_states || {}), uirevision: historyRevision };
+  renderDualAxisPanel("history-p1", p1);
+  renderStateTimeline("history-p1-states", strip, visibleXRange("history-p1") || panelTimeRange(p1));
+  if (HISTORY_STRIP_CAPTION) {
+    HISTORY_STRIP_CAPTION.textContent = strip.caption || "";
+  }
+  applyHistoryBanner(historyEndState, false);
+  renderHistoryWarnings(payload.warnings);
+  const range = payload.range || {};
+  const sessions = payload.sessions || [];
+  const built = sessions.filter((session) => session.status === "built").length;
+  const resolution = payload.resolution || {};
+  const stripDetail = resolution.strip_bin_sec ? `strip bins ${resolution.strip_bin_sec}s` : "per-second strip";
+  setHistoryStatus(
+    `History ${historyShortLabel(range.start_et)}–${historyShortLabel(range.end_et)} ET, `
+    + `${sessions.length} session${sessions.length === 1 ? "" : "s"} (${built} built) · ${payload.view_label || ""} · `
+    + `${(resolution.rows || 0).toLocaleString()} seconds with prints · ${stripDetail}`,
+  );
+  bindHistoryEvents();
+}
+
+async function loadHistory(range, { zoom = false } = {}) {
+  if (!range || !range.start || !range.end) {
+    setHistoryStatus("Pick a start and an end time (Eastern).", "error");
     return;
   }
-  if (!silent) {
-    setStatus("Loading historical Databento data...", "loading");
-    REFRESH_BTN.disabled = true;
-  }
-  inFlight = true;
+  const seq = ++historySeq;
+  const params = new URLSearchParams({ view: range.view, start: range.start, end: range.end });
+  setHistoryStatus(zoom ? "Loading zoomed detail..." : "Loading history...", "loading");
+  const slow = setTimeout(() => {
+    if (seq === historySeq) {
+      setHistoryStatus(
+        "Still loading: the history worker may be starting, or finishing a session build in the 17:00–18:00 ET break (up to ~20 s).",
+        "loading",
+      );
+    }
+  }, HISTORY_SLOW_MS);
+  HISTORY_LOAD.disabled = true;
   try {
-    const response = await fetch("/api/aggression", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestPayload()),
-    });
+    const response = await fetch(`/api/history?${params.toString()}`);
     const payload = await response.json();
-    if (!response.ok || !payload.success) {
-      if (payload.flow_dominance) {
-        updateFlowDominanceBanner(payload.flow_dominance);
-      }
-      throw new Error(payload.error || `HTTP ${response.status}`);
-    }
-    renderPayload(payload);
-    setStatus(`Updated ${formatEtTime()}.`, "");
-  } catch (error) {
-    setStatus(`Error: ${error.message}`, "error");
-  } finally {
-    inFlight = false;
-    if (!silent) {
-      REFRESH_BTN.disabled = false;
-    }
-  }
-}
-
-function configureAutoRefresh() {
-  if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = null;
-  }
-  if (MODE_SELECT.value === "live") {
-    return;
-  }
-  if (AUTO_REFRESH.checked && !paused) {
-    refreshTimer = setInterval(() => refreshDashboard(true), 60_000);
-  }
-}
-
-async function refreshLiveStatus() {
-  if (MODE_SELECT.value !== "live" || paused) {
-    return;
-  }
-  try {
-    const response = await fetch("/api/live_status", { cache: "no-store" });
-    if (!response.ok) {
+    if (seq !== historySeq) {
       return;
     }
-    updateFreshnessBanner(await response.json());
-  } catch (_error) {
-    /* keep last banner */
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || `HTTP ${response.status}`);
+    }
+    if (!zoom) {
+      historyRange = { ...range };
+      historyRevision = `history-${seq}`;
+    }
+    renderHistory(payload);
+  } catch (error) {
+    if (seq === historySeq) {
+      setHistoryStatus(`History: ${error.message}`, "error");
+    }
+  } finally {
+    clearTimeout(slow);
+    if (seq === historySeq) {
+      HISTORY_LOAD.disabled = false;
+    }
   }
 }
 
-function configureLiveStatusPoll() {
-  if (statusTimer) {
-    clearInterval(statusTimer);
-    statusTimer = null;
+function onHistoryRelayout(eventData) {
+  if (!eventData || !historyRange) {
+    return;
   }
-  if (MODE_SELECT.value !== "live") {
-    updateFreshnessBanner({ mode: MODE_SELECT.value });
+  let next = null;
+  if (eventData["xaxis.autorange"]) {
+    next = { ...historyRange };
+  } else if (eventData["xaxis.range[0]"] != null && eventData["xaxis.range[1]"] != null) {
+    next = { view: historyRange.view, start: historyKey(eventData["xaxis.range[0]"]), end: historyKey(eventData["xaxis.range[1]"]) };
+  } else if (Array.isArray(eventData["xaxis.range"])) {
+    next = { view: historyRange.view, start: historyKey(eventData["xaxis.range"][0]), end: historyKey(eventData["xaxis.range"][1]) };
+  }
+  if (!next) {
+    return;
+  }
+  if (!eventData["xaxis.autorange"]) {
+    Plotly.relayout("history-p1-states", { "xaxis.range": [next.start, next.end] });
+  }
+  clearTimeout(historyZoomTimer);
+  historyZoomTimer = setTimeout(() => loadHistory(next, { zoom: true }), HISTORY_ZOOM_DEBOUNCE_MS);
+}
+
+function bindHistoryEvents() {
+  if (historyEventsBound) {
+    return;
+  }
+  const p1 = document.getElementById("history-p1");
+  const strip = document.getElementById("history-p1-states");
+  if (!p1 || typeof p1.on !== "function" || !strip || typeof strip.on !== "function") {
+    return;
+  }
+  historyEventsBound = true;
+  [p1, strip].forEach((element) => {
+    element.on("plotly_hover", (event) => {
+      const point = event && event.points && event.points[0];
+      const row = point ? historyRowAt(point.x) : null;
+      if (row) {
+        applyHistoryBanner(row, true);
+      }
+    });
+    element.on("plotly_unhover", () => applyHistoryBanner(historyEndState, false));
+  });
+  p1.on("plotly_relayout", onHistoryRelayout);
+}
+
+function historyInputRange() {
+  return { view: HISTORY_VIEW.value, start: HISTORY_START.value, end: HISTORY_END.value };
+}
+
+function setHistoryInputs(choice) {
+  if (!choice) {
+    return false;
+  }
+  HISTORY_START.value = String(choice.start).slice(0, 16);
+  HISTORY_END.value = String(choice.end).slice(0, 16);
+  return true;
+}
+
+async function refreshHistorySessions() {
+  try {
+    const response = await fetch(`/api/history/sessions?view=${encodeURIComponent(HISTORY_VIEW.value)}`, { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || `HTTP ${response.status}`);
+    }
+    historyQuick = payload.quick_ranges || {};
+    HISTORY_LAST.disabled = !historyQuick.last_session;
+    HISTORY_LAST5.disabled = !historyQuick.last_5;
+    return payload;
+  } catch (error) {
+    setHistoryStatus(`History sessions: ${error.message}`, "error");
+    return null;
   }
 }
 
-function updateModeUi() {
-  const isHistorical = MODE_SELECT.value === "historical";
-  END_TIME_GROUP.classList.toggle("hidden", !isHistorical);
-  PAUSE_BTN.textContent = paused ? "Resume" : isHistorical ? "Pause" : "Pause Live";
-  if (isHistorical) {
-    closeLiveStream();
+async function startHistory() {
+  if (historyStarted) {
+    return;
   }
-  configureLiveStatusPoll();
-  configureAutoRefresh();
+  historyStarted = true;
+  setHistoryStatus("Loading the list of built sessions...", "loading");
+  const payload = await refreshHistorySessions();
+  if (!payload) {
+    return;
+  }
+  if (setHistoryInputs(historyQuick.last_session)) {
+    loadHistory(historyInputRange());
+    return;
+  }
+  const pending = (payload.sessions || []).filter((session) => session.status === "pending").length;
+  setHistoryStatus(
+    `No sessions are built yet${pending ? ` (${pending} waiting)` : ""}. Sessions are built in the 17:00–18:00 ET break and at weekends.`,
+  );
 }
 
-REFRESH_BTN.addEventListener("click", () => refreshDashboard(false));
-AUTO_REFRESH.addEventListener("change", configureAutoRefresh);
-MODE_SELECT.addEventListener("change", () => {
-  paused = false;
-  updateModeUi();
-  refreshDashboard(false);
-});
+function initHistory() {
+  if (!HISTORY_SECTION) {
+    return;
+  }
+  applyHistoryBanner(null, false);
+  HISTORY_LOAD.addEventListener("click", () => loadHistory(historyInputRange()));
+  HISTORY_LAST.addEventListener("click", () => {
+    if (setHistoryInputs(historyQuick.last_session)) {
+      loadHistory(historyInputRange());
+    }
+  });
+  HISTORY_LAST5.addEventListener("click", () => {
+    if (setHistoryInputs(historyQuick.last_5)) {
+      loadHistory(historyInputRange());
+    }
+  });
+  HISTORY_VIEW.addEventListener("change", async () => {
+    await refreshHistorySessions();
+    if (historyRange) {
+      loadHistory(historyInputRange());
+    }
+  });
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        startHistory();
+      }
+    }, { rootMargin: "200px" });
+    observer.observe(HISTORY_SECTION);
+  } else {
+    startHistory();
+  }
+}
+
+REFRESH_BTN.addEventListener("click", () => refreshDashboard());
 PAUSE_BTN.addEventListener("click", () => {
   paused = !paused;
-  updateModeUi();
-  if (!paused) {
-    refreshDashboard(false);
-  }
+  updatePauseButton();
+  refreshDashboard();
 });
-document.getElementById("dv01-adjust").addEventListener("change", () => {
-  if (MODE_SELECT.value === "historical") {
-    refreshDashboard(false);
-  }
-});
-document.getElementById("lookback").addEventListener("change", () => {
-  if (MODE_SELECT.value === "historical") {
-    refreshDashboard(false);
-  }
-});
+document.getElementById("dv01-adjust").addEventListener("change", onSelectionChange);
 if (BANNER_ON_HOVER) {
   BANNER_ON_HOVER.addEventListener("change", () => {
     if (!BANNER_ON_HOVER.checked) {
@@ -1160,22 +1573,35 @@ if (BANNER_ON_HOVER) {
     }
   });
 }
-document.getElementById("price-symbol").addEventListener("change", () => {
-  if (MODE_SELECT.value === "historical") {
-    refreshDashboard(false);
+EXHAUSTION_SOUND.addEventListener("change", () => {
+  try {
+    localStorage.setItem(EXHAUSTION_SOUND_STORAGE_KEY, EXHAUSTION_SOUND.checked ? "1" : "0");
+  } catch (_error) {
+    // The checkbox still controls sound for this page when storage is unavailable.
+  }
+  if (EXHAUSTION_SOUND.checked) {
+    playExhaustionChime();
   }
 });
+document.getElementById("price-symbol").addEventListener("change", onSelectionChange);
 document.querySelectorAll("#aggression-symbols input").forEach((input) => {
   input.addEventListener("change", () => {
-    if (MODE_SELECT.value === "historical") {
-      refreshDashboard(false);
+    if (!selectedAggressionSymbols().length) {
+      input.checked = true;
+      return;
     }
+    onSelectionChange();
   });
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     return;
   }
+  if (pendingDeploymentValidator) {
+    reloadForDeployment(pendingDeploymentValidator);
+    return;
+  }
+  checkDashboardDeployment();
   if (flushTimer !== null) {
     clearTimeout(flushTimer);
     flushTimer = null;
@@ -1183,6 +1609,9 @@ document.addEventListener("visibilitychange", () => {
   flushLive();
 });
 
-updateModeUi();
+updatePauseButton();
 updateHoverBanner(HOVER_BANNER_IDLE, false);
-refreshDashboard(false);
+refreshDashboard();
+initHistory();
+checkDashboardDeployment();
+window.setInterval(checkDashboardDeployment, DEPLOYMENT_POLL_MS);

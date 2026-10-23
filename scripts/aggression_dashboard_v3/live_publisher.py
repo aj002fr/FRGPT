@@ -19,7 +19,10 @@ import pandas as pd
 from scripts.aggression_dashboard_v3.banner import (
     BANNER_SERIES_MAX_POINTS,
     GAP_SEC,
-    WINDOW_MIN,
+    NO_EARLIER_PRINT_REASON,
+    OVERNIGHT_WINDOW_MIN,
+    earlier_print_reason,
+    window_minutes,
     banner_from_endpoints,
     build_banner,
     build_banner_series,
@@ -35,17 +38,13 @@ from scripts.aggression_dashboard_v3.core import (
     default_start_time,
 )
 from scripts.aggression_dashboard_v3.panels import (
-    BANNER_HOVER_FIELDS,
-    BANNER_SERIES_MIN_GAP,
     BUYSELL_DISPLAY_HALFLIFE,
-    READY_STATE_COLORS,
-    STATE_HEADLINE,
     _to_et_iso,
-    build_compact_dashboard_payload,
+    advance_runs,
+    apply_strip_edge,
+    build_dashboard_payload,
     build_state_timeline_panel,
-    collapse_ready_state_runs,
-    last_panel_row,
-    slim_banner_series,
+    state_run,
 )
 from scripts.totalaggress_vs_price_chart import classify_aggressor as _classify_aggressor
 
@@ -54,18 +53,12 @@ logger = logging.getLogger(__name__)
 LOOKBACK_HOURS = 2.0
 HEARTBEAT_SEC = 15.0
 GAP_NS = int(GAP_SEC * 1_000_000_000)
-WINDOW_NS = int(WINDOW_MIN * 60 * 1_000_000_000)
-NO_EARLIER_PRINT = "No print yet at the 15-minute-earlier endpoint since the session or configuration reset."
+OVERNIGHT_GAP_NS = int(OVERNIGHT_WINDOW_MIN * 60 * 1_000_000_000)
 SESSION_RESET = "Banner window reset after a session boundary."
 SUBSCRIBER_QUEUE_MAX = 128
-REBUILD_MIN_INTERVAL_SEC = 60.0
-WARMING_REBUILD_MIN_INTERVAL_SEC = 5.0
-CATCH_UP_BATCH = 2000
-REPLAY_MAX = 20_000
 TIP_SLACK_MIN = 1.0
 PREFIX_TOLERANCE = 0.5
-SERIES_MARGIN = pd.Timedelta(minutes=2 * WINDOW_MIN)
-EMPTY_WINDOW_REASON = "No print yet at the 15-minute-earlier endpoint since the session or configuration reset."
+SERIES_MARGIN = pd.Timedelta(minutes=2 * OVERNIGHT_WINDOW_MIN)
 
 
 def _json_default(value: Any) -> Any:
@@ -84,29 +77,6 @@ def encode_sse(event: str, payload: Any) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, separators=(',', ':'), default=_json_default)}\n\n"
 
 
-_CHUNK_ENCODER = json.JSONEncoder(separators=(",", ":"), default=_json_default)
-JSON_CHUNK_ITEMS = 2000
-
-
-def encode_json_chunked(value: Any) -> str:
-    """Same text as ``json.dumps(value, separators=(',', ':'), default=_json_default)``.
-
-    Dicts with string keys and long lists are encoded piece by piece, so no single C-level
-    encode holds the GIL for seconds and the trade thread keeps emitting during a rebuild.
-    """
-    if isinstance(value, dict) and all(isinstance(key, str) for key in value):
-        return "{" + ",".join(
-            f"{_CHUNK_ENCODER.encode(key)}:{encode_json_chunked(item)}" for key, item in value.items()
-        ) + "}"
-    if isinstance(value, list) and len(value) > JSON_CHUNK_ITEMS:
-        parts = []
-        for offset in range(0, len(value), JSON_CHUNK_ITEMS):
-            text = _CHUNK_ENCODER.encode(value[offset:offset + JSON_CHUNK_ITEMS])
-            parts.append(text[1:-1])
-        return "[" + ",".join(parts) + "]"
-    return _CHUNK_ENCODER.encode(value)
-
-
 def encode_heartbeat() -> str:
     return ": heartbeat\n\n"
 
@@ -120,7 +90,7 @@ def frame_has_window_print(frame: pd.DataFrame, as_of: Optional[pd.Timestamp] = 
         as_of_ts = as_of_ts.tz_localize("UTC")
     else:
         as_of_ts = as_of_ts.tz_convert("UTC")
-    earlier = as_of_ts - pd.Timedelta(minutes=WINDOW_MIN)
+    earlier = as_of_ts - pd.Timedelta(minutes=window_minutes(as_of_ts))
     now_hits = idx[idx <= as_of_ts]
     prev_hits = idx[idx <= earlier]
     if len(now_hits) == 0 or len(prev_hits) == 0:
@@ -134,7 +104,7 @@ def empty_tape_warming(banner: Optional[Dict[str, Any]], frame: Optional[pd.Data
     payload = banner or {}
     state = str(payload.get("state") or "")
     reason = str(payload.get("reason") or "")
-    if state == "WARMING" and "15-minute-earlier" in reason:
+    if state == "WARMING" and "minute-earlier endpoint" in reason:
         return True
     if payload.get("status") == "UNAVAILABLE" and "No last-trade print frame" in reason:
         return True
@@ -158,21 +128,6 @@ def _aggress_prefix(frame: pd.DataFrame) -> Tuple[Tuple[int, float], ...]:
     idx = pd.DatetimeIndex(pd.to_datetime(frame.index, utc=True))
     values = pd.to_numeric(frame["total_aggress"], errors="coerce").to_numpy(dtype=float)
     return tuple((int(ts), round(float(val), 6) if math.isfinite(val) else None) for ts, val in zip(idx.asi8, values))
-
-
-def _hover_row(point: Dict[str, Any]) -> Dict[str, Any]:
-    banner = point.get("banner") or {}
-    row = {key: banner.get(key) for key in BANNER_HOVER_FIELDS if banner.get(key) is not None}
-    row["x"] = point["x"]
-    return row
-
-
-def _wire_point(point: Dict[str, Any]) -> Dict[str, Any]:
-    """A print as sent: the hover banner rides along only when it is due (state change or 5 s)."""
-    out = {key: value for key, value in point.items() if key not in ("banner", "hover_due")}
-    if point.get("hover_due") and point.get("banner"):
-        out["banner"] = _hover_row(point)
-    return out
 
 
 def _finite_num(value: Any) -> Optional[float]:
@@ -234,32 +189,10 @@ def _continue_session_sum(rebuilt: pd.DataFrame, tail: pd.DataFrame) -> pd.DataF
 
 
 def _clip_with_margin(frame: pd.DataFrame, display: pd.DataFrame, margin: pd.Timedelta) -> pd.DataFrame:
-    """Frame rows from `margin` before the display start: enough for 15-minute endpoints."""
+    """Frame rows from `margin` before the display start: enough for banner-window endpoints."""
     if frame is None or frame.empty or display is None or display.empty:
         return frame
     return frame.loc[frame.index >= display.index.min() - margin]
-
-
-def _tape_arrays(frame: pd.DataFrame) -> Tuple[List[int], List[Optional[float]], List[Optional[float]], List[str], Optional[int]]:
-    if frame is None or frame.empty:
-        return [], [], [], [], None
-    idx = pd.DatetimeIndex(pd.to_datetime(frame.index, utc=True))
-    ts = [int(v) for v in idx.asi8]
-    prices = pd.to_numeric(frame["price"], errors="coerce").tolist() if "price" in frame.columns else [None] * len(ts)
-    aggs = pd.to_numeric(frame["total_aggress"], errors="coerce").tolist() if "total_aggress" in frame.columns else [None] * len(ts)
-    px = [_finite_num(v) for v in prices]
-    ag = [_finite_num(v) for v in aggs]
-    if "session_id" in frame.columns:
-        sid = ["" if v is None else str(v) for v in frame["session_id"].tolist()]
-    else:
-        sid = [""] * len(ts)
-    gap = None
-    prev = None
-    for ts_ns in ts:
-        if prev is not None and ts_ns - prev > GAP_NS:
-            gap = ts_ns
-        prev = ts_ns
-    return ts, px, ag, sid, gap
 
 
 def _prefix_changed(
@@ -316,8 +249,6 @@ class LivePublisher:
         self._subs_lock = threading.Lock()
         self._lock = threading.RLock()
         self._rebuild_event = threading.Event()
-        self._rebuild_mutex = threading.Lock()
-        self._last_rebuild_mono: Optional[float] = None
         self._thread: Optional[threading.Thread] = None
         self._rebuild_thread: Optional[threading.Thread] = None
         self._running = False
@@ -330,6 +261,8 @@ class LivePublisher:
         self._beta: Dict[str, Any] = {}
         self._beta_ref: Optional[float] = None
         self._runs: List[Dict[str, Any]] = []
+        self._group_runs: List[Dict[str, Any]] = []
+        self._runs_open: Dict[str, bool] = {"state": False, "group": False}
         self._prefix: Tuple[Tuple[int, float], ...] = tuple()
         self._buysell_ewm: Optional[float] = None
         self._buysell_ts: Optional[pd.Timestamp] = None
@@ -340,7 +273,8 @@ class LivePublisher:
         self._px: List[Optional[float]] = []
         self._ag: List[Optional[float]] = []
         self._sid: List[str] = []
-        self._gap_ns: Optional[int] = None
+        self._gap5_ns: Optional[int] = None
+        self._gap15_ns: Optional[int] = None
         self._pending_rows: List[Dict[str, Any]] = []
         self._recent_points: Deque[Dict[str, Any]] = deque(maxlen=50_000)
         self._snapshot_through_ns = 0
@@ -348,10 +282,6 @@ class LivePublisher:
         self._dv01: Optional[Dict[str, float]] = None
         self._beta_bucket: Optional[str] = None
         self._beta_peek_mono = 0.0
-        self.resyncs = 0
-        self.last_stream_lag_sec: Optional[float] = None
-        self._hover_state: Optional[str] = None
-        self._hover_ns: Optional[int] = None
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -368,43 +298,40 @@ class LivePublisher:
         self._rebuild_event.set()
         self._inbox.put(("stop", None))
 
-    def subscribe(self, q: Optional[Any] = None) -> Any:
-        """Register a subscriber queue (a bounded queue.Queue unless one is passed) and fill its opening."""
-        q = q if q is not None else queue.Queue(maxsize=SUBSCRIBER_QUEUE_MAX)
-        with self._lock:
-            with self._subs_lock:
-                self._subs.append(q)
-            for message in self._opening_messages():
-                self._put(q, message)
-        return q
-
-    def _opening_messages(self) -> List[str]:
-        """What a new (or resynced) subscriber needs: the picture, then every print since it."""
+    def subscribe(self) -> queue.Queue[str]:
+        q: queue.Queue[str] = queue.Queue(maxsize=SUBSCRIBER_QUEUE_MAX)
         with self._lock:
             opening = self._snapshot_bytes
             through = self._snapshot_through_ns
-            replay_points = [item["point"] for item in self._recent_points if int(item["ts_ns"]) > through][-REPLAY_MAX:]
+            replay_points = [item["point"] for item in self._recent_points if int(item["ts_ns"]) > through]
+            loading = None if opening else self._loading
+            snap = None if opening else self._snapshot
+            with self._subs_lock:
+                self._subs.append(q)
             if opening is None:
-                if self._snapshot is not None:
-                    opening = encode_sse("snapshot", self._snapshot)
-                elif self._loading is not None:
-                    opening = encode_sse("loading", self._loading)
+                if snap is not None:
+                    opening = encode_sse("snapshot", snap)
+                elif loading is not None:
+                    opening = encode_sse("loading", loading)
                 else:
                     opening = encode_sse("loading", {"reason": "Waiting for the live picture."})
-            messages = [opening]
+            self._put(q, opening)
             if replay_points:
-                messages.append(encode_sse("trade", {
-                    "prints": [_wire_point(point) for point in replay_points],
+                self._put(q, encode_sse("trade", {
+                    "prints": replay_points,
                     "flow_dominance": replay_points[-1].get("banner"),
                     "live_status": self.live_status(),
-                    "server_ts": time.time() * 1000.0,
                 }))
-            return messages
+        return q
 
     def unsubscribe(self, q: queue.Queue[str]) -> None:
         with self._subs_lock:
             if q in self._subs:
                 self._subs.remove(q)
+
+    def subscriber_count(self) -> int:
+        with self._subs_lock:
+            return len(self._subs)
 
     def offer_trade(self, trade: Dict[str, Any]) -> None:
         self._inbox.put(("trade", trade))
@@ -462,45 +389,19 @@ class LivePublisher:
                 logger.exception("V3 live publisher failed")
 
     def _rebuild_loop(self) -> None:
-        """Coalesce history offers: triggers during the minimum interval fold into one rebuild."""
         while self._running:
             if not self._rebuild_event.wait(timeout=1.0):
                 continue
+            self._rebuild_event.clear()
             if not self._running:
                 return
-            wait = self._rebuild_wait_sec()
-            if wait > 0:
-                time.sleep(min(wait, 1.0))
-                continue
-            self._rebuild_event.clear()
             try:
                 self.rebuild()
             except Exception:
                 logger.exception("V3 live rebuild failed")
 
-    def _rebuild_wait_sec(self) -> float:
-        if self._last_rebuild_mono is None:
-            return 0.0
-        with self._lock:
-            has_snapshot = self._snapshot is not None
-        interval = REBUILD_MIN_INTERVAL_SEC if has_snapshot else WARMING_REBUILD_MIN_INTERVAL_SEC
-        return interval - (time.monotonic() - self._last_rebuild_mono)
-
     def rebuild(self) -> Optional[Dict[str, Any]]:
-        """Assemble the shared snapshot. Empty-tape WARMING is not stored."""
-        with self._rebuild_mutex:
-            self._last_rebuild_mono = time.monotonic()
-            started = time.perf_counter()
-            response = self._rebuild()
-            logger.info(
-                "V3 live rebuild %.2fs (%s)",
-                time.perf_counter() - started,
-                "snapshot" if response else "warming",
-            )
-            return response
-
-    def _rebuild(self) -> Optional[Dict[str, Any]]:
-        """Build the snapshot from the session open.
+        """Assemble the shared snapshot from the session open. Empty-tape WARMING is not stored.
 
         TotalAggress and the implied path run from 18:00 ET; lookback only clips the charts.
         """
@@ -532,7 +433,7 @@ class LivePublisher:
             frame, flow_meta = self._frame_from_trades(trades, session_start)
         dv01_table = self.load_dv01()
         beta_payload = self.peek_beta(now)
-        if not beta_payload.get("ok") or beta_payload.get("bucket_stale"):
+        if beta_payload.get("stale", not beta_payload.get("ok")) or beta_payload.get("bucket_stale"):
             self.kick_beta()
         live_status = self.live_status()
         with self._lock:
@@ -550,7 +451,7 @@ class LivePublisher:
         )
         if empty_tape_warming(banner, frame):
             loading = {
-                "reason": banner.get("reason") or EMPTY_WINDOW_REASON,
+                "reason": banner.get("reason") or NO_EARLIER_PRINT_REASON,
                 "flow_dominance": banner,
                 "live_status": live_status,
             }
@@ -588,15 +489,20 @@ class LivePublisher:
                 "beta_display_yield_bp_per_1m": beta_payload.get("beta_display_yield_bp_per_1m"),
                 "n_sessions_used": beta_payload.get("n_sessions_used"),
                 "sessions": beta_payload.get("sessions"),
-                "lookback_hours": beta_payload.get("lookback_hours"),
-                "tod_bucket": beta_payload.get("tod_bucket"),
+                "window": beta_payload.get("window"),
+                "last_session_end": beta_payload.get("last_session_end"),
                 "reason": beta_payload.get("reason"),
                 "version": beta_payload.get("version"),
+                "tag": beta_payload.get("tag"),
+                "tag_detail": beta_payload.get("tag_detail"),
+                "session_date": beta_payload.get("session_date"),
+                "slope_bps_per_mm": beta_payload.get("slope_bps_per_mm"),
+                "last_tag_day": beta_payload.get("last_tag_day"),
             },
             "live_status": live_status,
             "label": "PROVISIONAL / RESEARCH-ONLY / TRADE-TO-TRADE / NON-EXECUTABLE",
         }
-        response = build_compact_dashboard_payload(display, display_path, tenday_frame, meta)
+        response = build_dashboard_payload(display, display_path, tenday_frame, meta)
         series = build_banner_series(
             recent,
             beta_payload,
@@ -604,63 +510,58 @@ class LivePublisher:
             as_of_index=display.index if not display.empty else None,
         )
         response["flow_dominance"] = banner
-        response["flow_dominance_series"] = slim_banner_series(series)
+        response["flow_dominance_series"] = series
         response["panels"]["p1_states"] = build_state_timeline_panel(series)
-        prefix = _aggress_prefix(display)
-        event = self._revision_event(prefix, beta_payload)
-        if event is None and tail_shift > PREFIX_TOLERANCE:
+        event = self._revision_event(display, beta_payload)
+        kept_shift = self._store_picture(response, frame, display, session_path, beta_payload)
+        if event is None and max(tail_shift, kept_shift) > PREFIX_TOLERANCE:
             event = "history"
-        self._store_picture(response, frame, display, session_path, beta_payload, prefix=prefix, event=event)
+        if event:
+            self._broadcast(event, response)
         self._catch_up_live(display.index.max() if not display.empty else lookback_start)
         return response
 
     def apply_trades(self, trades: List[Dict[str, Any]]) -> Optional[str]:
-        """Apply prints in trade order. One message, every print, no wall-clock wait.
-
-        Never rebuilds on this thread; a missing picture only requests one. The trade message is
-        queued under the lock so it cannot overtake or trail a rebuild's history message.
-        """
+        """Apply prints in trade order. One message, every print, no wall-clock wait."""
         with self._lock:
-            pending = self._snapshot is None
+            if self._snapshot is None:
+                pending = True
+            else:
+                pending = False
         if pending:
-            self.offer_history()
-        live_status = self.live_status()
+            self.rebuild()
+        prints: List[Dict[str, Any]] = []
+        banner = None
         with self._lock:
-            prints: List[Dict[str, Any]] = []
-            banner = None
             for trade in trades:
                 point = self._apply_one(trade)
                 if point is None:
                     continue
                 prints.append(point)
                 banner = point.get("banner")
-            if not prints:
-                return None
-            if self._snapshot is None and frame_has_window_print(self._frame):
-                self.offer_history()
-                return None
-            strip = self._strip_edge(prints[-1])
-            server_ts = time.time()
-            if self._ts:
-                self.last_stream_lag_sec = max(0.0, server_ts - self._ts[-1] / 1e9)
-            payload = {
-                "prints": [_wire_point(point) for point in prints],
-                "flow_dominance": banner,
-                "strip": strip,
-                "live_status": live_status,
-                "server_ts": server_ts * 1000.0,
-                "stream_lag_sec": self.last_stream_lag_sec,
-                "lookback_start": _to_et_iso(datetime.now(timezone.utc) - timedelta(hours=self.lookback_hours)),
-                "meta": {
-                    "flow": {
-                        "trade_count": self._session_prints,
-                        "total_aggress_final": prints[-1].get("total_aggress"),
-                    }
-                },
-            }
-            encoded = encode_sse("trade", payload)
-            self._update_snapshot_tip(prints, banner, live_status, strip)
-            self._broadcast_raw(encoded)
+        if not prints:
+            return None
+        if self._snapshot is None and frame_has_window_print(self._frame):
+            self.rebuild()
+            return None
+        live_status = self.live_status()
+        strip = self._strip_edge(prints[-1])
+        payload = {
+            "prints": prints,
+            "flow_dominance": banner,
+            "strip": strip,
+            "live_status": live_status,
+            "lookback_start": _to_et_iso(datetime.now(timezone.utc) - timedelta(hours=self.lookback_hours)),
+            "meta": {
+                "flow": {
+                    "trade_count": self._session_prints,
+                    "total_aggress_final": prints[-1].get("total_aggress"),
+                }
+            },
+        }
+        encoded = encode_sse("trade", payload)
+        self._update_snapshot_tip(prints, banner, live_status, strip)
+        self._broadcast_raw(encoded)
         return encoded
 
     def _catch_up_live(self, since: datetime | pd.Timestamp) -> None:
@@ -689,8 +590,7 @@ class LivePublisher:
                 })
         if pending:
             pending.sort(key=lambda item: pd.Timestamp(item["ts"]))
-            for offset in range(0, len(pending), CATCH_UP_BATCH):
-                self.apply_trades(pending[offset:offset + CATCH_UP_BATCH])
+            self.apply_trades(pending)
 
     def _touch_snapshot_status(self, live_status: Dict[str, Any]) -> None:
         with self._lock:
@@ -728,19 +628,13 @@ class LivePublisher:
                 snap["flow_dominance"] = banner
                 series = snap.setdefault("flow_dominance_series", [])
                 for point in prints:
-                    if point.get("hover_due") and point.get("banner"):
-                        series.append(_hover_row(point))
+                    hover = point.get("hover")
+                    if hover:
+                        series.append(hover)
             if strip:
-                states = panels.setdefault("p1_states", {"data": []})
-                runs = states.setdefault("data", [])
-                action = strip.get("action")
-                run = strip.get("run")
-                if action == "extend" and runs and run:
-                    runs[-1] = dict(run)
-                elif action == "open" and run:
-                    runs.append(dict(run))
-                elif action == "close" and runs and run:
-                    runs[-1] = dict(run)
+                states = panels.setdefault("p1_states", {"data": [], "group_data": []})
+                apply_strip_edge(states.setdefault("data", []), strip.get("state"))
+                apply_strip_edge(states.setdefault("group_data", []), strip.get("group"))
             meta = snap.setdefault("meta", {})
             meta["live_status"] = live_status
             flow = meta.setdefault("flow", {})
@@ -811,16 +705,9 @@ class LivePublisher:
         buysell = self._update_buysell_ewm(ts, raw)
         implied = self._implied_price(total_aggress, price, beta_ref)
         x = _to_et_iso(ts)
+        hover = dict(banner)
+        hover["x"] = x
         self._remember(key)
-        state = banner.get("state") or banner.get("status")
-        hover_due = (
-            state != self._hover_state
-            or self._hover_ns is None
-            or ts_ns - self._hover_ns >= int(BANNER_SERIES_MIN_GAP.value)
-        )
-        if hover_due:
-            self._hover_state = state
-            self._hover_ns = ts_ns
         point = {
             "x": x,
             "price": price,
@@ -830,7 +717,7 @@ class LivePublisher:
             "sell_aggress": -abs(sell),
             "implied_price": implied,
             "banner": banner,
-            "hover_due": hover_due,
+            "hover": hover,
         }
         self._recent_points.append({"ts_ns": ts_ns, "point": point})
         return point
@@ -859,7 +746,7 @@ class LivePublisher:
             if ref:
                 self._beta_ref = float(ref)
             return payload
-        if self._beta.get("ok"):
+        if self._beta.get("ok") and self._beta.get("session_date") == payload.get("session_date"):
             return self._beta
         self._beta = payload
         return payload
@@ -871,8 +758,12 @@ class LivePublisher:
         return None
 
     def _push_tape(self, ts_ns: int, price: Any, aggress: Any, session_id: str) -> None:
-        if self._ts and int(ts_ns) - self._ts[-1] > GAP_NS:
-            self._gap_ns = int(ts_ns)
+        if self._ts:
+            delta = int(ts_ns) - self._ts[-1]
+            if delta > GAP_NS:
+                self._gap5_ns = int(ts_ns)
+            if delta > OVERNIGHT_GAP_NS:
+                self._gap15_ns = int(ts_ns)
         self._ts.append(int(ts_ns))
         try:
             px = float(price) if price is not None and math.isfinite(float(price)) else None
@@ -898,6 +789,33 @@ class LivePublisher:
             del self._sid[:cut]
         self._pending_rows = [row for row in self._pending_rows if int(row["ts_ns"]) >= cutoff]
 
+    def _index_tape(self, frame: pd.DataFrame) -> None:
+        if frame is None or frame.empty:
+            self._ts, self._px, self._ag, self._sid = [], [], [], []
+            self._gap5_ns = None
+            self._gap15_ns = None
+            return
+        idx = pd.DatetimeIndex(pd.to_datetime(frame.index, utc=True))
+        self._ts = [int(v) for v in idx.asi8]
+        prices = pd.to_numeric(frame["price"], errors="coerce").tolist() if "price" in frame.columns else [None] * len(self._ts)
+        aggs = pd.to_numeric(frame["total_aggress"], errors="coerce").tolist() if "total_aggress" in frame.columns else [None] * len(self._ts)
+        self._px = [_finite_num(v) for v in prices]
+        self._ag = [_finite_num(v) for v in aggs]
+        if "session_id" in frame.columns:
+            self._sid = ["" if v is None else str(v) for v in frame["session_id"].tolist()]
+        else:
+            self._sid = [""] * len(self._ts)
+        gap5 = gap15 = None
+        prev = None
+        for ts_ns in self._ts:
+            if prev is not None and ts_ns - prev > GAP_NS:
+                gap5 = ts_ns
+            if prev is not None and ts_ns - prev > OVERNIGHT_GAP_NS:
+                gap15 = ts_ns
+            prev = ts_ns
+        self._gap5_ns = gap5
+        self._gap15_ns = gap15
+
     def _pending_frame(self) -> pd.DataFrame:
         rows = self._pending_rows
         if not rows:
@@ -911,14 +829,18 @@ class LivePublisher:
         reason = None
         p_now = p_prev = a_now = a_prev = None
         if not self._ts:
-            reason = NO_EARLIER_PRINT
+            reason = earlier_print_reason(window_minutes(ts))
         else:
             now_i = len(self._ts) - 1
-            prev_i = bisect.bisect_right(self._ts, self._ts[now_i] - WINDOW_NS) - 1
+            end_ts = pd.Timestamp(self._ts[now_i], unit="ns", tz="UTC")
+            minutes = window_minutes(end_ts)
+            window_ns = int(minutes * 60 * 1_000_000_000)
+            prev_i = bisect.bisect_right(self._ts, self._ts[now_i] - window_ns) - 1
+            gap_ns = self._gap15_ns if minutes == OVERNIGHT_WINDOW_MIN else self._gap5_ns
             p_now = self._px[now_i]
             a_now = self._ag[now_i]
-            if prev_i < 0 or (self._gap_ns is not None and self._ts[prev_i] < self._gap_ns):
-                reason = NO_EARLIER_PRINT
+            if prev_i < 0 or (gap_ns is not None and self._ts[prev_i] < gap_ns):
+                reason = earlier_print_reason(minutes)
             else:
                 p_prev = self._px[prev_i]
                 a_prev = self._ag[prev_i]
@@ -949,23 +871,24 @@ class LivePublisher:
             session_start=frame_start,
         )
 
-    def _prepare_picture(
+    def _store_picture(
         self,
         response: Dict[str, Any],
         frame: pd.DataFrame,
         display: pd.DataFrame,
+        session_path: pd.DataFrame,
         beta_payload: Dict[str, Any],
-        prefix: Tuple[Tuple[int, float], ...],
-    ) -> Dict[str, Any]:
-        """Everything a rebuild swap needs that does not read live state. Runs off the lock."""
-        last_p2 = last_panel_row((response.get("panels") or {}).get("p2") or {})
+    ) -> float:
+        """Install the rebuilt picture. Returns how far prints applied meanwhile were moved."""
+        p2 = ((response.get("panels") or {}).get("p2") or {}).get("data") or []
+        last_p2 = p2[-1] if p2 else None
         anchor = None
         if frame is not None and not frame.empty and {"price", "total_aggress"} <= set(frame.columns):
             priced = frame.loc[frame["price"].notna()]
             if not priced.empty:
                 first = priced.iloc[0]
                 anchor = (float(first["price"]), float(first["total_aggress"]))
-        data = encode_json_chunked(response)
+        encoded = encode_sse("snapshot", response)
         through_ns = 0
         if frame is not None and not frame.empty:
             stamp = pd.Timestamp(frame.index.max())
@@ -974,95 +897,17 @@ class LivePublisher:
             else:
                 stamp = stamp.tz_convert("UTC")
             through_ns = int(stamp.value)
-        buysell_ewm = None
-        buysell_ts = None
-        if last_p2:
-            buysell_ewm = last_p2.get("buysell_ratio")
-            try:
-                buysell_ts = (
-                    pd.Timestamp(str(last_p2.get("x")).replace(" ", "T"))
-                    .tz_localize("America/New_York")
-                    .tz_convert("UTC")
-                )
-            except Exception:
-                buysell_ts = display.index.max() if not display.empty else None
-        seen: Deque[Tuple[int, str, int, float]] = deque(maxlen=self._seen.maxlen)
-        seen_set: set[Tuple[int, str, int, float]] = set()
-        if not display.empty:
-            tail = display.tail(seen.maxlen or 8192)
-            idx = pd.DatetimeIndex(pd.to_datetime(tail.index, utc=True))
-            symbols = (
-                tail["dashboard_symbol"].astype(str).tolist()
-                if "dashboard_symbol" in tail.columns else [""] * len(tail)
-            )
-            sizes = (
-                pd.to_numeric(tail["size"], errors="coerce").fillna(0).tolist()
-                if "size" in tail.columns else [0] * len(tail)
-            )
-            prices = pd.to_numeric(tail["price"], errors="coerce").fillna(0).tolist() if "price" in tail.columns else [0] * len(tail)
-            for ts_ns, symbol, size, price in zip(idx.asi8, symbols, sizes, prices):
-                key = (int(ts_ns), str(symbol), int(round(float(size))), round(float(price), 6))
-                if key in seen_set:
-                    continue
-                if len(seen) == seen.maxlen:
-                    seen_set.discard(seen.popleft())
-                seen.append(key)
-                seen_set.add(key)
-        beta_bucket = None
-        if beta_payload.get("ok"):
-            beta_bucket = bucket_display_time(
-                pd.to_datetime(through_ns, utc=True).to_pydatetime() if through_ns else datetime.now(timezone.utc)
-            ).isoformat()
-        return {
-            "data": data,
-            "encoded": f"event: snapshot\ndata: {data}\n\n",
-            "through_ns": through_ns,
-            "tape": _tape_arrays(display),
-            "runs": list(((response.get("panels") or {}).get("p1_states") or {}).get("data") or []),
-            "prefix": prefix,
-            "anchor": anchor,
-            "buysell": (buysell_ewm, buysell_ts),
-            "seen": seen,
-            "seen_set": seen_set,
-            "beta_bucket": beta_bucket,
-        }
-
-    def _store_picture(
-        self,
-        response: Dict[str, Any],
-        frame: pd.DataFrame,
-        display: pd.DataFrame,
-        session_path: pd.DataFrame,
-        beta_payload: Dict[str, Any],
-        *,
-        prefix: Optional[Tuple[Tuple[int, float], ...]] = None,
-        event: Optional[str] = None,
-    ) -> None:
-        """Swap a rebuilt picture in. The critical section only assigns and replays newer prints.
-
-        Existing subscribers get the same bytes as the opening snapshot, then one trade message
-        with the prints that arrived during the rebuild: what a new subscriber receives.
-        """
-        prepared = self._prepare_picture(
-            response,
-            frame,
-            display,
-            beta_payload,
-            prefix if prefix is not None else _aggress_prefix(display),
-        )
-        through_ns = prepared["through_ns"]
-        live_status = (response.get("meta") or {}).get("live_status") or {}
         with self._lock:
             kept_rows = [row for row in self._pending_rows if int(row["ts_ns"]) > through_ns]
             kept_seen = [key for key in self._seen if key[0] > through_ns]
             kept_points = [item["point"] for item in self._recent_points if int(item["ts_ns"]) > through_ns]
             self._snapshot = response
-            self._snapshot_bytes = prepared["encoded"]
+            self._snapshot_bytes = encoded
             self._snapshot_through_ns = through_ns
             self._loading = None
             self._frame = frame
-            self._ts, self._px, self._ag, self._sid, self._gap_ns = prepared["tape"]
-            kept_shift = self._continue_kept(kept_rows, kept_points, prepared["anchor"], beta_payload)
+            self._index_tape(display)
+            kept_shift = self._continue_kept(kept_rows, kept_points, anchor, beta_payload)
             for row in kept_rows:
                 self._push_tape(
                     int(row["ts_ns"]),
@@ -1076,29 +921,63 @@ class LivePublisher:
             self._path = session_path
             self._beta = beta_payload
             self._beta_ref = float(beta_payload["beta_ref"]) if beta_payload.get("ok") and beta_payload.get("beta_ref") else None
-            self._runs = prepared["runs"]
-            self._prefix = prepared["prefix"]
-            self._path_anchor = prepared["anchor"]
-            self._buysell_ewm, self._buysell_ts = prepared["buysell"]
-            self._seen = prepared["seen"]
-            self._seen_set = prepared["seen_set"]
+            states_panel = (response.get("panels") or {}).get("p1_states") or {}
+            self._runs = list(states_panel.get("data") or [])
+            self._group_runs = list(states_panel.get("group_data") or [])
+            series = response.get("flow_dominance_series") or []
+            last_ready = bool(series) and state_run(series[-1], "state", series[-1].get("x")) is not None
+            self._runs_open = {"state": last_ready and bool(self._runs), "group": last_ready and bool(self._group_runs)}
+            self._prefix = _aggress_prefix(display)
+            self._path_anchor = anchor
+            if last_p2:
+                self._buysell_ewm = last_p2.get("buysell_ratio")
+                try:
+                    self._buysell_ts = (
+                        pd.Timestamp(str(last_p2.get("x")).replace(" ", "T"))
+                        .tz_localize("America/New_York")
+                        .tz_convert("UTC")
+                    )
+                except Exception:
+                    self._buysell_ts = display.index.max() if not display.empty else None
+            else:
+                self._buysell_ewm = None
+                self._buysell_ts = None
+            self._seen.clear()
+            self._seen_set.clear()
+            if not display.empty:
+                tail = display.tail(self._seen.maxlen or 8192)
+                idx = pd.DatetimeIndex(pd.to_datetime(tail.index, utc=True))
+                symbols = (
+                    tail["dashboard_symbol"].astype(str).tolist()
+                    if "dashboard_symbol" in tail.columns else [""] * len(tail)
+                )
+                sizes = (
+                    pd.to_numeric(tail["size"], errors="coerce").fillna(0).tolist()
+                    if "size" in tail.columns else [0] * len(tail)
+                )
+                prices = pd.to_numeric(tail["price"], errors="coerce").fillna(0).tolist() if "price" in tail.columns else [0] * len(tail)
+                for ts_ns, symbol, size, price in zip(idx.asi8, symbols, sizes, prices):
+                    self._remember((
+                        int(ts_ns),
+                        str(symbol),
+                        int(round(float(size))),
+                        round(float(price), 6),
+                    ))
             for key in kept_seen:
                 self._remember(key)
-            if kept_shift > PREFIX_TOLERANCE:
-                event = event or "history"
-            if prepared["beta_bucket"] is not None:
-                self._beta_bucket = prepared["beta_bucket"]
+            if beta_payload.get("ok"):
+                bucket = bucket_display_time(
+                    pd.to_datetime(through_ns, utc=True).to_pydatetime() if through_ns else datetime.now(timezone.utc)
+                )
+                self._beta_bucket = bucket.isoformat()
             if kept_points:
-                self._update_snapshot_tip(kept_points, kept_points[-1].get("banner"), live_status, {})
-            if event:
-                opening = prepared["encoded"] if event == "snapshot" else f"event: {event}\ndata: {prepared['data']}\n\n"
-                self._broadcast_raw(opening)
-                if kept_points:
-                    self._broadcast_raw(encode_sse("trade", {
-                        "prints": [_wire_point(point) for point in kept_points],
-                        "flow_dominance": kept_points[-1].get("banner"),
-                        "live_status": live_status,
-                    }))
+                self._update_snapshot_tip(
+                    kept_points,
+                    kept_points[-1].get("banner"),
+                    (response.get("meta") or {}).get("live_status") or {},
+                    {},
+                )
+        return kept_shift
 
     def _continue_kept(
         self,
@@ -1133,9 +1012,10 @@ class LivePublisher:
                     point["implied_price"] = anchor[0] + beta_ref * (total - anchor[1])
         return shift
 
-    def _revision_event(self, new_prefix: Tuple[Tuple[int, float], ...], beta_payload: Dict[str, Any]) -> Optional[str]:
+    def _revision_event(self, display: pd.DataFrame, beta_payload: Dict[str, Any]) -> Optional[str]:
         if self._snapshot is None:
             return "snapshot"
+        new_prefix = _aggress_prefix(display)
         if self._prefix and _prefix_changed(self._prefix, new_prefix):
             return "history"
         incoming = beta_payload.get("beta_ref") if beta_payload.get("ok") else None
@@ -1180,27 +1060,15 @@ class LivePublisher:
         return p1 + float(beta_ref) * (float(total_aggress) - a1)
 
     def _strip_edge(self, last_print: Dict[str, Any]) -> Dict[str, Any]:
+        """Edges for both strip rows: STATE2 under "state", STATE under "group"."""
         banner = last_print.get("banner") or {}
         x = last_print.get("x")
-        state = str(banner.get("state") or "")
-        ready = banner.get("status") == "READY" and state in READY_STATE_COLORS
-        if ready:
-            if self._runs and self._runs[-1].get("state") == state:
-                self._runs[-1]["x1"] = x
-                return {"action": "extend", "run": dict(self._runs[-1])}
-            run = {
-                "x0": x,
-                "x1": x,
-                "state": state,
-                "headline": banner.get("headline") or STATE_HEADLINE.get(state, state.replace("_", " ")),
-                "color": READY_STATE_COLORS[state],
-            }
-            self._runs.append(run)
-            return {"action": "open", "run": dict(run)}
-        if self._runs:
-            self._runs[-1]["x1"] = x
-            return {"action": "close", "run": dict(self._runs[-1])}
-        return {"action": "gap"}
+        edges: Dict[str, Any] = {}
+        for key, runs in (("state", self._runs), ("group", self._group_runs)):
+            edges[key], self._runs_open[key] = advance_runs(
+                runs, state_run(banner, key, x), x, self._runs_open[key]
+            )
+        return edges
 
     def _trade_key(self, trade: Dict[str, Any], ts: pd.Timestamp) -> Tuple[int, str, int, float]:
         return (
@@ -1234,22 +1102,11 @@ class LivePublisher:
         try:
             q.put_nowait(encoded)
         except queue.Full:
-            self._resync(q)
-
-    def _resync(self, q: queue.Queue[str]) -> None:
-        """A subscriber that cannot keep up gets the current picture again instead of gapped deltas.
-
-        The opening and replay already contain the message that overflowed the queue.
-        """
-        with self._lock:
-            while True:
-                try:
-                    q.get_nowait()
-                except queue.Empty:
-                    break
-            self.resyncs += 1
-            for message in self._opening_messages():
-                try:
-                    q.put_nowait(message)
-                except queue.Full:
-                    break
+            try:
+                q.get_nowait()
+            except queue.Empty:
+                pass
+            try:
+                q.put_nowait(encoded)
+            except queue.Full:
+                pass

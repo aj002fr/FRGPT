@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
@@ -16,8 +15,7 @@ from scripts.aggression_dashboard_v3.live_publisher import (
     encode_sse,
     frame_has_window_print,
 )
-from scripts.aggression_dashboard_v3.banner import build_banner
-from scripts.aggression_dashboard_v3.panels import expand_payload
+from scripts.aggression_dashboard_v3.banner import GROUP_STYLE, build_banner
 
 
 @pytest.fixture(autouse=True)
@@ -112,7 +110,7 @@ def test_encode_sse_is_stable_bytes():
 
 
 def test_empty_tape_warming_is_not_shared_snapshot():
-    pub = _publisher(_tape(_recent_start(5), minutes=5, n=10))
+    pub = _publisher(_tape(_recent_start(3), minutes=3, n=10))
     assert pub.rebuild() is None
     loading = pub.last_snapshot()
     assert loading is not None
@@ -164,6 +162,8 @@ def test_trade_extends_strip_without_rewriting_past_runs():
     assert pub._runs[0]["x0"] == first["x0"]
     assert pub._runs[0]["state"] == first["state"]
     assert pub._runs[0]["color"] == first["color"]
+    assert pub._group_runs
+    assert pub._group_runs[0]["state"] in GROUP_STYLE
 
 
 def test_hole_fill_that_changes_cumsum_is_a_history_revision():
@@ -213,113 +213,6 @@ def test_trade_updates_shared_snapshot_tip():
     assert p1["data"][-1]["x"] == snap["flow_dominance_series"][-1]["x"]
 
 
-def test_rebuilds_coalesce_to_the_minimum_interval():
-    from scripts.aggression_dashboard_v3 import live_publisher as lp
-
-    pub = _publisher(_tape(_recent_start(5), minutes=5, n=10))
-    assert pub._rebuild_wait_sec() == 0.0
-    assert pub.rebuild() is None
-    assert 0 < pub._rebuild_wait_sec() <= lp.WARMING_REBUILD_MIN_INTERVAL_SEC
-    pub.assemble_trades = lambda _s, _e: (_tape(_recent_start(20), minutes=20, n=30), {}, {})
-    assert pub.rebuild() is not None
-    assert lp.WARMING_REBUILD_MIN_INTERVAL_SEC < pub._rebuild_wait_sec() <= lp.REBUILD_MIN_INTERVAL_SEC
-
-
-def test_trade_thread_requests_rebuild_instead_of_running_it():
-    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
-    calls = []
-    pub.rebuild = lambda: calls.append(1)
-    pub.apply_trades([{
-        "ts": datetime.now(timezone.utc),
-        "price": 111.0,
-        "size": 1,
-        "side": "B",
-        "dashboard_symbol": "TY",
-    }])
-    assert calls == []
-    assert pub._rebuild_event.is_set()
-
-
-def test_history_broadcast_reuses_snapshot_bytes_then_replays_newer_prints():
-    first_tape = _tape(_recent_start(20), minutes=20, n=30, size=1)
-    pub = _publisher(first_tape)
-    pub.rebuild()
-    q = pub.subscribe()
-    q.get_nowait()
-    last = pub._frame.iloc[-1]
-    newer = {
-        "ts": pub._frame.index.max() + pd.Timedelta(milliseconds=5),
-        "price": float(last["price"]) + (1.0 / 64.0),
-        "size": 3,
-        "side": "A",
-        "dashboard_symbol": "TY",
-    }
-    hole = first_tape["TY"].copy()
-    hole.loc[0, "size"] = 50
-    pub.assemble_trades = lambda _s, _e: ({**first_tape, "TY": hole}, {}, {})
-    prepare = pub._prepare_picture
-    sent = []
-
-    def arrives_mid_rebuild(*args, **kwargs):
-        prepared = prepare(*args, **kwargs)
-        sent.append(pub.apply_trades([newer]))
-        return prepared
-
-    pub._prepare_picture = arrives_mid_rebuild
-    pub.rebuild()
-    assert q.get_nowait() == sent[0]
-    history = q.get_nowait()
-    assert history.startswith("event: history\n")
-    assert history.split("\n", 1)[1] == pub._snapshot_bytes.split("\n", 1)[1]
-    replay = q.get_nowait()
-    assert replay.startswith("event: trade\n")
-    prints = json.loads(replay.split("data: ", 1)[1])["prints"]
-    assert [p["buy_aggress"] + p["sell_aggress"] for p in prints] == [-3.0]
-    assert pub._snapshot_through_ns < int(pd.Timestamp(newer["ts"]).value)
-
-
-def test_catch_up_applies_prints_in_bounded_batches():
-    from scripts.aggression_dashboard_v3 import live_publisher as lp
-
-    start = _recent_start(1)
-    n = lp.CATCH_UP_BATCH * 2 + 5
-    rows = pd.DataFrame({
-        "ts": pd.to_datetime([start + timedelta(microseconds=10 * i) for i in range(n)], utc=True),
-        "price": 110.0,
-        "size": 1,
-        "side": "B",
-        "instrument_id": "1",
-        "raw_symbol": "TYZ6",
-        "dashboard_symbol": "TY",
-    })
-    pub = _publisher({"TY": rows, "FV": _empty_symbol("FV"), "TU": _empty_symbol("TU"), "US": _empty_symbol("US")})
-    batches = []
-    pub.apply_trades = lambda trades: batches.append(len(trades))
-    pub._catch_up_live(start - timedelta(seconds=1))
-    assert batches == [lp.CATCH_UP_BATCH, lp.CATCH_UP_BATCH, 5]
-
-
-def test_chunked_json_matches_one_shot_json():
-    import numpy as np
-
-    from scripts.aggression_dashboard_v3 import live_publisher as lp
-
-    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
-    snapshot = pub.rebuild()
-    one_shot = lambda value: json.dumps(value, separators=(",", ":"), default=lp._json_default)
-    assert lp.encode_json_chunked(snapshot) == one_shot(snapshot)
-    ts = pd.Timestamp("2026-09-24 13:30:00.123456789", tz="UTC")
-    tricky = {
-        "points": [{"x": f"2026-09-24T09:{i // 60:02d}:{i % 60:02d}", "y": float(i) / 3, "n": np.int64(i), "t": ts} for i in range(5003)],
-        "nested": {"empty": {}, "list": [], "nan": float("nan"), "tuple": (1, 2.5, "é"), "unicode": "Δ ✓"},
-        "int_keys": {1: "a", 2.5: "b", None: "c", True: "d"},
-        "np": np.float64(1e-8),
-        "big": list(range(4001)),
-    }
-    assert lp.encode_json_chunked(tricky) == one_shot(tricky)
-    assert lp.encode_sse("history", snapshot).split("data: ", 1)[1] == lp.encode_json_chunked(snapshot) + "\n\n"
-
-
 def test_empty_tape_warming_helper():
     banner = build_banner(
         pd.DataFrame(),
@@ -335,7 +228,7 @@ def test_lookback_clips_the_chart_but_not_the_session_sum():
     pub = _publisher(_tape(_recent_start(20), minutes=20, n=40, side="B"), lookback_hours=0.1)
     snapshot = pub.rebuild()
     assert snapshot and snapshot.get("success")
-    p1 = expand_payload(snapshot)["panels"]["p1"]["data"]
+    p1 = snapshot["panels"]["p1"]["data"]
     assert 0 < len(p1) < 40
     assert p1[0]["total_aggress"] == 40 - len(p1) + 1
     assert p1[-1]["total_aggress"] == 40
@@ -360,8 +253,8 @@ def test_longer_tape_keeps_values_and_sends_no_history():
     pub.assemble_trades = lambda _s, _e: (longer, {}, {})
     second = pub.rebuild()
     assert q.empty()
-    before = {row["x"]: row["total_aggress"] for row in expand_payload(first)["panels"]["p1"]["data"]}
-    after = {row["x"]: row["total_aggress"] for row in expand_payload(second)["panels"]["p1"]["data"]}
+    before = {row["x"]: row["total_aggress"] for row in first["panels"]["p1"]["data"]}
+    after = {row["x"]: row["total_aggress"] for row in second["panels"]["p1"]["data"]}
     shared = set(before) & set(after)
     assert shared
     assert all(before[x] == after[x] for x in shared)
@@ -386,7 +279,24 @@ def test_newer_tail_continues_the_rebuilt_session_sum():
     )
     out, shift = _keep_newer_tail(rebuilt, tail)
     assert out["total_aggress"].tolist() == [10.0, 12.0, 15.0, 14.0]
-    assert shift == 84.0
+    assert shift == pytest.approx(84.0)
+
+
+def test_prints_applied_during_rebuild_continue_the_rebuilt_sum():
+    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
+    pub.rebuild()
+    session = pub._sid[-1]
+    last = pub._ag[-1]
+    rows = [
+        {"ts_ns": 1, "delta_a": 2.0, "total_aggress": last + 500.0, "session_id": session},
+        {"ts_ns": 2, "delta_a": -1.0, "total_aggress": last + 499.0, "session_id": session},
+    ]
+    points = [{"total_aggress": row["total_aggress"], "implied_price": None} for row in rows]
+    shift = pub._continue_kept(rows, points, (110.0, 0.0), {"ok": True, "beta_ref": 1e-8})
+    assert [row["total_aggress"] for row in rows] == [last + 2.0, last + 1.0]
+    assert [point["total_aggress"] for point in points] == [last + 2.0, last + 1.0]
+    assert shift == pytest.approx(498.0)
+    assert points[0]["implied_price"] == pytest.approx(110.0 + 1e-8 * (last + 2.0))
 
 
 def test_same_timestamp_print_keeps_buysell_ewm():
@@ -399,104 +309,128 @@ def test_same_timestamp_print_keeps_buysell_ewm():
     assert pub._update_buysell_ewm(later, 100.0) == after
 
 
-def test_prints_applied_during_a_rebuild_continue_the_rebuilt_sum():
-    """Warming prints sum from 0; a print applied mid-rebuild must be re-based onto the rebuilt tape."""
-    start = _recent_start(30)
-    hist = _tape(start, minutes=20, n=80, side="A", size=10)["TY"]
-    last_ts = hist["ts"].iloc[-1]
-    live_rows: list = []
-    state = {"hist": False}
+class _FakePublisher:
+    def __init__(self, key):
+        self.key = key
+        self.subs = 0
+        self.started = False
+        self.stopped = False
+        self.trades = []
 
-    def trade(sec: float, side: str = "B") -> Dict[str, Any]:
-        return {"ts": last_ts + pd.Timedelta(seconds=sec), "price": 111.0, "size": 2, "side": side, "dashboard_symbol": "TY"}
+    def start(self):
+        self.started = True
 
-    def assemble(_s, _e):
-        parts = ([hist] if state["hist"] else []) + ([pd.DataFrame(live_rows)] if live_rows else [])
-        ty = pd.concat(parts, ignore_index=True) if parts else _empty_symbol("TY")
-        if len(ty):
-            ty["ts"] = pd.to_datetime(ty["ts"], utc=True)
-            ty = ty.sort_values("ts").reset_index(drop=True)
-        return {"TY": ty, "FV": _empty_symbol("FV"), "TU": _empty_symbol("TU"), "US": _empty_symbol("US")}, {}, {}
+    def stop(self):
+        self.stopped = True
 
-    pub = _publisher({"TY": hist}, lookback_hours=1.0)
-    pub.assemble_trades = assemble
+    def subscriber_count(self):
+        return self.subs
 
-    def live(sec: float) -> None:
-        tr = trade(sec)
-        live_rows.append({**tr, "instrument_id": "1", "raw_symbol": "TYM6"})
-        pub.apply_trades([tr])
+    def offer_trade(self, trade):
+        self.trades.append(trade)
 
-    for sec in range(1, 6):
-        live(sec)
-    assert pub._ag[-1] == 10.0
-    state["hist"] = True
-    prepare = pub._prepare_picture
+    def offer_quote(self):
+        pass
 
-    def prepare_with_a_print_arriving(*args, **kwargs):
-        prepared = prepare(*args, **kwargs)
-        pub.apply_trades([trade(6.5)])
-        return prepared
-
-    pub._prepare_picture = prepare_with_a_print_arriving
-    q = pub.subscribe()
-    pub.rebuild()
-    pub._prepare_picture = prepare
-    rebuilt = float(pub._frame["total_aggress"].iloc[-1])
-    assert pub._ag[-1] == rebuilt + 2.0
-    live(8)
-    assert pub._ag[-1] == rebuilt + 4.0
-    replay = pub.subscribe()
-    replay.get_nowait()
-    prints = json.loads(replay.get_nowait().split("data: ", 1)[1])["prints"]
-    assert [p["total_aggress"] for p in prints] == [rebuilt + 2.0, rebuilt + 4.0]
-    del q
+    def offer_history(self):
+        pass
 
 
-def test_overflowing_subscriber_is_resynced_with_the_picture_and_replay():
-    from scripts.aggression_dashboard_v3 import live_publisher as lp
+@pytest.fixture
+def v3app(monkeypatch):
+    from collections import OrderedDict
 
+    from scripts.aggression_dashboard_v3 import app
+
+    monkeypatch.setattr(app, "_PUBLISHERS", {})
+    monkeypatch.setattr(app, "_PUBLISHER_IDLE_SINCE", {})
+    monkeypatch.setattr(app, "_TENDAY_PATHS", OrderedDict())
+    monkeypatch.setattr(app, "_make_publisher", _FakePublisher)
+    monkeypatch.setattr(app.LIVE_BUFFER, "set_hooks", lambda **_kwargs: None)
+    return app
+
+
+def test_live_key_from_query_args(v3app):
+    assert v3app.live_key_from_args({}) == v3app.DEFAULT_LIVE_KEY
+    assert v3app.live_key_from_args({"chips": "TY"}) == ("TY", ("TY",), True)
+    assert v3app.live_key_from_args({"chips": "us, ty,zz", "price": "fv", "dv01": "0"}) == ("FV", ("TY", "US"), False)
+    assert v3app.live_key_from_args({"chips": " , "}) == v3app.DEFAULT_LIVE_KEY
+    assert v3app.live_key_from_args({"price": "ZZ", "chips": "TY"}) == ("TY", ("TY",), True)
+
+
+def test_registry_reuses_equal_selections(v3app):
+    first = v3app._ensure_publisher(v3app.live_key_from_args({"chips": "TY,US"}))
+    again = v3app._ensure_publisher(v3app.live_key_from_args({"chips": "US,TY"}))
+    assert first is again and first.started
+    assert v3app._ensure_publisher() is not first
+
+
+def test_registry_caps_extras_and_replaces_the_oldest(v3app):
+    default = v3app._ensure_publisher()
+    ty = v3app._ensure_publisher(("TY", ("TY",), True), claim=True)
+    us = v3app._ensure_publisher(("TY", ("US",), True), claim=True)
+    ty.subs = us.subs = 1
+    fv = v3app._ensure_publisher(("TY", ("FV",), True), claim=True)
+    assert ty.stopped and not us.stopped and not default.stopped
+    assert set(v3app._PUBLISHERS) == {v3app.DEFAULT_LIVE_KEY, ("TY", ("US",), True), ("TY", ("FV",), True)}
+    assert fv.started
+
+
+def test_idle_extra_views_stop_after_ten_minutes(v3app):
+    default = v3app._ensure_publisher()
+    key = ("TY", ("TY",), True)
+    ty = v3app._ensure_publisher(key, claim=True)
+    v3app._note_viewer_left(key, ty)
+    v3app._note_viewer_left(v3app.DEFAULT_LIVE_KEY, default)
+    since = v3app._PUBLISHER_IDLE_SINCE[key]
+    assert v3app.reap_idle_live_views(now=since + v3app.LIVE_VIEW_IDLE_SEC - 1) == []
+    assert v3app.reap_idle_live_views(now=since + v3app.LIVE_VIEW_IDLE_SEC) == [key]
+    assert ty.stopped and not default.stopped
+    assert set(v3app._PUBLISHERS) == {v3app.DEFAULT_LIVE_KEY}
+
+
+def test_returning_viewer_is_not_reaped(v3app):
+    key = ("TY", ("TY",), True)
+    ty = v3app._ensure_publisher(key, claim=True)
+    v3app._note_viewer_left(key, ty)
+    since = v3app._PUBLISHER_IDLE_SINCE[key]
+    assert v3app._ensure_publisher(key, claim=True) is ty
+    assert v3app.reap_idle_live_views(now=since + v3app.LIVE_VIEW_IDLE_SEC) == []
+
+
+def test_trades_fan_out_to_every_live_view(v3app):
+    default = v3app._ensure_publisher()
+    ty = v3app._ensure_publisher(("TY", ("TY",), True))
+    trade = {"ts": "2026-09-24T14:00:00Z", "dashboard_symbol": "FV", "price": 108.0, "size": 1, "side": "A"}
+    v3app._fan_out_trade(trade)
+    assert default.trades == [trade]
+    assert ty.trades == [trade]
+
+
+def test_ty_only_publisher_ignores_wing_prints():
     pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
-    pub.rebuild()
-    q = pub.subscribe()
-    last_ts = pub._frame.index.max()
-    for k in range(lp.SUBSCRIBER_QUEUE_MAX + 5):
-        pub.apply_trades([{"ts": last_ts + pd.Timedelta(milliseconds=5 * (k + 1)), "price": 111.0, "size": 1,
-                           "side": "B", "dashboard_symbol": "TY"}])
-    assert pub.resyncs >= 1
-    messages = []
-    while not q.empty():
-        messages.append(q.get_nowait())
-    first_snapshot = next(i for i, m in enumerate(messages) if m.startswith("event: snapshot\n"))
-    replay = json.loads(messages[first_snapshot + 1].split("data: ", 1)[1])
-    after = [json.loads(m.split("data: ", 1)[1]) for m in messages[first_snapshot + 2:] if m.startswith("event: trade\n")]
-    stamps = [p["x"] for p in replay["prints"]] + [p["x"] for msg in after for p in msg["prints"]]
-    assert stamps == sorted(stamps) and len(stamps) == len(set(stamps)) == lp.SUBSCRIBER_QUEUE_MAX + 5
+    assert pub.aggression_symbols == ("TY",)
+    wing = {"ts": pd.Timestamp.now(tz="UTC"), "dashboard_symbol": "FV", "price": 108.0, "size": 5, "side": "A"}
+    assert pub._apply_one(wing) is None
 
 
-def test_trade_messages_carry_server_time_and_stream_lag():
-    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
-    pub.rebuild()
-    q = pub.subscribe()
-    while not q.empty():
-        q.get_nowait()
-    encoded = pub.apply_trades([{"ts": pub._frame.index.max() + pd.Timedelta(milliseconds=2), "price": 111.0,
-                                 "size": 1, "side": "B", "dashboard_symbol": "TY"}])
-    payload = json.loads(encoded.split("data: ", 1)[1])
-    assert payload["server_ts"] > 0 and payload["stream_lag_sec"] >= 0
+def test_stream_replaces_the_oldest_extra_instead_of_refusing(v3app):
+    v3app._ensure_publisher()
+    oldest = v3app._ensure_publisher(("TY", ("TY",), True), claim=True)
+    v3app._ensure_publisher(("TY", ("US",), True), claim=True).subs = 1
+    oldest.subs = 1
+    publisher = v3app._ensure_publisher(v3app.live_key_from_args({"chips": "FV"}), claim=True)
+    assert oldest.stopped and publisher.started
+    assert ("TY", ("FV",), True) in v3app._PUBLISHERS
 
 
-def test_prints_carry_the_hover_banner_only_when_due():
-    pub = _publisher(_tape(_recent_start(20), minutes=20, n=30))
-    pub.rebuild()
-    base = pub._frame.index.max()
-
-    def send(ms: int) -> Dict[str, Any]:
-        encoded = pub.apply_trades([{"ts": base + pd.Timedelta(milliseconds=ms), "price": 111.0, "size": 1,
-                                     "side": "B", "dashboard_symbol": "TY"}])
-        return json.loads(encoded.split("data: ", 1)[1])
-
-    first, soon, later = send(10), send(1_000), send(7_000)
-    assert first["prints"][0]["banner"]["x"] == first["prints"][0]["x"]
-    assert "banner" not in soon["prints"][0] and soon["flow_dominance"]
-    assert "banner" in later["prints"][0]
-    assert all("hover" not in p and "hover_due" not in p for msg in (first, soon, later) for p in msg["prints"])
+def test_tenday_path_cache_holds_several_selections(v3app):
+    frames = {name: pd.DataFrame({"x": [i]}) for i, name in enumerate(("curve", "ty", "us", "fv"))}
+    v3app._store_tenday_path("curve", frames["curve"])
+    v3app._store_tenday_path("ty", frames["ty"])
+    assert v3app._snapshot_tenday_path("curve") is frames["curve"]
+    assert v3app._snapshot_tenday_path("ty") is frames["ty"]
+    v3app._store_tenday_path("us", frames["us"])
+    v3app._store_tenday_path("fv", frames["fv"])
+    assert v3app._snapshot_tenday_path("curve").empty
+    assert v3app._snapshot_tenday_path("ty") is frames["ty"]

@@ -9,6 +9,7 @@ import logging
 import os
 import threading
 import time
+import urllib.parse
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Tuple
@@ -20,6 +21,27 @@ from scripts.databento_live_backup import DatabentoLiveBackup, TbboEventDeduplic
 logger = logging.getLogger(__name__)
 
 ACCESS_API_WS = "ws://100.79.30.21:8001/ws/live/stream"
+_MDAPI_CLIENT_DEFAULT = "aggress_v3"
+
+
+def _mdapi_client_name() -> str:
+    raw = os.getenv("MDAPI_CLIENT_TAG", "").strip()
+    return raw or _MDAPI_CLIENT_DEFAULT
+
+
+def _mdapi_url(url: str) -> str:
+    parts = urllib.parse.urlsplit(url)
+    pairs = [
+        (key, value)
+        for key, value in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+        if key != "client"
+    ]
+    pairs.append(("client", _mdapi_client_name()))
+    return urllib.parse.urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urllib.parse.urlencode(pairs), parts.fragment)
+    )
+
+
 SUPPORTED_SYMBOLS = ("FV", "TU", "TY", "US")
 DEFAULT_MAX_AGE_HOURS = 18
 PRIMARY_SOURCE = "accessapi"
@@ -186,7 +208,7 @@ class LiveTradeBuffer:
             raise exc
 
         logger.info("Connecting to AccessAPI live TBBO stream: %s", self.ws_url)
-        async with websockets.connect(self.ws_url, ping_interval=20, ping_timeout=20) as ws:
+        async with websockets.connect(_mdapi_url(self.ws_url), ping_interval=20, ping_timeout=20) as ws:
             with self._lock:
                 self._connected = True
                 self._error = None

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggression V3 — trade-to-trade six-state monitor.
+"""Aggression V3 — trade-to-trade flow-attribution monitor.
 
 Manual-only on port 5053. Writes only under workspace/analysis/aggression_v3_live/.
 Does not edit, write, or restart V1 / V1.2 / V1.3 / V2.
@@ -7,16 +7,16 @@ Does not edit, write, or restart V1 / V1.2 / V1.3 / V2.
 
 from __future__ import annotations
 
+import gzip
 import logging
-import os
 import queue as queue_module
 import sys
 import threading
 import time as time_module
-from dataclasses import replace
+from collections import OrderedDict
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -28,7 +28,6 @@ except ImportError as exc:  # pragma: no cover
 
 import pandas as pd
 
-from scripts.aggression_dashboard_v3.banner import build_banner, build_banner_series
 from scripts.aggression_dashboard_v3.beta_ref import ensure_beta_ref
 from scripts.aggression_dashboard_v3.core import (
     AggressionRequest,
@@ -39,7 +38,6 @@ from scripts.aggression_dashboard_v3.core import (
     SYMBOL_PARENT_MAP,
     apply_beta_ref_path,
     build_print_frame,
-    clip_print_lookback,
     default_start_time,
     fetch_curve_trades,
     last_n_business_day_window,
@@ -48,13 +46,16 @@ from scripts.aggression_dashboard_v3.core import (
     normalize_symbol,
     parse_dashboard_datetime,
     prune_trades_cache,
+    globex_session_end,
     session_labels,
     trading_day_start,
 )
+from scripts.aggression_dashboard_v3.history_client import HistoryWorkerError, build_history_service
+from scripts.aggression_dashboard_v3.history_store import HISTORY_VIEWS, write_close_snapshot
 from scripts.aggression_dashboard_v3.live_buffer import LiveTradeBuffer
-from scripts.aggression_dashboard_v3.live_publisher import HEARTBEAT_SEC, LivePublisher
+from scripts.aggression_dashboard_v3.live_publisher import HEARTBEAT_SEC, LivePublisher, encode_sse
 from scripts.aggression_dashboard_v3.print_reconcile import reconcile_by_symbol
-from scripts.aggression_dashboard_v3.panels import build_dashboard_payload, build_state_timeline_panel
+from scripts.aggression_dashboard_v3.panels import build_state_timeline_panel
 
 logging.basicConfig(
     level=logging.INFO,
@@ -99,11 +100,22 @@ _TENDAY_THREAD: threading.Thread | None = None
 _LAST_CACHE_PRUNE_DATE = None
 _BETA_WARM_LOCK = threading.Lock()
 _BETA_WARM_KEYS: set[tuple] = set()
-_BETA_HELD_KEYS: set[tuple] = set()
+TENDAY_PATH_SLOTS = 3
 _TENDAY_PATH_LOCK = threading.Lock()
-_TENDAY_PATH: Dict[str, Any] = {"key": None, "frame": pd.DataFrame(), "building": None}
-_PUBLISHER: LivePublisher | None = None
-_PUBLISHER_LOCK = threading.Lock()
+_TENDAY_PATHS: "OrderedDict[tuple, pd.DataFrame]" = OrderedDict()
+_TENDAY_PATH_BUILDING: set[tuple] = set()
+
+# A live selection: (price symbol, aggression chips in SYMBOL_PARENT_MAP order, DV01 adjust).
+LiveKey = Tuple[str, Tuple[str, ...], bool]
+DEFAULT_LIVE_KEY: LiveKey = (DEFAULT_PRICE_SYMBOL, DEFAULT_AGGRESSION_SYMBOLS, True)
+MAX_EXTRA_LIVE_VIEWS = 2
+LIVE_VIEW_IDLE_SEC = 600.0
+LIVE_VIEW_REAP_SEC = 30.0
+LIVE_VIEW_LIMIT_REASON = "Too many live views; use Historical mode."
+_PUBLISHERS: Dict[LiveKey, LivePublisher] = {}
+_PUBLISHER_IDLE_SINCE: Dict[LiveKey, float] = {}
+_PUBLISHERS_LOCK = threading.Lock()
+_REAPER_THREAD: threading.Thread | None = None
 
 
 def _beta_warm_key(price_symbol: str, aggression_symbols: Tuple[str, ...], dv01_adjust: bool) -> tuple:
@@ -116,13 +128,12 @@ def _kick_beta_ref(
     dv01_adjust: bool,
     trades_window: Optional[Dict[str, pd.DataFrame]] = None,
 ) -> Optional[threading.Thread]:
-    """Compute beta_ref once per key per process, then hold it until restart."""
+    """Compute beta_ref in the background; only a newly computed beta re-triggers a rebuild."""
     key = _beta_warm_key(price_symbol, aggression_symbols, dv01_adjust)
     with _BETA_WARM_LOCK:
         if key in _BETA_WARM_KEYS:
             return None
         _BETA_WARM_KEYS.add(key)
-        refresh_stale = key not in _BETA_HELD_KEYS
 
     def _run() -> None:
         fresh = False
@@ -133,18 +144,18 @@ def _kick_beta_ref(
                 dv01_adjust=dv01_adjust,
                 trades_window=trades_window,
                 compute=True,
-                refresh_stale=refresh_stale,
             )
-            fresh = bool(payload.get("ok")) and not payload.get("bucket_stale")
+            fresh = bool(payload.get("ok")) and not payload.get("cached")
         except Exception:
             logger.exception("V3 background beta_ref failed")
         finally:
             with _BETA_WARM_LOCK:
                 _BETA_WARM_KEYS.discard(key)
-                if fresh:
-                    _BETA_HELD_KEYS.add(key)
-            if fresh and _PUBLISHER is not None:
-                _PUBLISHER.offer_history()
+            if fresh:
+                with _PUBLISHERS_LOCK:
+                    publisher = _PUBLISHERS.get(key)
+                if publisher is not None:
+                    publisher.offer_history()
 
     thread = threading.Thread(target=_run, name="v3-beta-ref", daemon=True)
     thread.start()
@@ -164,10 +175,19 @@ def _tenday_path_key(
 def _snapshot_tenday_path(key: tuple) -> pd.DataFrame:
     """Shared 10-session path frame. Callers must not modify it in place."""
     with _TENDAY_PATH_LOCK:
-        if _TENDAY_PATH.get("key") != key:
+        frame = _TENDAY_PATHS.get(key)
+        if frame is None:
             return pd.DataFrame()
-        frame = _TENDAY_PATH.get("frame")
-        return frame if frame is not None else pd.DataFrame()
+        _TENDAY_PATHS.move_to_end(key)
+        return frame
+
+
+def _store_tenday_path(key: tuple, frame: pd.DataFrame) -> None:
+    with _TENDAY_PATH_LOCK:
+        _TENDAY_PATHS[key] = frame
+        _TENDAY_PATHS.move_to_end(key)
+        while len(_TENDAY_PATHS) > TENDAY_PATH_SLOTS:
+            _TENDAY_PATHS.popitem(last=False)
 
 
 def _kick_tenday_path(
@@ -181,14 +201,11 @@ def _kick_tenday_path(
         return
     key = _tenday_path_key(aggression_symbols, price_symbol, dv01_adjust, beta_ref)
     with _TENDAY_PATH_LOCK:
-        if _TENDAY_PATH.get("key") == key:
+        if key in _TENDAY_PATHS or key in _TENDAY_PATH_BUILDING:
             return
-        if _TENDAY_PATH.get("building") == key:
-            return
-        _TENDAY_PATH["building"] = key
+        _TENDAY_PATH_BUILDING.add(key)
 
     def _run() -> None:
-        published = False
         try:
             trades = _snapshot_tenday_trades(aggression_symbols)
             if trades:
@@ -202,16 +219,12 @@ def _kick_tenday_path(
                     frame = _tag_sessions(frame)
                     frame["total_aggress"] = frame.groupby("session_id")["delta_a"].cumsum()
                     frame = apply_beta_ref_path(frame, float(beta_ref), session_col="session_id")
-                    with _TENDAY_PATH_LOCK:
-                        _TENDAY_PATH.update({"key": key, "frame": frame, "building": None})
-                    published = True
+                    _store_tenday_path(key, frame)
         except Exception:
             logger.exception("V3 background 10-session path failed")
         finally:
-            if not published:
-                with _TENDAY_PATH_LOCK:
-                    if _TENDAY_PATH.get("building") == key:
-                        _TENDAY_PATH["building"] = None
+            with _TENDAY_PATH_LOCK:
+                _TENDAY_PATH_BUILDING.discard(key)
 
     threading.Thread(target=_run, name="v3-tenday-path", daemon=True).start()
 
@@ -223,70 +236,182 @@ def _ensure_live_buffer() -> None:
     _ensure_tenday_thread()
     _kick_beta_ref(DEFAULT_PRICE_SYMBOL, DEFAULT_AGGRESSION_SYMBOLS, True)
     _ensure_publisher()
+    _ensure_live_view_reaper()
 
 
-def _publisher_assemble(start: datetime, end: datetime):
-    return _live_display_trades(DEFAULT_AGGRESSION_SYMBOLS, start, end)
+class LiveViewLimitError(RuntimeError):
+    """Every extra live-view slot has viewers."""
 
 
-def _publisher_cached_window(start: datetime, end: datetime):
-    return load_cached_trades_window(DEFAULT_AGGRESSION_SYMBOLS, start, end)
+def live_key_from_args(args: Any) -> LiveKey:
+    """Live selection from stream query args; unknown or missing values fall back to the default view."""
+    chosen = set()
+    for part in str(args.get("chips") or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            chosen.add(normalize_symbol(part))
+        except ValueError:
+            logger.warning("Ignoring unsupported live chip from client: %s", part)
+    symbols = tuple(symbol for symbol in SYMBOL_PARENT_MAP if symbol in chosen) or DEFAULT_AGGRESSION_SYMBOLS
+    try:
+        price_symbol = normalize_symbol(args.get("price") or DEFAULT_PRICE_SYMBOL)
+    except ValueError:
+        price_symbol = DEFAULT_PRICE_SYMBOL
+    dv01_adjust = str(args.get("dv01", "1")).strip().lower() not in ("0", "false", "no", "off")
+    return (price_symbol, symbols, dv01_adjust)
 
 
-def _publisher_peek_beta(now: datetime) -> Dict[str, Any]:
-    return ensure_beta_ref(
-        price_symbol=DEFAULT_PRICE_SYMBOL,
-        aggression_symbols=DEFAULT_AGGRESSION_SYMBOLS,
-        dv01_adjust=True,
-        now=now,
-        trades_window=_snapshot_tenday_trades(DEFAULT_AGGRESSION_SYMBOLS) or None,
-        compute=False,
+def _describe_live_key(key: LiveKey) -> str:
+    return f"{key[0]} price vs {'+'.join(key[1])} (DV01 {'on' if key[2] else 'off'})"
+
+
+def _make_publisher(key: LiveKey) -> LivePublisher:
+    price_symbol, symbols, dv01_adjust = key
+
+    def assemble(start: datetime, end: datetime):
+        return _live_display_trades(symbols, start, end)
+
+    def cached_window(start: datetime, end: datetime):
+        return load_cached_trades_window(symbols, start, end)
+
+    def peek_beta(now: datetime) -> Dict[str, Any]:
+        return ensure_beta_ref(
+            price_symbol=price_symbol,
+            aggression_symbols=symbols,
+            dv01_adjust=dv01_adjust,
+            now=now,
+            compute=False,
+        )
+
+    def kick_beta() -> None:
+        _kick_beta_ref(price_symbol, symbols, dv01_adjust, trades_window=_snapshot_tenday_trades(symbols) or None)
+
+    def tenday_path(beta_ref: Optional[float]) -> pd.DataFrame:
+        return _snapshot_tenday_path(_tenday_path_key(symbols, price_symbol, dv01_adjust, beta_ref))
+
+    def kick_tenday(beta_ref: Optional[float], dv01_table: Dict[str, float]) -> None:
+        if beta_ref is not None:
+            _kick_tenday_path(symbols, price_symbol, dv01_adjust, float(beta_ref), dv01_table)
+
+    return LivePublisher(
+        assemble_trades=assemble,
+        load_cached_window=cached_window,
+        peek_beta=peek_beta,
+        kick_beta=kick_beta,
+        live_status=lambda: _live_status("live"),
+        tenday_path=tenday_path,
+        kick_tenday=kick_tenday,
+        load_dv01=load_dv01_table,
+        price_symbol=price_symbol,
+        aggression_symbols=symbols,
+        dv01_adjust=dv01_adjust,
     )
 
 
-def _publisher_kick_beta() -> None:
-    _kick_beta_ref(
-        DEFAULT_PRICE_SYMBOL,
-        DEFAULT_AGGRESSION_SYMBOLS,
-        True,
-        trades_window=_snapshot_tenday_trades(DEFAULT_AGGRESSION_SYMBOLS) or None,
-    )
+def _running_publishers() -> List[LivePublisher]:
+    with _PUBLISHERS_LOCK:
+        return list(_PUBLISHERS.values())
 
 
-def _publisher_tenday_path(beta_ref: Optional[float]) -> pd.DataFrame:
-    key = _tenday_path_key(DEFAULT_AGGRESSION_SYMBOLS, DEFAULT_PRICE_SYMBOL, True, beta_ref)
-    return _snapshot_tenday_path(key)
+def _fan_out_trade(trade: Dict[str, Any]) -> None:
+    for publisher in _running_publishers():
+        publisher.offer_trade(trade)
 
 
-def _publisher_kick_tenday(beta_ref: Optional[float], dv01_table: Dict[str, float]) -> None:
-    if beta_ref is None:
+def _fan_out_quote() -> None:
+    for publisher in _running_publishers():
+        publisher.offer_quote()
+
+
+def _stop_publisher_locked(key: LiveKey) -> None:
+    publisher = _PUBLISHERS.pop(key, None)
+    _PUBLISHER_IDLE_SINCE.pop(key, None)
+    if publisher is not None:
+        publisher.stop()
+        logger.info("V3 live view stopped: %s", _describe_live_key(key))
+
+
+def _ensure_publisher(key: LiveKey = DEFAULT_LIVE_KEY, *, claim: bool = False) -> LivePublisher:
+    """Running publisher for one live selection. The default always runs; extras are capped.
+
+    ``claim`` is for a viewer about to subscribe: it clears the idle mark so the reaper cannot
+    stop the publisher in between. When the extra cap is full, the oldest extra stops so the
+    requested selection gets the slot.
+    """
+    with _PUBLISHERS_LOCK:
+        publisher = _PUBLISHERS.get(key)
+        if publisher is not None:
+            if claim:
+                _PUBLISHER_IDLE_SINCE.pop(key, None)
+            return publisher
+        if key != DEFAULT_LIVE_KEY:
+            extras = [k for k in _PUBLISHERS if k != DEFAULT_LIVE_KEY]
+            if len(extras) >= MAX_EXTRA_LIVE_VIEWS:
+                # Insertion order: the first extra is the oldest. Drop it even if its
+                # stream has not finished closing, so the selection just requested connects.
+                _stop_publisher_locked(extras[0])
+        publisher = _make_publisher(key)
+        _PUBLISHERS[key] = publisher
+        LIVE_BUFFER.set_hooks(on_trade=_fan_out_trade, on_quote=_fan_out_quote)
+        publisher.start()
+        logger.info("V3 live view started: %s", _describe_live_key(key))
+        return publisher
+
+
+def _note_viewer_left(key: LiveKey, publisher: LivePublisher) -> None:
+    with _PUBLISHERS_LOCK:
+        if _PUBLISHERS.get(key) is publisher and publisher.subscriber_count() == 0:
+            _PUBLISHER_IDLE_SINCE[key] = time_module.monotonic()
+
+
+def reap_idle_live_views(now: Optional[float] = None) -> List[LiveKey]:
+    """Stop extra live views that have had no viewers for LIVE_VIEW_IDLE_SEC."""
+    now = time_module.monotonic() if now is None else now
+    with _PUBLISHERS_LOCK:
+        expired = [
+            key
+            for key, since in _PUBLISHER_IDLE_SINCE.items()
+            if key != DEFAULT_LIVE_KEY
+            and key in _PUBLISHERS
+            and _PUBLISHERS[key].subscriber_count() == 0
+            and now - since >= LIVE_VIEW_IDLE_SEC
+        ]
+        for key in expired:
+            _stop_publisher_locked(key)
+    return expired
+
+
+def _live_view_reaper() -> None:
+    while True:
+        time_module.sleep(LIVE_VIEW_REAP_SEC)
+        try:
+            reap_idle_live_views()
+        except Exception:
+            logger.exception("V3 live view reaper failed")
+
+
+def _ensure_live_view_reaper() -> None:
+    global _REAPER_THREAD
+    if _REAPER_THREAD and _REAPER_THREAD.is_alive():
         return
-    _kick_tenday_path(
-        DEFAULT_AGGRESSION_SYMBOLS,
-        DEFAULT_PRICE_SYMBOL,
-        True,
-        float(beta_ref),
-        dv01_table,
-    )
+    _REAPER_THREAD = threading.Thread(target=_live_view_reaper, name="v3-live-view-reaper", daemon=True)
+    _REAPER_THREAD.start()
 
 
-def _ensure_publisher() -> LivePublisher:
-    global _PUBLISHER
-    with _PUBLISHER_LOCK:
-        if _PUBLISHER is None:
-            _PUBLISHER = LivePublisher(
-                assemble_trades=_publisher_assemble,
-                load_cached_window=_publisher_cached_window,
-                peek_beta=_publisher_peek_beta,
-                kick_beta=_publisher_kick_beta,
-                live_status=lambda: _live_status("live"),
-                tenday_path=_publisher_tenday_path,
-                kick_tenday=_publisher_kick_tenday,
-                load_dv01=load_dv01_table,
-            )
-            LIVE_BUFFER.set_hooks(on_trade=_PUBLISHER.offer_trade, on_quote=_PUBLISHER.offer_quote)
-            _PUBLISHER.start()
-        return _PUBLISHER
+def _live_views_summary() -> List[Dict[str, Any]]:
+    with _PUBLISHERS_LOCK:
+        return [
+            {
+                "price_symbol": key[0],
+                "aggression_symbols": list(key[1]),
+                "dv01_adjust": key[2],
+                "viewers": publisher.subscriber_count(),
+                "default": key == DEFAULT_LIVE_KEY,
+            }
+            for key, publisher in _PUBLISHERS.items()
+        ]
 
 
 def _ensure_backfill_thread() -> None:
@@ -408,41 +533,22 @@ def _merge_historical_and_live(
     return reconcile_by_symbol({}, symbols, live=live, historical=historical)
 
 
-def _get_background_backfill(req: AggressionRequest) -> Tuple[Dict[str, pd.DataFrame], Dict[str, str], Dict[str, Any]]:
-    with _BACKFILL_LOCK:
-        covered_start = _BACKFILL.get("covered_start")
-        covered_end = _BACKFILL.get("covered_end")
-        fetched_at = _BACKFILL.get("fetched_at")
-        error = _BACKFILL.get("error")
-        trades_snapshot = {
-            symbol: df.copy()
-            for symbol, df in (_BACKFILL.get("trades") or {}).items()
-            if symbol in req.aggression_symbols
-        }
-        front_contracts = dict(_BACKFILL.get("front_contracts") or {})
-        errors = dict(_BACKFILL.get("errors") or {})
-    for symbol, df in trades_snapshot.items():
-        if not df.empty:
-            df.attrs["front_contracts"] = front_contracts.get(symbol, [])
-    state = {
-        "covered_start": covered_start.isoformat() if covered_start else None,
-        "covered_end": covered_end.isoformat() if covered_end else None,
-        "fetched_at": fetched_at.isoformat() if fetched_at else None,
-        "error": error,
-    }
-    if covered_start is not None and req.start < covered_start:
-        trades, extra_errors = fetch_curve_trades(req.aggression_symbols, req.start, covered_start, cache=True)
-        for symbol, df in trades.items():
-            frames = [x for x in (df, trades_snapshot.get(symbol, pd.DataFrame())) if not x.empty]
-            if frames:
-                combined = pd.concat(frames, ignore_index=True)
-                combined["ts"] = pd.to_datetime(combined["ts"], utc=True)
-                combined.sort_values("ts", inplace=True)
-                combined.drop_duplicates(subset=["ts", "price", "size", "side", "dashboard_symbol"], inplace=True)
-                combined.reset_index(drop=True, inplace=True)
-                trades_snapshot[symbol] = combined
-        errors.update(extra_errors)
-    return trades_snapshot, errors, state
+def _snapshot_session_at_close() -> None:
+    """During 17:00–18:00 ET, save the merged tape of the session that just closed. No Databento call."""
+    now = datetime.now(timezone.utc)
+    now_et = now.astimezone(EASTERN)
+    if now_et.weekday() >= 5 or not (time(17, 0) <= now_et.time() < time(18, 0)):
+        return
+    session_start = default_start_time(now)
+    end = globex_session_end(session_start)
+    if end > now:
+        return
+    symbols = tuple(SYMBOL_PARENT_MAP)
+    trades, _errors, _state = _live_display_trades(symbols, session_start, end)
+    write_close_snapshot(trades, session_start)
+
+
+HISTORY, HISTORY_SCHEDULER = build_history_service(_market_open, prepare=_snapshot_session_at_close)
 
 
 def _backfill_covered_end(
@@ -516,8 +622,8 @@ def _backfill_refresher() -> None:
                     "fetched_at": datetime.now(timezone.utc),
                     "error": None,
                 })
-            if _PUBLISHER is not None:
-                _PUBLISHER.offer_history()
+            for publisher in _running_publishers():
+                publisher.offer_history()
         except Exception as exc:
             logger.exception("V3 backfill refresh failed")
             with _BACKFILL_LOCK:
@@ -621,137 +727,6 @@ def _parse_mode(payload: Dict[str, Any]) -> str:
     return "historical" if mode == "historical" else "live"
 
 
-def _build_response(req: AggressionRequest, mode: str) -> Tuple[Dict[str, Any], int]:
-    dv01_table = load_dv01_table()
-    session_start = default_start_time(req.end if mode == "historical" else None)
-    if mode == "live":
-        req = replace(req, end=datetime.now(timezone.utc), start=session_start)
-        _ensure_live_buffer()
-        lookback_start = req.end - timedelta(hours=req.lookback_hours)
-        built = time_module.monotonic()
-        trades, fetch_errors, backfill_state = _live_display_trades(
-            req.aggression_symbols,
-            lookback_start,
-            req.end,
-        )
-        live_status = _live_status("live")
-        logger.info(
-            "V3 live lookback %.2fh assembled in %.2fs",
-            req.lookback_hours,
-            time_module.monotonic() - built,
-        )
-        frame_start = lookback_start
-    else:
-        trades, fetch_errors = fetch_curve_trades(req.aggression_symbols, req.start, req.end, cache=True)
-        backfill_state = {}
-        live_status = _live_status("historical")
-        frame_start = req.start
-
-    frame, flow_meta = build_print_frame(
-        trades,
-        price_symbol=req.price_symbol,
-        dv01_table=dv01_table,
-        dv01_adjust=req.dv01_adjust,
-        session_start=frame_start,
-    )
-    if frame.empty:
-        return {
-            "success": False,
-            "error": "No trade data returned for the selected symbols/window.",
-            "meta": {"request": {"mode": mode}, "flow": flow_meta, "live_status": live_status, "fetch_errors": fetch_errors},
-            "flow_dominance": build_banner(
-                frame,
-                {},
-                price_symbol=req.price_symbol,
-                as_of=req.end,
-                live_connected=live_status.get("connected") if mode == "live" else True,
-            ),
-            "flow_dominance_series": [],
-            "panels": {"p1_states": build_state_timeline_panel([])},
-        }, 404
-
-    tenday_trades = _snapshot_tenday_trades(req.aggression_symbols)
-    beta_payload = ensure_beta_ref(
-        price_symbol=req.price_symbol,
-        aggression_symbols=req.aggression_symbols,
-        dv01_adjust=req.dv01_adjust,
-        now=req.end,
-        trades_window=tenday_trades or None,
-        compute=False,
-    )
-    if not beta_payload.get("ok") or beta_payload.get("bucket_stale"):
-        _kick_beta_ref(
-            req.price_symbol,
-            req.aggression_symbols,
-            req.dv01_adjust,
-            trades_window=tenday_trades or None,
-        )
-    beta_ref = beta_payload.get("beta_ref")
-    path_beta = float(beta_ref) if beta_ref and beta_payload.get("ok") else 0.0
-    session_path = apply_beta_ref_path(frame, path_beta)
-
-    tenday_key = _tenday_path_key(req.aggression_symbols, req.price_symbol, req.dv01_adjust, beta_ref if beta_payload.get("ok") else None)
-    tenday_frame = _snapshot_tenday_path(tenday_key)
-    if tenday_frame.empty and beta_ref and beta_payload.get("ok"):
-        _kick_tenday_path(
-            req.aggression_symbols,
-            req.price_symbol,
-            req.dv01_adjust,
-            float(beta_ref),
-            dv01_table,
-        )
-
-    banner = build_banner(
-        frame,
-        beta_payload,
-        price_symbol=req.price_symbol,
-        as_of=req.end,
-        live_connected=live_status.get("connected") if mode == "live" else True,
-    )
-
-    display = clip_print_lookback(frame, req.lookback_hours)
-    display_path = clip_print_lookback(session_path, req.lookback_hours)
-    meta = {
-        "request": {
-            "aggression_symbols": list(req.aggression_symbols),
-            "price_symbol": req.price_symbol,
-            "start": req.start.isoformat(),
-            "end": req.end.isoformat(),
-            "dv01_adjust": req.dv01_adjust,
-            "lookback_hours": req.lookback_hours,
-            "mode": mode,
-            "clock": "trade-to-trade",
-        },
-        "dv01_table": dv01_table,
-        "fetch_errors": fetch_errors,
-        "backfill": backfill_state,
-        "flow": flow_meta,
-        "beta_ref": {
-            "ok": beta_payload.get("ok"),
-            "beta_ref": beta_payload.get("beta_ref"),
-            "beta_display_yield_bp_per_1m": beta_payload.get("beta_display_yield_bp_per_1m"),
-            "n_sessions_used": beta_payload.get("n_sessions_used"),
-            "sessions": beta_payload.get("sessions"),
-            "lookback_hours": beta_payload.get("lookback_hours"),
-            "tod_bucket": beta_payload.get("tod_bucket"),
-            "reason": beta_payload.get("reason"),
-            "version": beta_payload.get("version"),
-        },
-        "live_status": live_status,
-        "label": STATUS_LABEL,
-    }
-    response = build_dashboard_payload(display, display_path, tenday_frame, meta)
-    response["flow_dominance"] = banner
-    response["flow_dominance_series"] = build_banner_series(
-        frame,
-        beta_payload,
-        price_symbol=req.price_symbol,
-        as_of_index=display.index if not display.empty else None,
-    )
-    response["panels"]["p1_states"] = build_state_timeline_panel(response["flow_dominance_series"])
-    return response, 200
-
-
 def _cached_live(req: AggressionRequest) -> Tuple[Dict[str, Any], int]:
     """Live HTTP reads the shared picture. It does not rebuild per request."""
     _ensure_live_buffer()
@@ -805,24 +780,27 @@ def api_config() -> Any:
 @app.get("/api/live_status")
 def api_live_status() -> Any:
     _ensure_live_buffer()
-    status = dict(_live_status("live"))
-    publisher = _PUBLISHER
-    if publisher is not None:
-        status["stream_lag_sec"] = publisher.last_stream_lag_sec
-        status["stream_resyncs"] = publisher.resyncs
-        with publisher._subs_lock:
-            status["stream_subscribers"] = len(publisher._subs)
+    status = _live_status("live")
+    status["live_views"] = _live_views_summary()
     return jsonify(status)
 
 
 @app.get("/api/live/stream")
 def api_live_stream() -> Response:
-    publisher = _ensure_publisher()
+    key = live_key_from_args(request.args)
+    try:
+        publisher = _ensure_publisher(key, claim=True)
+    except LiveViewLimitError as exc:
+        return Response(
+            encode_sse("limit", {"reason": str(exc)}),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache"},
+        )
     incoming = publisher.subscribe()
 
     def generate():
         try:
-            yield "retry: 5000\n: connected\n" + (" " * 2048) + "\n\n"
+            yield ": connected\n" + (" " * 2048) + "\n\n"
             while True:
                 try:
                     yield incoming.get(timeout=HEARTBEAT_SEC)
@@ -830,6 +808,7 @@ def api_live_stream() -> Response:
                     yield ": heartbeat\n\n"
         finally:
             publisher.unsubscribe(incoming)
+            _note_viewer_left(key, publisher)
 
     return Response(
         stream_with_context(generate()),
@@ -846,16 +825,76 @@ def api_live_stream() -> Response:
 def api_aggression() -> Any:
     try:
         payload = request.get_json(force=True, silent=False) or {}
-        mode = _parse_mode(payload)
-        req = _parse_payload(payload)
-        if mode == "live":
-            body, status_code = _cached_live(req)
-        else:
-            body, status_code = _build_response(req, "historical")
+        if _parse_mode(payload) != "live":
+            return jsonify({
+                "success": False,
+                "error": "Historical builds no longer run in the live server; use the History section (GET /api/history).",
+            }), 410
+        body, status_code = _cached_live(_parse_payload(payload))
         return jsonify(body), status_code
     except Exception as exc:
         logger.exception("V3 aggression API failed")
         return jsonify({"success": False, "error": str(exc)}), 400
+
+
+def _history_view() -> str:
+    view = str(request.args.get("view") or "curve").strip().lower()
+    if view not in HISTORY_VIEWS:
+        raise HistoryWorkerError(f"Unknown history view: {view}", "range")
+    return view
+
+
+def _history_error(exc: HistoryWorkerError) -> Tuple[Any, int]:
+    return jsonify({"ok": False, "error": str(exc), "code": exc.code}), 400 if exc.code == "range" else 503
+
+
+def _gzip_json_response(body: bytes, etag: str, cached: bool) -> Response:
+    """Stored gzip bytes as-is when the client accepts gzip; 304 when its ETag matches."""
+    if request.if_none_match.contains(etag):
+        response = Response(status=304)
+    elif "gzip" in (request.headers.get("Accept-Encoding") or "").lower():
+        response = Response(body, mimetype="application/json")
+        response.headers["Content-Encoding"] = "gzip"
+    else:
+        response = Response(gzip.decompress(body), mimetype="application/json")
+    response.set_etag(etag)
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Vary"] = "Accept-Encoding"
+    response.headers["X-History-Cache"] = "hit" if cached else "miss"
+    return response
+
+
+@app.get("/api/history")
+def api_history() -> Any:
+    try:
+        view = _history_view()
+        try:
+            start = parse_dashboard_datetime(request.args.get("start") or "")
+            end = parse_dashboard_datetime(request.args.get("end") or "")
+        except ValueError as exc:
+            raise HistoryWorkerError(f"Bad start or end time: {exc}", "range") from exc
+        etag, body, cached = HISTORY.serve(view, start, end)
+    except HistoryWorkerError as exc:
+        return _history_error(exc)
+    return _gzip_json_response(body, etag, cached)
+
+
+@app.get("/api/history/sessions")
+def api_history_sessions() -> Any:
+    try:
+        body = HISTORY.sessions(_history_view())
+        HISTORY.warm()
+    except HistoryWorkerError as exc:
+        return _history_error(exc)
+    return Response(body, mimetype="application/json", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/api/history/status")
+def api_history_status() -> Any:
+    status = HISTORY.status()
+    status["scheduler"] = HISTORY_SCHEDULER.last_run
+    status["market_open"] = _market_open()
+    return jsonify(status)
 
 
 def main() -> None:
@@ -865,19 +904,9 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5053)
     parser.add_argument("--debug", action="store_true")
-    parser.add_argument("--server", choices=("werkzeug", "uvicorn"), default=os.environ.get("MDP_V3_SERVER", "werkzeug"),
-                        help="uvicorn serves the live stream as async fan-out (asgi.py); werkzeug is one thread per connection")
     args = parser.parse_args()
     _ensure_live_buffer()
-    if args.server == "uvicorn":
-        import uvicorn
-
-        from scripts.aggression_dashboard_v3.asgi import build_app
-        from scripts.aggression_dashboard_v3.live_publisher import SUBSCRIBER_QUEUE_MAX
-
-        asgi_app = build_app(app, _ensure_publisher, heartbeat_sec=HEARTBEAT_SEC, queue_max=SUBSCRIBER_QUEUE_MAX)
-        uvicorn.run(asgi_app, host=args.host, port=args.port, log_level="warning", timeout_keep_alive=30)
-        return
+    HISTORY_SCHEDULER.start()
     app.run(host=args.host, port=args.port, debug=args.debug, threaded=True)
 
 

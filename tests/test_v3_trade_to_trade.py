@@ -11,9 +11,14 @@ import pandas as pd
 
 from scripts.aggression_dashboard_v3.banner import (
     BANNER_SERIES_MAX_POINTS,
-    classify_six_state,
+    GROUP_STYLE,
+    NO_EARLIER_PRINT_REASON,
+    STATE_STYLE,
+    WINDOW_MIN,
     build_banner,
     build_banner_series,
+    classify_state,
+    window_minutes,
 )
 from scripts.aggression_dashboard_v3.beta_ref import (
     _ols_slope,
@@ -34,9 +39,12 @@ from scripts.aggression_dashboard_v3.core import (
 from scripts.aggression_dashboard_v3.panels import (
     BUYSELL_DISPLAY_MAX_POINTS,
     READY_STATE_COLORS,
+    advance_runs,
+    apply_strip_edge,
     build_buysell_ratio_panel,
     build_state_timeline_panel,
     collapse_ready_state_runs,
+    state_run,
 )
 from scripts.aggression_dashboard_v3.print_reconcile import (
     _matched_incoming,
@@ -73,32 +81,90 @@ def test_tick_sizes_match_cme():
     assert set(TICK_SIZE_BY_SYMBOL) == {"TU", "FV", "TY", "US"}
 
 
-def test_six_state_tex_examples():
-    assert classify_six_state(0.0, 0.4, -0.4) == "QUIET"
-    assert classify_six_state(0.5, 8.0, -7.5) == "BALANCED"
-    assert classify_six_state(8.0, 6.5, 1.5) == "AGGRESS_DOMINANT"
-    assert classify_six_state(7.0, 1.5, 5.5) == "IMPLIED_PASSIVE_DOMINANT"
-    assert classify_six_state(7.0, 4.0, 3.0) == "JOINTLY_DRIVEN"
-    assert classify_six_state(1.5, 5.0, -3.5) == "CONTESTED"
+# (d, a, r, STATE2, STATE): one example per row of the state table.
+STATE_TABLE_ROWS = [
+    (3.0, 0.5, 2.5, "SELLER_STRIKE", "THIN_LIQ"),
+    (-3.0, -0.5, -2.5, "BUYER_STRIKE", "THIN_LIQ"),
+    (0.5, 0.3, 0.2, "QUIET", "QUIET"),
+    (3.0, 2.5, 0.5, "AGGRESS_DOM_BUY", "AGGRESS_DOM"),
+    (8.0, 5.0, 3.0, "AGGRESS_DOM_THIN_LIQ_BUY", "AGGRESS_DOM"),
+    (2.0, 4.0, -2.0, "PASSIVE_SELLERS_ABSORBING_BUYERS", "BALANCED"),
+    (-3.0, 2.0, -5.0, "PASSIVE_SELLERS_DOMINATING_BUYERS", "EXHAUSTION"),
+    (0.5, 3.0, -2.5, "PASSIVE_SELLERS_OFFSETTING_BUYERS", "BALANCED"),
+    (4.0, -2.0, 6.0, "PASSIVE_BUYERS_DOMINATING_SELLERS", "EXHAUSTION"),
+    (-8.0, -5.0, -3.0, "AGGRESS_DOM_THIN_LIQ_SELL", "AGGRESS_DOM"),
+    (-3.0, -5.0, 2.0, "PASSIVE_BUYERS_ABSORBING_SELLERS", "BALANCED"),
+    (-3.0, -2.5, -0.5, "AGGRESS_DOM_SELL", "AGGRESS_DOM"),
+    (0.5, -3.0, 3.5, "PASSIVE_BUYERS_OFFSETTING_SELLERS", "BALANCED"),
+]
 
 
-def test_quiet_and_dominance_ties():
-    assert classify_six_state(1.0, 1.0, 0.0) == "QUIET"
-    assert classify_six_state(2.0, 1.5, 1.0) == "AGGRESS_DOMINANT"
-    assert classify_six_state(2.0, 1.0, 1.5) == "IMPLIED_PASSIVE_DOMINANT"
+def test_state_table_rows():
+    for d, a, r, state, group in STATE_TABLE_ROWS:
+        assert abs(d - (a + r)) < 1e-12
+        assert classify_state(d, a, r) == state, (d, a, r)
+        assert STATE_STYLE[state][3] == group
+    assert len({row[3] for row in STATE_TABLE_ROWS}) == 13
 
 
-def test_identity_d_equals_a_plus_b():
-    for d, a, b in (
-        (0.0, 0.4, -0.4),
-        (0.5, 8.0, -7.5),
-        (8.0, 6.5, 1.5),
-        (7.0, 1.5, 5.5),
-        (7.0, 4.0, 3.0),
-        (1.5, 5.0, -3.5),
-    ):
-        assert abs(d - (a + b)) < 1e-12
-        assert classify_six_state(d, a, b) != "UNAVAILABLE"
+def test_unlisted_sign_patterns_follow_aggression_and_price():
+    assert classify_state(1.6, 0.8, 0.8) == "SELLER_STRIKE"
+    assert classify_state(-1.6, -0.8, -0.8) == "BUYER_STRIKE"
+    assert classify_state(0.9, -0.9, 1.8) == "QUIET"
+    assert classify_state(-0.9, 0.9, -1.8) == "QUIET"
+    assert classify_state(0.9, 1.5, -0.6) == "PASSIVE_SELLERS_OFFSETTING_BUYERS"
+    assert classify_state(-0.9, -1.5, 0.6) == "PASSIVE_BUYERS_OFFSETTING_SELLERS"
+
+
+def test_state_boundaries():
+    assert classify_state(1.0, 1.0, 0.0) == "QUIET"
+    assert classify_state(-1.0, -1.0, 0.0) == "QUIET"
+    assert classify_state(2.0, 1.0, 1.0) == "SELLER_STRIKE"
+    assert classify_state(2.5, 1.5, 1.0) == "AGGRESS_DOM_BUY"
+    assert classify_state(-2.5, -1.5, -1.0) == "AGGRESS_DOM_SELL"
+    assert classify_state(1.0, 2.0, -1.0) == "PASSIVE_SELLERS_OFFSETTING_BUYERS"
+
+
+def test_every_window_gets_one_of_the_13_states():
+    reached = set()
+    for i in range(-80, 81):
+        for j in range(-80, 81):
+            a, r = i * 0.05, j * 0.05
+            reached.add(classify_state(a + r, a, r))
+    assert reached == set(STATE_STYLE)
+    assert len(READY_STATE_COLORS) == 13
+
+
+def test_state_colours_match_the_table():
+    assert {group: color for group, (_headline, color) in GROUP_STYLE.items()} == {
+        "THIN_LIQ": "#747474",
+        "QUIET": "#E8E8E8",
+        "AGGRESS_DOM": "#D86DCD",
+        "BALANCED": "#FFFF00",
+        "EXHAUSTION": "#8ED974",
+    }
+    by_color: dict[str, set[str]] = defaultdict(set)
+    for state, (_headline, color, _family, _group) in STATE_STYLE.items():
+        by_color[color].add(state)
+    assert by_color["#A7C9EC"] == {
+        "SELLER_STRIKE",
+        "AGGRESS_DOM_BUY",
+        "AGGRESS_DOM_THIN_LIQ_BUY",
+        "PASSIVE_SELLERS_ABSORBING_BUYERS",
+        "PASSIVE_BUYERS_DOMINATING_SELLERS",
+    }
+    assert by_color["#D9E9F8"] == {"PASSIVE_SELLERS_OFFSETTING_BUYERS"}
+    assert by_color["#E7776B"] == {
+        "BUYER_STRIKE",
+        "AGGRESS_DOM_SELL",
+        "AGGRESS_DOM_THIN_LIQ_SELL",
+        "PASSIVE_BUYERS_ABSORBING_SELLERS",
+        "PASSIVE_SELLERS_DOMINATING_BUYERS",
+    }
+    assert by_color["#F6C7AB"] == {"PASSIVE_BUYERS_OFFSETTING_SELLERS"}
+    assert by_color["#E8E8E8"] == {"QUIET"}
+    assert STATE_STYLE["AGGRESS_DOM_BUY"][0] == STATE_STYLE["AGGRESS_DOM_SELL"][0] == "AGGRESS DOM"
+    assert STATE_STYLE["AGGRESS_DOM_THIN_LIQ_BUY"][0] == "AGGRESS DOM, THIN LIQUIDITY"
 
 
 def test_change_on_change_ols_not_level_ols():
@@ -167,29 +233,62 @@ def test_banner_warming_while_beta_computes():
     assert "still computing" in payload["reason"]
 
 
-def test_state_timeline_collapses_ready_and_gaps_warming():
-    series = [
-        {"x": "2026-09-21T10:00:00", "status": "WARMING", "state": "WARMING"},
-        {"x": "2026-09-21T10:01:00", "status": "READY", "state": "QUIET", "headline": "QUIET"},
-        {"x": "2026-09-21T10:02:00", "status": "READY", "state": "QUIET", "headline": "QUIET"},
-        {"x": "2026-09-21T10:03:00", "status": "UNAVAILABLE", "state": "UNAVAILABLE"},
-        {"x": "2026-09-21T10:04:00", "status": "READY", "state": "AGGRESS_DOMINANT", "headline": "AGGRESS DOMINANT"},
-        {"x": "2026-09-21T10:05:00", "status": "READY", "state": "AGGRESS_DOMINANT", "headline": "AGGRESS DOMINANT"},
+STRIP_SERIES = [
+    {"x": "2026-09-21T10:00:00", "status": "WARMING", "state": "WARMING"},
+    {"x": "2026-09-21T10:01:00", "status": "READY", "state": "AGGRESS_DOM_BUY"},
+    {"x": "2026-09-21T10:02:00", "status": "READY", "state": "AGGRESS_DOM_THIN_LIQ_BUY"},
+    {"x": "2026-09-21T10:03:00", "status": "UNAVAILABLE", "state": "UNAVAILABLE"},
+    {"x": "2026-09-21T10:04:00", "status": "READY", "state": "QUIET"},
+    {"x": "2026-09-21T10:05:00", "status": "WARMING", "state": "WARMING"},
+    {"x": "2026-09-21T10:06:00", "status": "READY", "state": "QUIET"},
+]
+
+
+def _spans(runs):
+    return [(run["state"], run["x0"][11:16], run["x1"][11:16]) for run in runs]
+
+
+def test_state_strip_has_two_rows_with_gaps():
+    fine = collapse_ready_state_runs(STRIP_SERIES, "state")
+    coarse = collapse_ready_state_runs(STRIP_SERIES, "group")
+    assert _spans(fine) == [
+        ("AGGRESS_DOM_BUY", "10:01", "10:01"),
+        ("AGGRESS_DOM_THIN_LIQ_BUY", "10:02", "10:03"),
+        ("QUIET", "10:04", "10:05"),
+        ("QUIET", "10:06", "10:06"),
     ]
-    runs = collapse_ready_state_runs(series)
-    assert len(runs) == 2
-    assert runs[0]["state"] == "QUIET"
-    assert runs[0]["x0"] == "2026-09-21T10:01:00"
-    assert runs[0]["x1"] == "2026-09-21T10:03:00"
-    assert runs[0]["color"] == READY_STATE_COLORS["QUIET"]
-    assert runs[1]["state"] == "AGGRESS_DOMINANT"
-    assert runs[1]["x0"] == "2026-09-21T10:04:00"
-    assert runs[1]["color"] == READY_STATE_COLORS["AGGRESS_DOMINANT"]
+    assert _spans(coarse) == [
+        ("AGGRESS_DOM", "10:01", "10:03"),
+        ("QUIET", "10:04", "10:05"),
+        ("QUIET", "10:06", "10:06"),
+    ]
+    assert (fine[0]["color"], fine[0]["legend"]) == ("#A7C9EC", "Buy side")
+    assert (coarse[0]["color"], coarse[0]["legend"]) == ("#D86DCD", "AGGRESS DOM")
+    assert fine[2]["legend"] == coarse[1]["legend"] == "QUIET"
+    panel = build_state_timeline_panel(STRIP_SERIES)
+    assert panel["title"] == "States through lookback"
+    assert _spans(panel["group_data"]) == _spans(coarse)
+    assert f"{WINDOW_MIN}-minute" in panel["caption"] and "STATE2" in panel["caption"]
     empty = build_state_timeline_panel([])
-    assert empty["data"] == []
-    panel = build_state_timeline_panel(series)
-    assert [row["state"] for row in panel["data"]] == ["QUIET", "AGGRESS_DOMINANT"]
-    assert "warming" in panel["caption"].lower()
+    assert empty["data"] == [] and empty["group_data"] == []
+    assert empty["state_legend"] == [
+        {"legend": "THIN LIQ", "color": "#747474"},
+        {"legend": "QUIET", "color": "#E8E8E8"},
+        {"legend": "AGGRESS DOM", "color": "#D86DCD"},
+        {"legend": "BALANCED", "color": "#FFFF00"},
+        {"legend": "EXHAUSTION", "color": "#8ED974"},
+    ]
+
+
+def test_live_strip_edges_match_the_rebuilt_strip():
+    for key in ("state", "group"):
+        runs, is_open, mirrored = [], False, []
+        for row in STRIP_SERIES:
+            edge, is_open = advance_runs(runs, state_run(row, key, row["x"]), row["x"], is_open)
+            apply_strip_edge(mirrored, edge)
+        expected = _spans(collapse_ready_state_runs(STRIP_SERIES, key))
+        assert _spans(runs) == expected
+        assert _spans(mirrored) == expected
 
 
 def test_apply_beta_ref_path_allows_duplicate_timestamps():
@@ -219,25 +318,90 @@ def test_banner_warming_without_earlier_print():
     assert payload["status"] == "WARMING"
 
 
-def test_banner_ready_identity():
-    idx = pd.to_datetime(["2026-09-16T14:00:00Z", "2026-09-16T14:15:00Z"])
-    tau = 1.0 / 64.0
-    beta = 0.01
-    d_price = 8.0 * tau
-    d_a = 6.5 * tau / beta
-    frame = pd.DataFrame({
-        "price": [110.0, 110.0 + d_price],
-        "total_aggress": [0.0, d_a],
+TAU = 1.0 / 64.0
+BANNER_BETA = {"beta_ref": 0.01, "beta_display_yield_bp_per_1m": -1.0, "ok": True, "positive": True}
+
+
+def _minute_frame(minutes, *, price_step_ticks=0.8, aggress_step_ticks=0.5, start="2026-09-16T14:00:00Z"):
+    """One print per listed minute; each minute adds the given price and aggression-implied ticks."""
+    idx = pd.to_datetime(start) + pd.to_timedelta(list(minutes), unit="min")
+    steps = np.arange(len(idx), dtype=float)
+    return pd.DataFrame({
+        "price": 110.0 + steps * price_step_ticks * TAU,
+        "total_aggress": steps * aggress_step_ticks * TAU / BANNER_BETA["beta_ref"],
     }, index=idx)
+
+
+def test_banner_ready_identity():
     payload = build_banner(
-        frame,
-        {"beta_ref": beta, "beta_display_yield_bp_per_1m": -1.0, "ok": True, "positive": True},
+        _minute_frame(range(16)),
+        BANNER_BETA,
         price_symbol="TY",
         as_of=pd.Timestamp("2026-09-16T14:15:00Z"),
     )
     assert payload["status"] == "READY"
-    assert payload["state"] == "AGGRESS_DOMINANT"
+    assert payload["state"] == "AGGRESS_DOM_THIN_LIQ_BUY"
+    assert payload["headline"] == "AGGRESS DOM, THIN LIQUIDITY"
+    assert (payload["group"], payload["group_headline"], payload["group_color"]) == ("AGGRESS_DOM", "AGGRESS DOM", "#D86DCD")
+    assert (payload["color"], payload["family"]) == ("#A7C9EC", "buy")
+    assert payload["contribution_line"] == "5m price +4.0 ticks · aggression +2.5 · residual +1.5"
+    assert payload["parameters"]["window_min"] == WINDOW_MIN == 5
+    assert "p_aggress" not in payload
     assert abs(payload["d_ticks"] - (payload["a_ticks"] + payload["b_ticks"])) < 1e-6
+
+
+def test_overnight_window_is_fifteen_minutes():
+    start = "2026-09-16T05:45:00Z"  # 01:45 ET; 06:00Z is 02:00 ET
+    payload = build_banner(
+        _minute_frame(range(16), start=start),
+        BANNER_BETA,
+        price_symbol="TY",
+        as_of=pd.Timestamp("2026-09-16T06:00:00Z"),
+    )
+    assert payload["status"] == "READY"
+    assert payload["parameters"]["window_min"] == 15
+    assert payload["contribution_line"] == "15m price +12.0 ticks · aggression +7.5 · residual +4.5"
+    gapped = _minute_frame([0, 1, 2, 3, 4, 5, 15], start=start)
+    held = build_banner(gapped, BANNER_BETA, price_symbol="TY", as_of=pd.Timestamp("2026-09-16T06:00:00Z"))
+    assert held["status"] == "READY"
+    assert window_minutes(pd.Timestamp("2026-09-16T06:59:00Z")) == 15
+    assert window_minutes(pd.Timestamp("2026-09-16T07:00:00Z")) == 5
+    assert window_minutes(pd.Timestamp("2026-09-16T22:00:00Z")) == 15
+
+
+def test_window_starts_at_the_last_print_five_minutes_back():
+    payload = build_banner(
+        _minute_frame(range(16)),
+        BANNER_BETA,
+        price_symbol="TY",
+        as_of=pd.Timestamp("2026-09-16T14:15:30Z"),
+    )
+    assert payload["status"] == "READY"
+    assert abs(payload["d_ticks"] - 4.0) < 1e-9
+    assert abs(payload["a_ticks"] - 2.5) < 1e-9
+
+
+def test_gap_longer_than_the_window_resets_to_warming():
+    frame = _minute_frame([0, 1, 2, 3, 4, 5, 11])
+    as_of = pd.Timestamp("2026-09-16T14:12:00Z")
+    payload = build_banner(frame, BANNER_BETA, price_symbol="TY", as_of=as_of)
+    assert payload["status"] == "WARMING"
+    series = build_banner_series(frame, BANNER_BETA, price_symbol="TY", as_of_index=[as_of])
+    assert series[-1]["status"] == "WARMING"
+    ready = build_banner(_minute_frame(range(12)), BANNER_BETA, price_symbol="TY", as_of=as_of)
+    assert ready["status"] == "READY"
+
+
+def test_tape_shorter_than_the_window_stays_warming():
+    payload = build_banner(
+        _minute_frame(range(4)),
+        BANNER_BETA,
+        price_symbol="TY",
+        as_of=pd.Timestamp("2026-09-16T14:03:00Z"),
+    )
+    assert payload["status"] == "WARMING"
+    assert payload["reason"] == NO_EARLIER_PRINT_REASON
+    assert "5-minute" in NO_EARLIER_PRINT_REASON
 
 
 def test_buysell_panel_time_smooths_print_noise():
@@ -445,7 +609,7 @@ def test_hover_banner_series_matches_as_of():
     row = next(item for item in series if str(item["as_of"]).startswith("2026-09-16T14:15:00"))
     assert row["state"] == live["state"]
     assert abs(row["d_ticks"] - live["d_ticks"]) < 1e-9
-    early = next(item for item in series if str(item["as_of"]).startswith("2026-09-16T14:05:00"))
+    early = next(item for item in series if str(item["as_of"]).startswith("2026-09-16T14:03:00"))
     assert early["status"] == "WARMING"
     assert "x" in row
 
@@ -491,16 +655,9 @@ def test_hover_banner_series_is_capped():
 
 
 def test_banner_does_not_warm_on_foreign_config_key():
-    idx = pd.to_datetime(["2026-09-16T14:00:00Z", "2026-09-16T14:15:00Z"])
-    tau = 1.0 / 64.0
-    beta = 0.01
-    frame = pd.DataFrame({
-        "price": [110.0, 110.0 + 8.0 * tau],
-        "total_aggress": [0.0, 6.5 * tau / beta],
-    }, index=idx)
     payload = build_banner(
-        frame,
-        {"beta_ref": beta, "beta_display_yield_bp_per_1m": -1.0, "ok": True},
+        _minute_frame(range(16)),
+        BANNER_BETA,
         price_symbol="TY",
         as_of=pd.Timestamp("2026-09-16T14:15:00Z"),
         live_connected=True,
@@ -511,7 +668,7 @@ def test_banner_does_not_warm_on_foreign_config_key():
     assert "configuration" not in (payload.get("reason") or "")
 
 
-def test_beta_cache_reuses_stale_tod_bucket_and_keeps_curve_separate(tmp_path, monkeypatch):
+def test_beta_cache_holds_all_day_and_keeps_curve_separate(tmp_path, monkeypatch):
     from scripts.aggression_dashboard_v3 import beta_ref as br
 
     monkeypatch.setattr(br, "CACHE_PATH", tmp_path / "beta_ref.json")
@@ -523,24 +680,27 @@ def test_beta_cache_reuses_stale_tod_bucket_and_keeps_curve_separate(tmp_path, m
         "aggression_symbols": ["TY"],
         "dv01_adjust": True,
         "sessions": [start.isoformat()],
-        "lookback_hours": 3,
-        "tod_bucket": "10:00",
+        "window": "whole_session",
         "ok": True,
         "beta_ref": 4e-8,
         "beta_display_yield_bp_per_1m": -0.5,
     })
-    now = datetime(2026, 9, 17, 17, 35, tzinfo=timezone.utc)
-    ty = br.ensure_beta_ref(
-        price_symbol="TY",
-        aggression_symbols=("TY",),
-        dv01_adjust=True,
-        now=now,
-        compute=False,
-    )
-    assert ty["ok"] is True
-    assert ty["bucket_stale"] is True
-    assert ty["beta_ref"] == 4e-8
-    curve = br.ensure_beta_ref(
+    for now in (
+        datetime(2026, 9, 17, 13, 35, tzinfo=timezone.utc),
+        datetime(2026, 9, 17, 20, 50, tzinfo=timezone.utc),
+    ):
+        ty = br.ensure_session_mean_beta_ref(
+            price_symbol="TY",
+            aggression_symbols=("TY",),
+            dv01_adjust=True,
+            now=now,
+            compute=False,
+        )
+        assert ty["ok"] is True
+        assert ty["cached"] is True
+        assert ty["bucket_stale"] is False
+        assert ty["beta_ref"] == 4e-8
+    curve = br.ensure_session_mean_beta_ref(
         price_symbol="TY",
         aggression_symbols=("FV", "TU", "TY", "US"),
         dv01_adjust=True,
@@ -641,68 +801,47 @@ def test_matched_incoming_large_bucket_is_fast():
     assert elapsed < 5.0
 
 
-def _seed_stale_beta(br, tmp_path, monkeypatch) -> datetime:
+def test_beta_is_mean_of_whole_session_slopes_and_cached_per_session_set(tmp_path, monkeypatch):
+    from scripts.aggression_dashboard_v3 import beta_ref as br
+
     monkeypatch.setattr(br, "CACHE_PATH", tmp_path / "beta_ref.json")
     monkeypatch.setattr(br, "load_dv01_table", lambda: {"TY": 85.0, "FV": 42.0, "TU": 36.0, "US": 125.0})
-    start = datetime(2026, 9, 2, 22, 0, tzinfo=timezone.utc)
-    monkeypatch.setattr(br, "completed_session_starts", lambda now_utc, n=10: [start])
-    br._save_entry({
-        "version": br.BETA_VERSION,
-        "price_symbol": "TY",
-        "aggression_symbols": ["TY"],
-        "dv01_adjust": True,
-        "sessions": [start.isoformat()],
-        "lookback_hours": 3,
-        "tod_bucket": "10:00",
-        "ok": True,
-        "beta_ref": 4e-8,
-        "beta_display_yield_bp_per_1m": -0.5,
-    })
-    return datetime(2026, 9, 17, 17, 35, tzinfo=timezone.utc)
+    starts = [
+        datetime(2026, 9, 1, 22, 0, tzinfo=timezone.utc),
+        datetime(2026, 9, 2, 22, 0, tzinfo=timezone.utc),
+    ]
+    session_sets = {"current": list(starts)}
+    monkeypatch.setattr(br, "completed_session_starts", lambda now_utc, n=10: list(session_sets["current"]))
+    clocks = []
 
+    def fake_session_beta(start, **kwargs):
+        clocks.append(kwargs.get("now"))
+        return {"ok": True, "beta": 2e-8 if start == starts[0] else 4e-8}
 
-def test_beta_compute_holds_stale_bucket_without_refresh(tmp_path, monkeypatch):
-    from scripts.aggression_dashboard_v3 import beta_ref as br
-
-    now = _seed_stale_beta(br, tmp_path, monkeypatch)
-    calls = []
-    monkeypatch.setattr(br, "compute_session_beta", lambda *a, **k: calls.append(1) or {"ok": True, "beta": 9e-8})
-    out = br.ensure_beta_ref(price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now, compute=True)
+    monkeypatch.setattr(br, "compute_session_beta", fake_session_beta)
+    now = datetime(2026, 9, 3, 14, 0, tzinfo=timezone.utc)
+    out = br.ensure_session_mean_beta_ref(price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now, compute=True)
     assert out["ok"] is True
-    assert out["bucket_stale"] is True
-    assert out["beta_ref"] == 4e-8
-    assert calls == []
+    assert not out.get("cached")
+    assert abs(out["beta_ref"] - 3e-8) < 1e-20
+    assert out["window"] == "whole_session"
+    assert out["last_session_end"] == br.globex_session_end(starts[-1]).isoformat()
+    assert clocks == [None, None]
 
-
-def test_beta_refresh_stale_recomputes_and_saves_bucket(tmp_path, monkeypatch):
-    from scripts.aggression_dashboard_v3 import beta_ref as br
-
-    now = _seed_stale_beta(br, tmp_path, monkeypatch)
-    monkeypatch.setattr(br, "compute_session_beta", lambda *a, **k: {"ok": True, "beta": 9e-8})
-    out = br.ensure_beta_ref(
-        price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now, compute=True, refresh_stale=True
+    later = br.ensure_session_mean_beta_ref(
+        price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now + timedelta(hours=6), compute=True
     )
-    assert out["ok"] is True
-    assert not out.get("bucket_stale")
-    assert out["beta_ref"] == 9e-8
-    peek = br.ensure_beta_ref(price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now, compute=False)
-    assert peek["bucket_stale"] is False
-    assert peek["beta_ref"] == 9e-8
+    assert later["cached"] is True
+    assert abs(later["beta_ref"] - 3e-8) < 1e-20
+    assert len(clocks) == 2
 
-
-def test_beta_failed_refresh_keeps_last_good(tmp_path, monkeypatch):
-    from scripts.aggression_dashboard_v3 import beta_ref as br
-
-    now = _seed_stale_beta(br, tmp_path, monkeypatch)
-    monkeypatch.setattr(br, "compute_session_beta", lambda *a, **k: {"ok": False, "beta": None})
-    out = br.ensure_beta_ref(
-        price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now, compute=True, refresh_stale=True
+    session_sets["current"] = starts[1:]
+    rolled = br.ensure_session_mean_beta_ref(
+        price_symbol="TY", aggression_symbols=("TY",), dv01_adjust=True, now=now + timedelta(days=1), compute=True
     )
-    assert out["ok"] is True
-    assert out["bucket_stale"] is True
-    assert out["beta_ref"] == 4e-8
-    entries = json.loads((tmp_path / "beta_ref.json").read_text(encoding="utf-8"))["entries"]
-    assert [(e["tod_bucket"], e["beta_ref"]) for e in entries.values()] == [("10:00", 4e-8)]
+    assert not rolled.get("cached")
+    assert abs(rolled["beta_ref"] - 4e-8) < 1e-20
+    assert len(clocks) == 3
 
 
 def test_kick_beta_ref_offers_history_only_for_fresh_beta(monkeypatch):
@@ -715,26 +854,97 @@ def test_kick_beta_ref_offers_history_only_for_fresh_beta(monkeypatch):
             self.offers += 1
 
     publisher = _Publisher()
+    curve_publisher = _Publisher()
     results = iter([
-        {"ok": True, "beta_ref": 4e-8, "bucket_stale": False},
-        {"ok": True, "beta_ref": 4e-8, "bucket_stale": True},
+        {"ok": True, "beta_ref": 4e-8},
+        {"ok": True, "beta_ref": 4e-8, "cached": True},
         {"ok": False, "beta_ref": None},
     ])
-    refresh_flags = []
+    calls = []
 
     def fake_ensure(**kwargs):
-        refresh_flags.append(kwargs["refresh_stale"])
+        calls.append(kwargs)
         return next(results)
 
     monkeypatch.setattr(v3app, "ensure_beta_ref", fake_ensure)
-    monkeypatch.setattr(v3app, "_PUBLISHER", publisher)
+    monkeypatch.setattr(v3app, "_PUBLISHERS", {
+        ("TY", ("TY",), True): publisher,
+        v3app.DEFAULT_LIVE_KEY: curve_publisher,
+    })
     monkeypatch.setattr(v3app, "_BETA_WARM_KEYS", set())
-    monkeypatch.setattr(v3app, "_BETA_HELD_KEYS", set())
     for _ in range(3):
         thread = v3app._kick_beta_ref("TY", ("TY",), True)
         thread.join(timeout=5)
-    assert refresh_flags == [True, False, False]
+    assert len(calls) == 3
+    assert all("refresh_stale" not in kwargs for kwargs in calls)
     assert publisher.offers == 1
+    assert curve_publisher.offers == 0
+
+
+def test_beta_reads_sessions_outside_the_in_memory_trades_from_the_cache(tmp_path, monkeypatch):
+    from scripts.aggression_dashboard_v3 import beta_ref as br
+
+    monkeypatch.setattr(br, "CACHE_PATH", tmp_path / "beta_ref.json")
+    monkeypatch.setattr(br, "load_dv01_table", lambda: {"TY": 85.0, "FV": 42.0, "TU": 36.0, "US": 125.0})
+    starts = [
+        datetime(2026, 9, 10, 22, 0, tzinfo=timezone.utc),
+        datetime(2026, 9, 13, 22, 0, tzinfo=timezone.utc),
+    ]
+    monkeypatch.setattr(br, "completed_session_starts", lambda now_utc, n=10: list(starts))
+    window = {"TY": pd.DataFrame({
+        "ts": pd.to_datetime(["2026-09-13T22:00:01Z", "2026-09-14T15:00:00Z"]),
+        "price": [110.0, 110.015625],
+        "size": [1, 1],
+        "side": ["A", "B"],
+    })}
+    seen = []
+
+    def fake_session_beta(start, **kwargs):
+        seen.append((start, kwargs.get("trades_by_symbol")))
+        return {"ok": True, "beta": 3e-8}
+
+    monkeypatch.setattr(br, "compute_session_beta", fake_session_beta)
+    out = br.ensure_session_mean_beta_ref(
+        price_symbol="TY",
+        aggression_symbols=("TY",),
+        dv01_adjust=True,
+        now=datetime(2026, 9, 15, 15, 0, tzinfo=timezone.utc),
+        trades_window=window,
+        compute=True,
+    )
+    assert out["ok"] is True
+    assert seen[0] == (starts[0], None)
+    assert seen[1][0] == starts[1]
+    assert len(seen[1][1]["TY"]) == 2
+
+
+def test_beta_reads_the_cache_when_a_selected_symbol_is_missing_from_memory(tmp_path, monkeypatch):
+    from scripts.aggression_dashboard_v3 import beta_ref as br
+
+    monkeypatch.setattr(br, "CACHE_PATH", tmp_path / "beta_ref.json")
+    monkeypatch.setattr(br, "load_dv01_table", lambda: {"TY": 85.0, "FV": 42.0, "TU": 36.0, "US": 125.0})
+    start = datetime(2026, 9, 13, 22, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(br, "completed_session_starts", lambda now_utc, n=10: [start])
+    window = {
+        "US": pd.DataFrame({"ts": pd.to_datetime(["2026-09-13T22:00:01Z"]), "price": [115.0], "size": [1], "side": ["A"]}),
+        "TY": pd.DataFrame(columns=["ts", "price", "size", "side"]),
+    }
+    seen = []
+
+    def fake_session_beta(session_start, **kwargs):
+        seen.append(kwargs.get("trades_by_symbol"))
+        return {"ok": True, "beta": 3e-8}
+
+    monkeypatch.setattr(br, "compute_session_beta", fake_session_beta)
+    br.ensure_session_mean_beta_ref(
+        price_symbol="TY",
+        aggression_symbols=("TY", "US"),
+        dv01_adjust=True,
+        now=datetime(2026, 9, 15, 15, 0, tzinfo=timezone.utc),
+        trades_window=window,
+        compute=True,
+    )
+    assert seen == [None]
 
 
 def test_aggressor_signs_match_classify_apply():

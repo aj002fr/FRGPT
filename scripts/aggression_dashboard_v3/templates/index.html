@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aggression V3 — Trade-to-trade</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v=hover1">
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 </head>
 <body>
@@ -54,11 +54,6 @@
       <div class="control-col actions">
         <button id="refresh-btn">Refresh Data</button>
         <button id="pause-btn" type="button">Pause Live</button>
-        <label for="mode-select">Data mode:</label>
-        <select id="mode-select">
-          <option value="live" selected>Live</option>
-          <option value="historical">Historical</option>
-        </select>
         <label for="lookback">Chart lookback:</label>
         <select id="lookback">
           <option value="2" selected>2 hours</option>
@@ -74,14 +69,10 @@
           <input type="checkbox" id="banner-on-hover" checked>
           Banner on hover
         </label>
-
-        <label for="start-time">Start Time in New York (Eastern) time:</label>
-        <input id="start-time" type="datetime-local" value="{{ default_start }}">
-
-        <div id="end-time-group" class="hidden">
-          <label for="end-time">End Time in New York (Eastern) time:</label>
-          <input id="end-time" type="datetime-local">
-        </div>
+        <label class="inline">
+          <input type="checkbox" id="exhaustion-sound">
+          Exhaustion sound
+        </label>
 
         <label class="inline">
           <input type="checkbox" id="dv01-adjust" checked>
@@ -94,8 +85,15 @@
       <div id="status">Ready.</div>
       <div id="meta"></div>
     </section>
-    <section id="freshness-banner" class="freshness-banner historical">
-      HISTORICAL
+    <section id="freshness-banner" class="freshness-banner stale">
+      ACCESSAPI CONNECTING
+    </section>
+    <section
+      id="flow-state-banner"
+      class="flow-dominance-banner flow-state-banner unavailable"
+      aria-live="polite"
+    >
+      <div id="flow-state-main" class="flow-dominance-main">WARMING</div>
     </section>
     <section
       id="flow-dominance-banner"
@@ -104,7 +102,7 @@
     >
       <div id="flow-dominance-main" class="flow-dominance-main">WARMING</div>
       <div id="flow-dominance-detail" class="flow-dominance-detail">
-        Waiting for a 15-minute trade-to-trade window and a valid reference beta.
+        Waiting for a trade-to-trade window and a valid reference beta.
       </div>
       <div id="flow-dominance-beta" class="flow-dominance-detail"></div>
       <div id="flow-dominance-note" class="flow-dominance-label">
@@ -114,27 +112,76 @@
         {{ status_label }}
       </div>
     </section>
-    <section
-      id="flow-dominance-hover"
-      class="flow-dominance-banner flow-dominance-hover warming"
-      aria-live="polite"
-    >
-      <div id="flow-dominance-hover-asof" class="flow-dominance-hover-asof">HOVER A TIMESTAMP</div>
-      <div id="flow-dominance-hover-main" class="flow-dominance-main">HOVER BANNER</div>
-      <div id="flow-dominance-hover-detail" class="flow-dominance-detail">
-        Hover any chart timestamp to see the 15-minute six-state at that print.
-      </div>
-      <div id="flow-dominance-hover-label" class="flow-dominance-label">
-        {{ status_label }}
-      </div>
-    </section>
 
     <section id="grid" class="chart-grid">
       <div class="chart-card compact">
         <div id="panel-p1-states" class="chart"></div>
         <p id="panel-p1-states-caption" class="panel-caption"></p>
       </div>
+      <section
+        id="flow-dominance-hover"
+        class="flow-dominance-hover"
+        aria-live="polite"
+      >
+        <div id="flow-dominance-hover-asof" class="flow-dominance-hover-asof">HOVER A TIMESTAMP</div>
+        <div class="flow-hover-blocks">
+          <div id="flow-hover-group" class="flow-dominance-banner flow-hover-block warming">
+            <div id="flow-hover-group-main" class="flow-dominance-main">STATE</div>
+          </div>
+          <div id="flow-hover-fine" class="flow-dominance-banner flow-hover-block warming">
+            <div id="flow-dominance-hover-main" class="flow-dominance-main">STATE2</div>
+          </div>
+        </div>
+        <div id="flow-dominance-hover-detail" class="flow-dominance-detail">
+          Hover any chart timestamp to see the states at that print.
+        </div>
+        <div id="flow-dominance-hover-label" class="flow-dominance-label">
+          {{ status_label }}
+        </div>
+      </section>
       <div class="chart-card"><div id="panel-p1" class="chart"></div></div>
+      <section id="history" class="chart-card history-card">
+        <div class="history-head">
+          <h2>History</h2>
+          <span class="history-note">
+            Completed sessions, built once after each 17:00 ET close. TotalAggress is session-to-date and resets at 18:00 ET.
+          </span>
+        </div>
+        <div class="history-controls">
+          <div class="history-field">
+            <label for="history-start">Start (Eastern)</label>
+            <input id="history-start" type="datetime-local" step="60">
+          </div>
+          <div class="history-field">
+            <label for="history-end">End (Eastern)</label>
+            <input id="history-end" type="datetime-local" step="60">
+          </div>
+          <div class="history-field">
+            <label for="history-view">View</label>
+            <select id="history-view">
+              <option value="curve" selected>TY price vs FV+TU+TY+US (DV01 on)</option>
+              <option value="ty">TY price vs TY (DV01 on)</option>
+            </select>
+          </div>
+          <button id="history-load" type="button">Load history</button>
+          <button id="history-last" type="button" disabled>Last session</button>
+          <button id="history-last5" type="button" disabled>Last 5 sessions</button>
+        </div>
+        <div id="history-status" class="history-status">History loads when you scroll here.</div>
+        <div id="history-warnings" class="history-warnings hidden"></div>
+        <div id="history-state-banner" class="flow-dominance-banner flow-state-banner warming">
+          <div id="history-state-main" class="flow-dominance-main">STATE</div>
+        </div>
+        <div id="history-fine-banner" class="flow-dominance-banner warming">
+          <div id="history-fine-main" class="flow-dominance-main">STATE2</div>
+          <div id="history-fine-detail" class="flow-dominance-detail"></div>
+          <div id="history-fine-beta" class="flow-dominance-detail"></div>
+          <div class="flow-dominance-label">{{ status_label }}</div>
+        </div>
+        <div id="history-p1-states" class="chart history-strip"></div>
+        <p id="history-p1-states-caption" class="panel-caption"></p>
+        <div id="history-p1" class="chart"></div>
+      </section>
       <div class="chart-card">
         <div id="panel-p2" class="chart"></div>
         <p id="panel-p2-caption" class="panel-caption"></p>
@@ -145,6 +192,6 @@
     </section>
   </main>
 
-  <script src="{{ url_for('static', filename='dashboard.js') }}?v=live4"></script>
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v=states3"></script>
 </body>
 </html>
