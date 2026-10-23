@@ -46,7 +46,10 @@ class WorkerExecutor:
         subtasks: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
-        Execute all scripts (paths).
+        Execute all scripts (paths) in parallel.
+        
+        Dependency paths are independent execution chains that can run concurrently.
+        Each script internally handles task-level dependencies via asyncio.
         
         Args:
             scripts: List of script dictionaries with 'path_id', 'code', 'path'
@@ -55,27 +58,76 @@ class WorkerExecutor:
         Returns:
             List of all task results
         """
-        logger.info(f"Executing {len(scripts)} scripts for run {self.run_id}")
+        logger.info(f"Executing {len(scripts)} scripts in parallel for run {self.run_id}")
         
-        all_results = []
-        
-        for script_info in scripts:
+        if len(scripts) == 1:
+            # Single path - no need for parallel execution
+            script_info = scripts[0]
             script_path = script_info['script_path']
             path_id = script_info.get('path_id', 'unknown')
-            
-            logger.info(f"Executing script for {path_id}: {script_path}")
+            logger.info(f"Executing single script for {path_id}: {script_path}")
             
             try:
                 path_results = self._execute_script(script_path)
-                all_results.extend(path_results)
+                logger.info(f"Path {path_id} completed: {len(path_results)} tasks")
+                return path_results
+            except Exception as e:
+                logger.error(f"Path {path_id} execution failed: {e}")
+                return []
+        
+        # Multiple paths - execute in parallel
+        all_results = asyncio.run(self._execute_all_parallel(scripts))
+        
+        logger.info(f"All {len(scripts)} scripts executed: {len(all_results)} total results")
+        
+        return all_results
+    
+    async def _execute_all_parallel(
+        self,
+        scripts: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Execute multiple scripts in parallel using asyncio.
+        
+        Args:
+            scripts: List of script dictionaries
+            
+        Returns:
+            Combined list of all task results
+        """
+        async def execute_one_script(script_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+            """Execute a single script asynchronously."""
+            script_path = script_info['script_path']
+            path_id = script_info.get('path_id', 'unknown')
+            
+            logger.info(f"Starting parallel execution of {path_id}: {script_path}")
+            
+            try:
+                # Execute script in executor to avoid blocking
+                loop = asyncio.get_event_loop()
+                path_results = await loop.run_in_executor(
+                    None,
+                    self._execute_script,
+                    script_path
+                )
                 
                 logger.info(f"Path {path_id} completed: {len(path_results)} tasks")
+                return path_results
                 
             except Exception as e:
                 logger.error(f"Path {path_id} execution failed: {e}")
-                # Continue with other paths
+                return []  # Return empty list on failure
         
-        logger.info(f"All scripts executed: {len(all_results)} total results")
+        # Execute all scripts concurrently
+        results_per_path = await asyncio.gather(
+            *[execute_one_script(script_info) for script_info in scripts],
+            return_exceptions=False  # Let individual handlers catch exceptions
+        )
+        
+        # Flatten results from all paths
+        all_results = []
+        for path_results in results_per_path:
+            all_results.extend(path_results)
         
         return all_results
     

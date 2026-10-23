@@ -47,6 +47,25 @@ Markets are scored and filtered locally using:
 - ✅ Prices are valid dictionaries with values in \[0, 1]
 - ✅ Volume is non-negative number (when present)
 
+### 4. Polling + Rate Limits (CLOB)
+
+For near-live probability tracking, use the CLOB REST API with token IDs (CLOB asset IDs):
+
+- `GET https://clob.polymarket.com/midpoint?token_id=...` → `{"mid": "..."}` (preferred polling signal)
+- `GET https://clob.polymarket.com/price?token_id=...&side=BUY|SELL` → `{"price": "..."}`
+- `GET https://clob.polymarket.com/prices-history?market=<token_id>&...` → `{"history": [{"t":...,"p":...},...]}`
+
+Rate limits (Cloudflare throttling; requests are delayed/queued when exceeded):
+
+- Gamma `/markets`: 300 requests / 10s; Gamma Search: 350 / 10s
+- CLOB `/midpoint` and `/price`: up to 1500 requests / 10s (single-token endpoints)
+- CLOB `/prices-history`: 1000 requests / 10s
+
+Lifecycle constraints for polling:
+
+- Token IDs can be invalidated when markets close/resolve; stop polling on repeated 404s
+- Default behavior should track the initially selected market unless explicitly re-resolved
+
 ### 5. Database Storage
 
 All queries stored in `polymarket_markets.db`:

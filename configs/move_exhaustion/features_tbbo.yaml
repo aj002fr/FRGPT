@@ -1,0 +1,15 @@
+# features_tbbo.yaml — Phase 1 eligible families
+enabled: true
+families:
+  - price_path
+  - aggressive_flow
+  - trade_size
+  - impact_efficiency
+  - liquidity_tbbo
+  - v2
+  - cross_tenor
+  - regime
+horizons_seconds: [5, 15, 30, 60, 120, 300, 900, 1800]
+note: >
+  Phase 1 uses 1m panel; horizons below 60s are approximate via
+  nearest available bars and must be documented in feature metadata.

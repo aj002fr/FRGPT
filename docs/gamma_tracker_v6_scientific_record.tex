@@ -1,0 +1,1128 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=0.82in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,array,longtable,enumitem,microtype,xcolor,fancyhdr,lastpage}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{caption}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=black}
+
+\definecolor{darkblue}{RGB}{26,54,93}
+
+\titleformat{\section}{\large\bfseries\color{darkblue}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.6em}{}
+
+\setlist[itemize]{leftmargin=1.3em,itemsep=0.2em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.5em,itemsep=0.2em,topsep=0.25em}
+\setlength{\tabcolsep}{3pt}
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Gamma Tracker V6}
+\rhead{Implemented measurement}
+\cfoot{\thepage\ / \pageref{LastPage}}
+\setlength{\headheight}{14pt}
+
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\eps}{\varepsilon}
+
+\title{\vspace{-1.5cm}\textbf{Gamma Tracker V6}\\[0.25em]
+\large What the live page measures, how each chart is drawn, and how
+to read the surface}
+\author{}
+\date{Implementation as of 22 September 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+\vspace{-1.2em}
+
+\begin{abstract}
+This note describes only Gamma Tracker V6
+(\code{Z:/uikitxv2/OptMonitor/gamma_screener/gamma_ladder_standalone/gamma_tracker_dash_v6.py},
+port 8055, local \url{http://127.0.0.1:8055/},
+Tailscale \url{https://aasthajain.tail174727.ts.net:8443/}).
+The page is a live measurement of the options implied-vol
+surface against its own recent history. It shows ATM backbone, risk-reversals, butterflies,
+a percentile heatmap of the current smile versus sampled history, and
+an event-conditioned view of those same ranks.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Goal}
+
+Where is the live option surface
+relative to its own recent distribution, and is that location ordinary
+for the current time of day, vol regime, and event window?
+
+The table, heatmap, timeseries, and smile are different views of that
+same construction:
+
+\begin{itemize}
+    \item The summary table is the latest snapshot: ATM vol, weighted
+    skew, weighted curvature, and the raw RR / fly legs.
+    \item The heatmap ranks each delta-bucket versus sampled history
+    (0--100).  Red is high in that history; blue is low.
+    \item The metric graph is the same numbers over time.
+    \item The smile is the latest snapshot in strike space, not
+    percentile space.
+    \item Event scores do not change the live IVs.  They change
+    \emph{which historical observations} the ranks are compared to.
+\end{itemize}
+
+A cell at the 90th percentile means ``this wing is high versus the
+chosen history bucket.''  It is not a forecast that vol will fall.
+
+
+\section{Page, stack, and data}
+
+
+\subsection{Sources}
+
+Live option rows come from AccessAPI
+\code{/live/options/snapshot} with columns
+\code{ts_event}, \code{symbol}, \code{strike_price}, \code{expiration},
+\code{futures_mid}, \code{iv_mid}, \code{delta_F_mid},
+\code{gamma_F_mid}, and related greeks.
+The adapter polls that endpoint every 1 second and treats the feed as
+disconnected if it is older than 10 seconds.
+
+Futures mid is the median of \code{futures_mid} on the option rows.
+If that is missing or non-positive, the writer falls back to
+AccessAPI TY TBBO mid
+(\code{/live/tbbo/recent?symbols=TY\&n=1}).
+A snapshot is skipped until a positive futures price exists.
+
+Event-conditioned percentiles still read
+\code{Y:/Aastha/market_data_puller/workspace/economic_events.db}
+(\code{bbg_data} tiers 1--3 plus selected \code{economic_events}
+rows).  The upcoming-events banner reads Yaman
+\code{Y:/Yaman/Fundamentals/Economic Events/Data/events.sqlite}
+instead; the old calendar currently has no rows after 2026-08-14.
+Event weights live in
+\code{event_params.json} (calibrated 2026-03-25).
+
+The writer does not use CMED Excel or Redis.
+
+\subsection{Database}
+
+Path: \code{C:/uikitxv2_cache/gamma_tracker/gamma_tracker_v3.db}.
+
+\begin{center}
+\begin{tabular}{@{}lp{0.62\linewidth}@{}}
+\toprule
+Table & Role \\
+\midrule
+\code{snapshot_v2} & One row per persist: timestamp, source key,
+\code{file_mtime}. \\
+\code{summary_metrics_v2} & Per-expiry backbone, RR, fly, indices,
+ROC. \\
+\code{option_surface_v2} & Per-strike live surface for that snapshot. \\
+\code{heatmap_fact} & Thinned history used to build percentiles.
+Never pruned. \\
+\code{futures_vol_log} & Futures mid plus the two front ATM vols.
+Not drawn on V6. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Raw snapshot / surface / summary / futures-vol rows older than 30 days
+are deleted.  \code{heatmap_fact} is kept so the percentile cache can
+span more than the raw-snapshot window.
+
+A sidecar \code{reference_surface.json} stores the 4-hour median of
+each RR and fly by expiry.  V6 does not read it.
+
+A portable copy of the same page lives in
+\code{Z:/uikitxv2/OptMonitor/gamma_screener/gamma_tracker_v6_standalone}
+(writer, dashboard, slim \code{gamma_tracker_v6.db}).
+It does not import the v2 persist library or the v3 writer.
+The live page on port 8055 still reads
+\code{gamma_tracker_v3.db} and was not switched.
+
+
+\section{How a quote becomes a surface row}
+
+\subsection{Valid instruments}
+
+The adapter keeps a row if it has an expiration, instrument class
+\(\in\{C,P\}\), and a numeric strike.  It then requires numeric
+\(\delta=\code{delta_F_mid}\) and \(\sigma=\code{iv_mid}\).
+
+Implied vol is stored as ``daily BP.''  
+
+\subsection{Expiry ordinals}
+
+The adapter first maps future weekday expiries, Chicago date, skipping
+today and weekends, onto \code{1st}, \code{2nd}, \ldots.
+The v3 writer then remaps again: every remaining expiry date strictly
+after today is sorted and assigned
+\code{2nd}, \code{3rd}, \ldots, \code{10th}.
+The front remaining expiry is therefore labeled \code{2nd}.
+\code{1st} is never persisted on this path.
+
+Weekend expiries never enter the adapter map, so they never reach the
+writer.
+
+\subsection{Moneyness buckets}
+
+Moneyness is the distance between the option strike \(K\) and the
+current TY futures price \(F\), in hundredths of a point, rounded
+to the nearest of \(25\), \(50\), \(75\), \(100\) (and \(0\) when
+the strike is at the money):
+
+\begin{equation}
+d=100\cdot|K-F|,\qquad
+m
+=
+\text{nearest of }\{0,25,50,75,100\}\text{ to }d.
+\end{equation}
+
+Example: if live TY is \(106\), then \(K=106.25\) is \(25\) out
+and \(K=107\) is \(100\) out.  Bucket 0 is the ATM column.
+After binning, each \((\mathrm{expiry},\mathrm{type},m)\) keeps one
+strike.  Ties break to the lower strike.  Extra prints in the same
+bucket are dropped.
+
+\subsection{ATM vol on an expiry}
+
+For each expiry date, ATM vol is the IV of the option---call or
+put---whose strike is closest to the current TY futures price
+(\(m=0\)).  That single number is copied onto every surface row
+for that expiry as \code{Atm Vol (Daily BP)}.
+
+
+\subsection{Cadence}
+
+The writer persists only when all of these hold: the adapter is
+connected, at least 30 seconds have passed, the live stream id
+changed, futures price is positive, and
+\code{compute_summary_metrics} produced at least one expiry row.
+If the stream id has not changed, the same snapshot stays current
+for longer than 30 seconds.
+
+The top summary table is a separate clock.  The page re-reads the
+latest \code{summary_metrics_v2} rows and repaints that table every
+2 seconds.  Backbone, RR, fly, the two indices, and the 5/15/30-minute
+ROC cells change only when a new snapshot is persisted.  The 6-hour
+deltas and the status-line \code{ts_slope} are recomputed on each
+2-second paint from snapshots already stored.
+
+Heatmap-fact rows are written on every 60th successful snapshot
+(about 30 minutes when the loop is clean).
+Those facts are what the percentile cache later ranks against.
+The heatmap colors follow the 15-minute cache rebuild, not the
+2-second table paint.
+
+
+\section{The summary metrics}
+
+All of the following are computed per expiry, on the deduped
+delta-bucket snapshot, in daily-BP units.
+
+Let \(\sigma_m^C\) and \(\sigma_m^P\) be the call and put IVs in
+bucket \(m\), and let \(\sigma^{\mathrm{ATM}}\) be that expiry's ATM
+vol.
+
+\subsection{Backbone}
+
+\begin{equation}
+B
+=
+\sigma^{\mathrm{ATM}}.
+\end{equation}
+
+That is the number in the table column \code{backbone} and the
+left-hand ATM story on the page.
+
+A high \(B\) means ATM options on that expiry are quoting more vol:
+the market is charging more for a given near-spot move.  
+
+High versus low is only meaningful against something: this expiry
+earlier today (\code{backbone_roc_*} and the 6h delta), the other
+expiries on the same snapshot (\code{ts_slope}), or the heatmap ATM
+percentile.  A 5.2\,bp backbone that is ordinary for CPI week is
+not the same story as 5.2\,bp on an empty calendar
+
+\subsection{Risk reversals}
+
+\begin{equation}
+\mathrm{RR}_m
+=
+\sigma_m^C-\sigma_m^P,
+\qquad
+m\in\{25,50,75,100\}.
+\end{equation}
+
+Positive RR means the call wing is richer than the matched put wing.
+Negative RR is put-skew bid.  Missing either leg leaves that RR
+blank; it does not invent a value.
+
+\subsection{Butterflies}
+
+\begin{equation}
+\mathrm{Fly}_m
+=
+\tfrac12\bigl(\sigma_m^C+\sigma_m^P\bigr)
+-
+\sigma^{\mathrm{ATM}}.
+\end{equation}
+
+Positive fly means the wings are rich versus ATM (smile is curved
+up).  Negative fly is a flat or inverted smile versus ATM.
+
+\subsection{Weighted indices}
+
+Raw weights before normalization are
+\(w_{25}=0.75\), \(w_{50}=0.50\), \(w_{75}=0.25\),
+\(w_{100}=0.10\).  They are then divided by their sum \(1.6\):
+
+\begin{equation}
+\hat w_{25}=0.46875,\quad
+\hat w_{50}=0.3125,\quad
+\hat w_{75}=0.15625,\quad
+\hat w_{100}=0.0625.
+\end{equation}
+
+\begin{align}
+\mathrm{skew\_index}
+&=
+\sum_m \hat w_m\,\mathrm{RR}_m,\\
+\mathrm{curve\_index}
+&=
+\sum_m \hat w_m\,\mathrm{Fly}_m.
+\end{align}
+
+A missing RR or fly at \(m\) contributes nothing to that index for
+that term; the remaining weights are not re-normalized on the fly.
+
+\subsection{Backbone rate of change}
+
+Only expiries \code{2nd} through \code{5th} get ROC.
+For window \(W\in\{5,15,30\}\) minutes, the writer finds the latest
+earlier snapshot with \code{file_mtime} \(\le t-W\) and sets
+
+\begin{equation}
+\mathrm{ROC}_W
+=
+B_t-B_{t-W}.
+\end{equation}
+
+If that earlier snapshot has no backbone for the expiry, ROC is
+blank.  This is a level change in daily BP, not a percent change.
+
+\subsection{Term-structure slope}
+
+Not stored.  The dashboard computes it from the latest table:
+
+\begin{equation}
+\mathrm{ts\_slope}
+=
+B_{2\mathrm{nd}}-B_{5\mathrm{th}}.
+\end{equation}
+
+Positive means the front ATM is richer than the fifth expiry.
+
+\subsection{Six-hour deltas on the table}
+
+If a snapshot exists at or before \(t-6\mathrm{h}\), the table adds
+\code{backbone_delta_6h}, \code{skew_index_delta_6h}, and
+\code{curve_index_delta_6h} as current minus that earlier snapshot.
+
+\subsection{\code{backbone_pct}}
+
+The column exists on \code{summary_metrics_v2} and the dropdown can
+plot it.  The live v3 writer does not fill it.  On the current
+database the field is null and the table prints \code{--}.
+The working ATM rank on the page is the heatmap ATM column in
+raw-IV mode, not this field.  Wing-spread leaves that column blank.
+
+
+\section{The charts}
+
+
+\subsection{Summary table}
+
+One row per expiry \code{2nd}--\code{10th}.
+\code{exp_date} is printed as \code{M/DD}.
+Numeric cells are four decimals; \code{backbone_pct} is a percent or
+\code{--}.
+
+The table repaints every 2 seconds.  The fitted numbers are the
+latest persisted snapshot, so they move on the writer clock
+(30 seconds, and only after the live stream id changes), not on
+every paint.  The 6-hour delta columns are the exception: they are
+recomputed on each paint.
+
+Read: this is the latest fitted snapshot, not a path.  Use it to see
+the current ATM level, whether skew is call- or put-sided, and
+whether the smile is curved up or down.
+
+\subsection{Vol percentile heatmap}
+
+Rows are expiries, nearest at the top (\code{autorange=reversed}).
+Columns, left to right:
+
+\begin{center}
+\textsc{P100}, \textsc{P75}, \textsc{P50}, \textsc{P25},
+\textsc{ATM}, \textsc{C25}, \textsc{C50}, \textsc{C75},
+\textsc{C100}.
+\end{center}
+
+ATM uses moneyness bucket 0 (either type; first remaining row).
+The other cells require matching type and bucket.
+In wing-spread mode the ATM column is left blank (\code{n/a}):
+that metric is \(\sigma-\sigma^{\mathrm{ATM}}\), so ranking the
+ATM cell is either identically zero or a leftover of the
+bucket-0 versus backbone-ATM mismatch.  Switch to raw IV to
+see ATM level ranks.
+
+Each cell is an empirical percentile of a scalar \(x\) against a
+cached history list \(H\):
+
+\begin{equation}
+x
+=
+\begin{cases}
+\sigma-\sigma^{\mathrm{ATM}}, & \text{wing-spread mode},\\
+\sigma, & \text{raw-IV mode},
+\end{cases}
+\qquad
+\mathrm{pctl}
+=
+100\cdot
+\frac{\#\{h\in H:h<x\}}{|H|}.
+\end{equation}
+
+The implementation is \code{bisect_left}: values equal to \(x\) count
+as not-less, so a print sitting on many identical history points
+ranks at the bottom of that pile.
+
+The color scale is blue at 0, white at 50, red at 100.
+Blank cells are annotated \code{n/a}.
+
+Read: red means rich versus the chosen history; blue means cheap.
+Because the default metric is wing spread, a red C100 is ``that call
+wing is high versus ATM relative to history,'' not ``absolute IV is
+high.''  The middle ATM column is \code{n/a} in that mode.
+Switch to raw IV when the question is the level, not the
+smile shape.
+
+\subsection{How the history list \(H\) is built}
+
+The cache reads \code{heatmap_fact} and groups observations by
+
+\begin{center}
+(mode, expiry, moneyness, option type, 30-minute clock bucket,
+event bucket, lookback window, regime filter, day-of-week bucket).
+\end{center}
+
+Rules:
+
+\begin{itemize}
+    \item 6-hour lookback uses no clock bucket and no weekday
+    bucket.  1-week / 1-month / full use Eastern 30-minute clock
+    buckets and a Mon--Wed versus Thu--Fri split.  Sunday evening
+    Globex is counted with Monday.
+    \item Regime thresholds are the p50 / p80 / p90 of that expiry's
+    backbone inside the lookback.  Filters:
+    all; exclude top 20\%; exclude top 10\%; keep bottom 50\%; keep
+    top 20\%.
+    \item A group is kept only if it has at least
+    \(n_{\min}\) finite points (5 / 5 / 10 / 20 by lookback).
+    If \(n\ge 4\), points outside \([Q_1-3\,\mathrm{IQR},
+    Q_3+3\,\mathrm{IQR}]\) are dropped, then \(n_{\min}\) is
+    required again.
+    \item Event bucket \code{*} is the unconditional history.
+    Time mode adds \code{t:...}; surprise mode adds \code{s:...}.
+\end{itemize}
+
+Lookup fallback, in order: exact key; then drop the event bucket to
+\code{*}; then also drop the weekday bucket to \code{*}.
+A cell that used a fallback is counted in the status line
+(``\(n\) cells used fallback buckets'').
+
+The cache refreshes every 900 seconds.  It stays empty until the
+snapshot span is at least 3 days.
+
+\subsection{Upcoming-events banner}
+
+A yellow strip lists every remaining event day through a fixed
+14-calendar-day window (the \code{2nd}--\code{10th} DTE span), not
+whatever expiries the latest snapshot happens to contain, from
+Yaman \code{events.sqlite} (US parents: coupon note/bond auctions,
+scorer families, and High / Very High releases; bills, TIPS, FRN, and
+Fed speeches are dropped).  Today's names include hours-ahead.
+The line ends with ``percentiles may reflect event premium.''
+The window is a fixed 14 calendar days.  It is not cut off at the
+furthest expiry on the latest snapshot.
+
+\subsection{Event premium / weight table}
+
+One row per expiry.  Columns: Time Score, Surprise Score, the two
+bucket labels, nearest parent, top weights, and the top three active
+events.
+
+The score is an additive kernel over events this expiry still owns.
+An event counts only if it is still ahead and prints before this
+expiry (12:00 CT on the expiry date).  After the print the
+contribution is zero.  Same-calendar-day expiries use the
+calibrated \code{1st} weight; later living expiries use that
+ordinal's weight.  There is no 0.3 floor and no tier
+\(\tau^{\mathrm{before}}\) floor.
+
+\begin{equation}
+s
+=
+\sum_{i:\,0<\Delta t_i,\; T_e\le T_{\mathrm{exp}}}
+w_i\,e^{-\Delta t_i/\tau^{\mathrm{before}}_i}.
+\end{equation}
+
+\(w_i\) is the \code{1st} row when the expiry date equals the
+event date, otherwise the row for this ordinal.
+
+Buckets, identical for time and surprise
+(\code{event_params.json}):
+
+\begin{center}
+\begin{tabular}{@{}lc@{}}
+\toprule
+Bucket & Score interval \\
+\midrule
+\code{no_event} & \([0,\,1.627)\) \\
+\code{pre_event} & \([1.627,\,3.238)\) \\
+\code{event_peak} & \([3.238,\,999)\) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Displayed labels are \code{t:...} or \code{s:...}.
+Parents with calibrated weights include ADP, AUCTION, CHALLENGER,
+CLAIMS, CPI, DURABLES, FOMC, GDP, HOUSING, ISM, JOLTS, NFP, PCE,
+PMI\_DETAIL, PPI, REGIONAL\_FED, RETAIL, SENTIMENT.
+
+Read: a high time score means the calendar is close to a
+heavily-weighted release for that expiry.  It does not mean the
+surface has already moved.
+
+\subsection{Event-distribution panel}
+
+Opened by clicking an event-summary row.  Two charts:
+
+\begin{itemize}
+    \item ATM backbone histogram: blue unconditional sample versus
+    orange event-conditioned sample, with a dashed red line at the
+    current backbone.
+    \item Surface boxplots of the same history used by the heatmap,
+    plus a red diamond at the live value labeled with its
+    percentile.  Purple boxes are fallback buckets.
+    Wing-spread mode omits the ATM box for the same reason the
+    heatmap ATM cell is blank.
+\end{itemize}
+
+The text block reports whether the current backbone would pass the
+regime filter, the p50/p80/p90 thresholds, and the top event
+contributions.
+
+\subsection{Vol-decay panel}
+
+Opened by clicking a heatmap cell.  For a chosen horizon
+\(\{0.5,1,2,3,6\}\) hours it shows two historical probabilities that
+ATM vol is lower after that horizon: event-conditioned (nearest
+parent, 30-minute offset bin) and unconditional.
+
+The footnote on the page is binding: those probabilities come from
+ATM transitions (BentoBachelier four-year history) and are reused as
+a proxy for every moneyness cell.  They are not a live model of that
+wing.
+
+\subsection{Metric timeseries}
+
+One metric from
+\code{backbone}, \code{skew_index}, \code{curve_index},
+\code{rr25/50/75/100}, \code{fly25/50/75/100},
+\code{backbone_roc_5m/15m/30m}, \code{backbone_pct},
+\code{ts_slope}.
+Default range is 1 hour.  Each selected expiry is its own line,
+except \code{ts_slope}, which is a single 2nd-minus-5th series.
+
+Read: this is the path.  The table is the latest point on it.
+
+\subsection{Vol smile}
+
+Latest snapshot only.  \(x\) is strike; \(y\) is
+\code{implied_vol_daily_bp}.
+If option type is ``Call + Put,'' the two IVs at the same strike are
+averaged.  Default expiries are \code{2nd}--\code{5th}.
+
+Read: this is the raw smile in price space.  It is not ranked.
+A wing can look high on the smile and still be a mid-percentile on
+the heatmap if that shape is typical for this clock and regime.
+
+
+\section{Event conditioning, in words}
+
+Unconditional ranks ask: ``is this print high versus recent prints
+at this clock / weekday / vol regime?''
+
+Time-only ranks ask the same question inside history that had a
+similar calendar proximity score, without using the surprise.
+
+Surprise-aware ranks use the same live kernel as time-only:
+printed events are already zero, so there is no post-print
+\(|z|\) tail on the score.  The label still exists on the page.
+
+Conditioning never rewrites IV.  If a red wing turns white after
+switching to event mode, the working idea is that the richness is
+ordinary for this event, not that the quote changed.
+
+
+\section{Parameter register}
+
+\begin{longtable}{@{}p{0.34\linewidth}p{0.22\linewidth}p{0.36\linewidth}@{}}
+\toprule
+Name & Value & Role \\
+\midrule
+\endfirsthead
+\toprule
+Name & Value & Role \\
+\midrule
+\endhead
+Dashboard port & 8055 & Local V6 page. \\
+Tailscale & \code{:8443} \(\to\) 8055 & Remote URL. \\
+Writer interval & 30 seconds & New table numbers.  Also
+requires a new live stream id. \\
+Adapter poll / stale & 1s / 10s & Live options feed. \\
+Dashboard poll & 2 seconds & Repaint of the top table.
+Values stay put until the next persist. \\
+DB path & \code{C:/uikitxv2_cache/gamma_tracker/gamma_tracker_v3.db} &
+Writer + read-only V6. \\
+Live options host & \code{100.79.30.21:8001} & AccessAPI. \\
+Price fallback & TY TBBO mid & If options \code{futures_mid} missing. \\
+IV unit & daily BP, multiplier 1 & No annualization step. \\
+Expiry labels & \code{2nd}--\code{10th} & Front remaining expiry is
+\code{2nd}. \\
+Delta targets & 0.50 / 0.375 / 0.25 / 0.125 / 0.05 & After binning. \\
+RR / fly weights (raw) & 0.75 / 0.50 / 0.25 / 0.10 & Then /1.6. \\
+ROC windows & 5 / 15 / 30 minutes & \code{2nd}--\code{5th} only. \\
+\code{ts_slope} & \(B_{2\mathrm{nd}}-B_{5\mathrm{th}}\) & Status line
+and chart. \\
+Heatmap-fact sample & every 60 snapshots & Percentile history. \\
+Raw retention & 30 days & Snapshots pruned; facts kept. \\
+Tracker live / stale & 120s / 600s & Banner color. \\
+Cache refresh & 900 seconds & Percentile rebuild. \\
+Cache min history & 3 days & Else heatmap warming. \\
+Default heatmap lookback & 1 month & TOD + DOW on. \\
+Lookback \(n_{\min}\) & 5 / 5 / 10 / 20 & 6h / 1w / 1mo / all. \\
+IQR fence & 3.0 & History outlier drop. \\
+Regime thresholds & p50 / p80 / p90 of backbone & Per expiry and
+lookback. \\
+Event lookahead cap & 14 days & Banner and scorer. \\
+Event calendar TTL & 1 hour & Scorer reload. \\
+Event lookback & 12 hours & Calendar only; printed events score 0. \\
+Structural future floor & 0.0 & Distant events decay to 0. \\
+Tier \(\tau^{\mathrm{before}}\) floors & unused & Calibrated tau only. \\
+Event-day weight & \code{1st} row & Same calendar date as the print. \\
+Option expiry cutoff & 12:00 CT & Not 23:59 ET. \\
+Score buckets & 1.627 / 3.238 & no\_event / pre\_event /
+event\_peak. \\
+Decay horizons & 0.5, 1, 2, 3, 6 hours & Click panel. \\
+Event params date & 2026-03-25 & \code{event_params.json}. \\
+\bottomrule
+\end{longtable}
+
+
+\section{What we are watching}
+
+The page is for one question: is the live surface rich, cheap, or
+ordinary versus its own history, and is that richness just the
+calendar?
+
+The types below are ways to read the same charts.  They are not
+validated states and they are not long or short.
+
+\subsection{Put-skew bid}
+
+\(\mathrm{RR}_m<0\) on the table, and the left-hand put columns
+(P75 / P100) are red on wing-spread while the matching calls are
+not.  The working idea: downside vol is being bid versus upside.
+
+\subsection{Call-skew bid}
+
+The opposite: positive RR, red C75 / C100, quiet puts.
+The working idea: upside vol is the expensive wing.
+
+\subsection{Rich or cheap wings versus ATM}
+
+Wing-spread mode, both wings red (or both blue).  The ATM column
+is blank in this mode; confirm the ATM \emph{level} on raw IV.
+The working idea: the smile is more (or less) curved than usual.
+Confirm on \code{fly} / \code{curve_index} and on the smile chart.
+
+\subsection{ATM vol shock}
+
+\code{backbone} jumps on the timeseries and
+\code{backbone_roc_5m} / \code{15m} is large, while the wing-spread
+heatmap stays mostly white.  The working idea: the whole surface
+repriced; the shape did not.  Raw-IV mode will go red together.
+
+\subsection{Unexplained wing extension}
+
+ATM is mid or quiet, but one far wing is stuck red and
+\code{fly} is rising.  The working idea: that tail is being bid
+without a matching ATM move.
+
+\subsection{Event premium}
+
+The yellow banner is populated, the \code{2nd} time-score is
+\code{event_peak} or \code{pre_event}, and the unconditional heatmap
+is red.  Switch to Event (time only).  If the reds fade, the working
+idea: the richness is ordinary for this release.  If they stay red,
+the surface is rich even among other event windows.
+
+\subsection{Post-print surprise}
+
+After the print the live score is 0, so time-only and surprise-aware
+buckets both fall back to \code{no_event} unless another still-ahead
+event is owned by that expiry.  There is no \(|z|\) afterglow.
+
+\subsection{Term-structure disagreement}
+
+\code{ts_slope} moves while a single expiry's backbone does not, or
+the front heatmap row disagrees with \code{5th}--\code{7th}.
+The working idea: the event or the shock is concentrated in one
+tenor.
+
+\subsection{Smile versus heatmap}
+
+The smile looks steep in strike space, but the heatmap is mid.
+The working idea: that steepness is typical for this clock / regime
+/ event bucket.  Believe the heatmap for ``is this unusual?'';
+believe the smile for ``what does the quote look like right now?''
+
+\subsection{Decay panel versus a red cell}
+
+A red ATM or wing with a high event-conditioned
+\(P(\mathrm{vol\ lower})\) is a historical fade-vol pattern, not a
+trade.  The panel is ATM history reused for every cell.  Treat it as
+a reminder that rich event vol has often come in, not as an order.
+
+\subsection{Quiet then ignition}
+
+Banner \textsc{tracker: live}, scores \code{no_event}, heatmap mostly
+white, then backbone ROC and one wing light up together.
+The working idea: a new impulse in vol, not leftover event premium.
+Early after a cache refresh this can also just be a thin bucket.
+
+\subsection{Stale or warming}
+
+\textsc{stale} / \textsc{offline}, or \textsc{cache: warming}.
+Do not read ranks.  The quotes may still be on the table; the
+history comparison is not ready.
+
+These are reading habits.  The page never becomes a long or short.
+
+
+\section{Ideas we are trying next}
+\label{sec:ideas}
+
+V6 tells us where a surface point sits versus history.  The working
+question after that is more trader-shaped: for a given strike and
+expiry, what are we paying for, what looks unusually priced, what is
+likely to decay or reprice, and is the gamma we would buy plausibly
+worth the theta and IV we pay?
+
+That is a decision-support question, not a buy/sell painted onto the
+heatmap.  The rest of this section writes the objects and the
+experiments we want to try.  None of them are on the live page.
+We will run them, look at the results, and rewrite this note.
+
+The path we have in mind, if the ideas hold up, is
+\[
+\text{where is vol now?}
+\;\to\;
+\text{where should it be given the state?}
+\;\to\;
+\text{where is this node likely to go?}
+\;\to\;
+\text{is the gamma plus the mark change worth the price?}
+\]
+The first of those is V6.  The next three are what we are trying.
+
+
+\section{Definitions}
+
+These are working definitions for the experiments below.  If a
+definition is awkward in the data, we change it.
+
+\subsection{Canonical surface}
+
+The live buckets do not match their targets.  Column ATM is
+\(|\delta|\ge 0.60\), while backbone ATM is the print closest to
+\(|\delta|=0.50\).  Bucket 25 is \(|\delta|\in[0.45,0.60)\) but the
+kept strike aims at \(0.375\), and the same mismatch repeats down
+the wing.  So a historical ``25-delta'' cell is not always the same
+object.
+
+The idea is to stop bucketing first.  Fit a smooth
+\(\sigma_t(x,T)\) on each expiry, then evaluate it at fixed nodes
+\[
+|\Delta|\in\{0.50,\,0.375,\,0.25,\,0.125,\,0.05\}.
+\]
+Because the stored unit is already daily-bp normal vol, we will try a
+Bachelier coordinate
+\[
+x=\frac{K-F_t}{\sigma_{\mathrm{ATM}}\sqrt{T}}
+\]
+rather than equity log-moneyness.  The screen can still talk in
+delta.  The thing we store and compare is the interpolated node.
+
+\subsection{Tenor}
+
+``2nd'' at Monday 09:00 and ``2nd'' at Tuesday 15:45 are different
+gamma/theta contracts.  The working tenor for any model is minutes
+to expiry, or variance-time.  Ordinals stay as labels on the page.
+
+\subsection{Absolute richness}
+
+The V6 percentile is one absolute-richness screen:
+\(\mathrm{pctl}(\sigma\mid\mathrm{hard\ bucket})\).
+The idea we want to try is the residual against a conditional
+expectation,
+\[
+R^{\mathrm{abs}}_{i,t}
+=
+\sigma_{i,t}
+-
+\widehat{\mathbb{E}}[\sigma_i\mid\mathrm{state}_t].
+\]
+State can include clock, DTE, event proximity, ATM regime, realized
+vol, weekday, and the recent futures path.  The question is: is this
+option's vol high or low given the environment?  We will try to
+estimate that with partial pooling or a GAM, not by cutting the
+current buckets finer.  Ten or twenty rows in a month are not twenty
+independent samples.
+
+\subsection{Local richness}
+
+This is the strike-selection idea.  Fit today's smile while
+excluding or downweighting strike \(i\), then
+\[
+R^{\mathrm{local}}_{i,t}
+=
+\sigma_{i,t}-\hat\sigma^{\mathrm{surface}}_{i,t},
+\qquad
+Z^{\mathrm{local}}_{i,t}
+=
+\frac{R^{\mathrm{local}}_{i,t}-\mathrm{median}(R^{\mathrm{local}}_i)}
+{\mathrm{MAD}(R^{\mathrm{local}}_i)}.
+\]
+A wing can be cheap versus history and still locally expensive on
+this smile.  Example: fitted 4.83\,bp, actual 5.08\,bp, local
+residual \(+0.25\)\,bp.
+
+\subsection{Variance time and forward variance}
+
+\(\mathrm{ts\_slope}=B_{2\mathrm{nd}}-B_{5\mathrm{th}}\) is a level
+gap.  For normal vol the more economic objects are
+\[
+V(T)=\sigma_N(T)^2 T,
+\qquad
+\mathrm{ForwardVar}_{T_1,T_2}
+=
+\frac{V(T_2)-V(T_1)}{T_2-T_1}.
+\]
+A high front IV is not automatically rich if that expiry owns an
+event the next one does not.  What we want to know is how much
+incremental variance the market is assigning to the gap.
+
+\subsection{Event variance}
+
+V6 already asks whether current IV is unusual for an event like
+this.  The extra question is how many \(\mathrm{bp}^2\) the event is
+contributing.  Write
+\[
+V(T)
+=
+v_{\mathrm{c}}T
++
+\sum_{e:T_e<T}J_e^2.
+\]
+A neighbouring pair gives
+\(J_e^2\approx V(T_+)-V(T_-)-v_{\mathrm{c}}\Delta T\).
+With more expiries we can try
+\[
+V(T_j)
+=
+\alpha T_j
++
+\sum_e \beta_e\,\mathbf{1}\{T_e<T_j\}
++\eps_j.
+\]
+Nine expiries and overlapping releases will alias.  We treat
+\(\hat J_e^2\) as a readout to compare against its own history, not
+as something tightly identified from one snapshot.
+
+\subsection{Forward outcomes}
+
+For each \((t,K,T)\) we want a later value of the same object.  Two
+books, because they are not the same experiment:
+
+\begin{itemize}
+    \item same delta / same \(x\) at \(t+h\): smile research;
+    \item the exact contract bought at \(t\): anything that looks
+    like P\&L.
+\end{itemize}
+
+A rally turns today's 25-delta call into a later 50-delta call.
+Working labels:
+\begin{align}
+Y^{\mathrm{IV}}_{i,t,h}
+&=
+\sigma_{i,t+h}-\sigma_{i,t},\\
+Y^{\mathrm{spread}}_{i,t,h}
+&=
+(\sigma_i-\sigma_{\mathrm{ATM}})_{t+h}
+-
+(\sigma_i-\sigma_{\mathrm{ATM}})_t,\\
+Y^{\mathrm{local}}_{i,t,h}
+&=
+R^{\mathrm{local}}_{i,t+h}-R^{\mathrm{local}}_{i,t}.
+\end{align}
+We will start with \(30\mathrm{m}\), \(1\mathrm{h}\), \(2\mathrm{h}\),
+plus next-event / \(+5\mathrm{m}\) / \(+30\mathrm{m}\) after the
+print and EOD, and add more horizons only if those are useful.
+
+\subsection{Decay as a distribution}
+
+The live decay panel is \(P(\mathrm{ATM\ vol\ lower})\) reused on
+every wing.  The idea is a per-node forecast of \(\Delta\sigma_h\):
+mean, median, \(P(\Delta\sigma<0)\), a left tail, and
+\(Q_{0.1}/Q_{0.5}/Q_{0.9}\).
+
+\subsection{Gamma carry and vol mark}
+
+IV change alone is not the trade.  A 0.2\,bp drop can lose on vega
+and still pay on gamma if TY realizes enough path.  Cheap IV can
+still be a bad long-gamma if realized variance is cheaper.
+
+For a locally delta-hedged option we will try the usual first
+pieces,
+\[
+d\Pi
+\approx
+\Theta\,dt
++\tfrac12\Gamma(dF)^2
++\mathrm{Vega}\,d\sigma
++\cdots.
+\]
+Under the Bachelier local identity
+\(\Theta\,dt\approx-\tfrac12\Gamma\sigma_N^2\,dt\), so
+\[
+\Pi^{\mathrm{gamma}}
+\approx
+\tfrac12\Gamma\bigl(QV_h-\sigma_N^2 h\bigr),
+\qquad
+QV_h=\sum_j(\Delta F_j)^2
+\]
+at the hedge clock we would actually use.  Endpoint
+\(100\to 101\to 100\) is zero net move and still path.  Units of
+\(QV_h\) and \(\sigma_N^2 h\) have to match; \(\Gamma\) is
+normal-vol gamma.
+
+Call
+\[
+G_i=\tfrac12\Gamma_i\bigl(\mathbb{E}[QV_h]-\sigma_i^2 h\bigr)
+\]
+the gamma-carry piece and
+\[
+M_i=\mathrm{Vega}_i\,\mathbb{E}[\Delta\sigma_i]
+\]
+the vol-mark piece.  Then, dropping vanna, volga, jumps, and
+discrete-hedge error,
+\[
+\mathbb{E}[\Pi_i]\approx G_i+M_i-\mathrm{costs}.
+\]
+That is the composition we want to try later.  It is not a live V6
+number.
+
+\subsection{Four combined readings}
+
+If both forecasts exist, the interesting cases are the usual four:
+cheap with IV expected up and realized above implied; cheap with
+both legs against (value trap); rich with both legs for a short;
+rich while realized is still above implied (dangerous short).  Same
+status as Section~8: ways to read the objects, not orders.
+
+
+\section{Experiments}
+
+Each item below is something we will try.  If it does not help, we
+drop or rewrite it.
+
+\subsection{E1. Interpolated nodes versus today's buckets}
+
+Build \(\sigma_t(x,T)\) on each snapshot, evaluate at the fixed
+delta nodes, and keep minutes-to-expiry on every row.  Also write
+surface history denser than every 60th snapshot; the present
+30-minute facts are thin for later labels.
+
+What we look at: do the same nodes line up across days?  Does the
+double-ATM problem go away?  How much does a node move when the
+nearest listed strike jumps?
+
+\subsection{E2. Conditional fair value}
+
+Estimate \(\widehat{\mathbb{E}}[\sigma_i\mid\mathrm{state}]\) with a
+GAM or another partial-pooling fit on clock, DTE, ATM, event score,
+and weekday.  Compare \(R^{\mathrm{abs}}\) and its rank to the V6
+hard-bucket percentile.
+
+What we look at: does the residual still look like ``rich/cheap''
+after the environment is taken out, and is the comparison set less
+starved than a 10-row clock bucket?
+
+\subsection{E3. Local residual as a strike screen}
+
+Compute \(R^{\mathrm{local}}\) and \(Z^{\mathrm{local}}\) on each
+snapshot.  See whether large positive local residuals later mean
+revert on \(Y^{\mathrm{local}}\) more than a high V6 percentile
+does.
+
+What we look at: can two strikes in the same expiry have opposite
+local residuals while sharing the same heatmap color?
+
+\subsection{E4. Forward variance and event variance}
+
+Replace the economic reading of \(\mathrm{ts\_slope}\) with \(V(T)\)
+and \(\mathrm{ForwardVar}\).  Around CPI / NFP / FOMC, estimate
+\(J_e^2\) from neighbouring expiries and from the short regression,
+and compare today's \(J_e^2\) to its own history.
+
+What we look at: does the front look ``rich in IV'' but ordinary in
+event variance, or the reverse?  How unstable is \(\hat\beta_e\)
+when two releases sit in the same gap?
+
+\subsection{E5. Forward-label books}
+
+Build the two books in the definitions: same-\(x\) and
+same-contract.  Horizons as above.  This is the dataset everything
+after this experiment reads.
+
+What we look at: how often the two books disagree after a large TY
+move, and whether \(Y^{\mathrm{local}}\) actually goes negative
+after an extreme \(Z^{\mathrm{local}}\).
+
+\subsection{E6. Decay distributions}
+
+On that dataset, try in order: the current conditional-history
+baseline; ridge; a GAM; quantile regression of
+\(Q_{0.1},Q_{0.5},Q_{0.9}(\Delta\sigma\mid X)\).  Features we will
+try first are surface state (level, spread, local residual, ATM,
+variances, event variance), path (5/15/30 minute
+\(\Delta\sigma\) and \(\Delta R^{\mathrm{local}}\), plus
+\(\mathrm{ROC}_{5\mathrm{m}}-\mathrm{ROC}_{30\mathrm{m}}/6\)),
+underlying (signed and absolute TY, realized variance, range, a
+jump flag), event state, and contract state (DTE, greeks, bid/ask,
+quote age).
+
+Aggression / other order-flow is not in this first feature list.
+Those studies already failed their own gates; joining them is a
+later experiment if we still want it.
+
+What we look at: does any simple model beat the existing ATM-proxy
+panel on a walk-forward day or event split, in MAE / quantile
+coverage / \(P(\Delta\sigma<0)\)?  Trees only if 0--3 lose.
+
+\subsection{E7. Realized quadratic variation}
+
+Forecast \(QV_h\) at the hedge clock we would actually use, not
+end-to-end \(\Delta F\).  Same walk-forward rule as E6.
+
+What we look at: how much of \(G_i\) is just a bad QV forecast
+versus a real implied-versus-realized gap.
+
+\subsection{E8. Combined expected hedged P\&L}
+
+Add \(G_i+M_i-\mathrm{costs}\) on the same-contract book.  Show the
+pieces, not one score.  Read them with the four combined cases
+above.
+
+What we look at: do the two pieces cancel in the cases we already
+call value traps, and does \(\mathbb{E}[\Pi]\) after costs survive a
+day-blocked walk-forward at all?
+
+\subsection{E9. Event-day scenario reprice}
+
+After E4--E8 have something to stand on, take historical
+\((\Delta F,\,\Delta\mathrm{IV}_{\mathrm{ATM}},\,\Delta\mathrm{skew},\,\Delta\mathrm{curve})\)
+around CPI / NFP / FOMC and reprice today's contract under those
+paths.  Report \(P(\Pi>0)\), \(\mathbb{E}[\Pi]\), and a
+10/90 band.  The event sample will be small.
+
+
+\section{How we will run them}
+
+Walk-forward by day or by event.  We will not randomly split
+30-second or 30-minute rows.
+
+In the research set we drop only bad data: crossed or stale marks,
+failed IVs.  We keep economic tails.  The live \(3\times\mathrm{IQR}\)
+fence can stay on V6 as a descriptive prototype; for these
+experiments the extremes are part of the question.
+
+Simple models have to beat the current conditional-history baseline
+before we trust a more complicated one.
+ 
+If an idea needs a new page, it is a later isolated copy, not an
+edit of live V6.  Nothing here is a long or short.
+
+
+\section{What we would want on a strike, if this works}
+
+A click would show the pieces so we can see why a contract looks
+interesting: IV; absolute and wing-spread ranks; local residual and
+\(Z^{\mathrm{local}}\); conditional fair IV; the 30m and 2h
+\(\Delta\mathrm{IV}\) distribution; expected QV versus the implied
+variance budget; \(G\), \(M\), \(\mathbb{E}[\Pi]\) after costs;
+\(P(\Pi>0)\); bid/ask and edge/cost; event-variance percentile;
+confidence.  Ranking, if we rank at all, would use those pieces and
+ratios such as \(\mathbb{E}[\Pi]/\mathrm{SD}(\Pi)\) and
+\(\mathbb{E}[\Pi]/\mathrm{spread}\), not one collapsed score.
+
+That card is a target if the experiments produce objects worth
+showing.  It is not a spec for the current page.
+
+
+\section{Order we will try them}
+
+\begin{enumerate}
+    \item Canonical interpolated surface; minutes-to-expiry; denser
+    history (E1).
+    \item Local residual and \(Z^{\mathrm{local}}\) (E3).
+    \item Conditional fair value (E2).
+    \item Total variance, forward variance, event variance (E4).
+    \item Forward-label books (E5).
+    \item Simple decay distributions (E6).
+    \item QV forecast (E7).
+    \item Combined \(G+M-\mathrm{costs}\) (E8).
+    \item Event-scenario reprice (E9).
+    \item Anything more complicated only if the simple versions
+    help.
+\end{enumerate}
+
+The first cluster --- fair value, local residual, forward and event
+variance --- is the one we care about before any decay model.  That
+alone would already change how we pick a strike.  We will find out
+whether it does.
+
+\end{document}

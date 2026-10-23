@@ -1,0 +1,57 @@
+{
+  "description": "Bloomberg Excel cell mappings for economic event data",
+  "events": {
+    "nfp": {
+      "name": "Non-Farm Payrolls",
+      "workbook_name": "NFP_Data.xlsx",
+      "sheet_name": null,
+      "cells": {
+        "actual": "B5",
+        "consensus": "B4",
+        "cons_std": "B6"
+      },
+      "release_time": "08:30",
+      "timezone": "America/New_York"
+    },
+    "cpi": {
+      "name": "Consumer Price Index",
+      "workbook_name": "CPI_Data.xlsx",
+      "sheet_name": null,
+      "cells": {
+        "actual": "B5",
+        "consensus": "B4",
+        "cons_std": "B6"
+      },
+      "release_time": "08:30",
+      "timezone": "America/New_York"
+    },
+    "retail_sales": {
+      "name": "Retail Sales",
+      "workbook_name": "Retail_Sales.xlsx",
+      "sheet_name": null,
+      "cells": {
+        "actual": "B5",
+        "consensus": "B4",
+        "cons_std": "B6"
+      },
+      "release_time": "08:30",
+      "timezone": "America/New_York"
+    }
+  },
+  "defaults": {
+    "workbook_name": "NFP_Data.xlsx",
+    "actual_cell": "B5",
+    "consensus_cell": "B4",
+    "cons_std_cell": "B6",
+    "sheet_name": null,
+    "poll_interval": 5,
+    "telegram_chat_id": "7977255339"
+  },
+  "notes": [
+    "Cell references are in A1 notation (e.g., B5, C10)",
+    "sheet_name: null means use the first sheet",
+    "poll_interval is in seconds",
+    "Set telegram_chat_id to auto-send dashboard after generation"
+  ]
+}
+

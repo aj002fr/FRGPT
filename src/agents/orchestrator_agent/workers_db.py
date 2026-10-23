@@ -32,8 +32,21 @@ class WorkersDB:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         
-        self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        # Enable WAL mode for better concurrency and add timeout for locked database
+        self.conn = sqlite3.connect(
+            str(self.db_path),
+            check_same_thread=False,
+            timeout=30.0  # Wait up to 30 seconds if database is locked
+        )
         self.conn.row_factory = sqlite3.Row  # Enable dict-like access
+        
+        # Enable WAL (Write-Ahead Logging) mode for better concurrent access
+        # This allows multiple readers and one writer simultaneously
+        try:
+            self.conn.execute("PRAGMA journal_mode=WAL")
+            logger.debug("WAL mode enabled for database")
+        except Exception as e:
+            logger.warning(f"Could not enable WAL mode: {e}")
         
         self._init_schema()
         
@@ -42,9 +55,10 @@ class WorkersDB:
     def _init_schema(self):
         """Initialize database schema."""
         cursor = self.conn.cursor()
-        
+
         # Worker runs table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS worker_runs (
                 run_id TEXT NOT NULL,
                 task_id TEXT NOT NULL,
@@ -58,10 +72,12 @@ class WorkersDB:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (run_id, task_id)
             )
-        """)
-        
+            """
+        )
+
         # Task outputs table
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS task_outputs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 run_id TEXT NOT NULL,
@@ -72,10 +88,12 @@ class WorkersDB:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (run_id, task_id) REFERENCES worker_runs(run_id, task_id)
             )
-        """)
-        
+            """
+        )
+
         # Task planning table (Planner 1 + Planner 2)
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS task_plan (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 run_id TEXT NOT NULL,
@@ -87,46 +105,118 @@ class WorkersDB:
                 tool_params TEXT,      -- JSON object: tool_name -> params
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+            """
+        )
+
+        # Unified planning tasks table (Planner 1 writes base data, Planner 2 enriches).
+        # This enables downstream stages (e.g. Planner 2, Runner, analytics)
+        # to read the full task graph directly from SQLite using run_id.
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS planner1_tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                task_id TEXT NOT NULL,
+                description TEXT,
+                assigned_agent TEXT,
+                mappable INTEGER NOT NULL,
+                dependencies TEXT,        -- JSON array of task IDs (direct deps)
+                dependency_paths TEXT,    -- JSON array of full dependency path (root->task)
+                priority INTEGER,
+                agent_params TEXT,        -- JSON object of agent-specific params (Planner 1)
+                tools TEXT,               -- JSON array of tool names (Planner 2)
+                tool_params TEXT,         -- JSON object: tool_name -> params (Planner 2)
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
         
+        # Migrate existing planner1_tasks tables to add new columns if they don't exist
+        try:
+            cursor.execute("SELECT dependency_paths FROM planner1_tasks LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column doesn't exist, add it
+            cursor.execute("ALTER TABLE planner1_tasks ADD COLUMN dependency_paths TEXT")
+            logger.info("Added dependency_paths column to planner1_tasks")
+        
+        try:
+            cursor.execute("SELECT tools FROM planner1_tasks LIMIT 1")
+        except sqlite3.OperationalError:
+            cursor.execute("ALTER TABLE planner1_tasks ADD COLUMN tools TEXT")
+            logger.info("Added tools column to planner1_tasks")
+        
+        try:
+            cursor.execute("SELECT tool_params FROM planner1_tasks LIMIT 1")
+        except sqlite3.OperationalError:
+            cursor.execute("ALTER TABLE planner1_tasks ADD COLUMN tool_params TEXT")
+            logger.info("Added tool_params column to planner1_tasks")
+
         # Indices for task_outputs
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_run_id 
             ON task_outputs(run_id)
-        """)
-        
-        cursor.execute("""
+            """
+        )
+
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_task_id 
             ON task_outputs(task_id)
-        """)
-        
-        cursor.execute("""
+            """
+        )
+
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_agent 
             ON task_outputs(agent_name)
-        """)
-        
+            """
+        )
+
         # Indices for worker_runs
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_worker_run_id 
             ON worker_runs(run_id)
-        """)
-        
-        cursor.execute("""
+            """
+        )
+
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_worker_task_id 
             ON worker_runs(task_id)
-        """)
-        
+            """
+        )
+
         # Indices for task_plan
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_plan_run_id 
             ON task_plan(run_id)
-        """)
-        
-        cursor.execute("""
+            """
+        )
+
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_plan_task_id 
             ON task_plan(task_id)
-        """)
-        
+            """
+        )
+
+        # Indices for planner1_tasks
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_planner1_run_id
+            ON planner1_tasks(run_id)
+            """
+        )
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_planner1_task_id
+            ON planner1_tasks(task_id)
+            """
+        )
+
         self.conn.commit()
         logger.debug("Database schema initialized")
     
@@ -220,6 +310,213 @@ class WorkersDB:
             row_id,
         )
         return row_id
+
+    # ------------------------------------------------------------------
+    # Planner 1 task graph persistence
+    # ------------------------------------------------------------------
+
+    def insert_planner1_task(
+        self,
+        run_id: str,
+        task: Dict[str, Any],
+        dependency_path: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Persist a single normalized Planner 1 task into ``planner1_tasks``.
+
+        The incoming ``task`` is expected to use the normalized schema
+        produced by ``PlannerStage1``:
+
+            {
+                "id": str,
+                "description": str,
+                "assigned_agent": Optional[str],
+                "dependencies": list[str],
+                "priority": int,
+                "mappable": bool,
+                "agent_params": dict,
+            }
+
+        All callers share the same ``run_id`` for a given orchestration run.
+        
+        Args:
+            run_id: Orchestration run ID
+            task: Task dictionary from Planner 1
+            dependency_path: Optional full dependency path (root->task) for this task
+        """
+        cursor = self.conn.cursor()
+
+        task_id = task.get("id")
+        description = task.get("description", "")
+        assigned_agent = task.get("assigned_agent")
+        dependencies = task.get("dependencies", [])
+        priority = task.get("priority", 1)
+        mappable = 1 if task.get("mappable", False) else 0
+        agent_params = task.get("agent_params", {})
+
+        cursor.execute(
+            """
+            INSERT INTO planner1_tasks (
+                run_id,
+                task_id,
+                description,
+                assigned_agent,
+                mappable,
+                dependencies,
+                dependency_paths,
+                priority,
+                agent_params
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                task_id,
+                description,
+                assigned_agent,
+                mappable,
+                json.dumps(dependencies),
+                json.dumps(dependency_path) if dependency_path else None,
+                priority,
+                json.dumps(agent_params),
+            ),
+        )
+
+        self.conn.commit()
+        logger.debug(
+            "Inserted planner1_task for run %s task %s (assigned_agent=%s, mappable=%s)",
+            run_id,
+            task_id,
+            assigned_agent,
+            bool(mappable),
+        )
+
+    def update_planner1_task_tools(
+        self,
+        run_id: str,
+        task_id: str,
+        tools: List[str],
+        tool_params: Dict[str, Any]
+    ) -> None:
+        """
+        Update planner1_tasks row with tools and parameters (Planner 2).
+        
+        This method is called by Planner 2 to enrich the base task row created
+        by Planner 1 with AI-selected tools and their parameters.
+        
+        Args:
+            run_id: Orchestration run ID
+            task_id: Task ID
+            tools: List of tool names selected by Planner 2
+            tool_params: Mapping tool_name -> params dict
+        """
+        cursor = self.conn.cursor()
+        
+        cursor.execute(
+            """
+            UPDATE planner1_tasks
+            SET tools = ?, tool_params = ?
+            WHERE run_id = ? AND task_id = ?
+            """,
+            (
+                json.dumps(tools),
+                json.dumps(tool_params),
+                run_id,
+                task_id,
+            ),
+        )
+        
+        self.conn.commit()
+        logger.debug(
+            "Updated planner1_task tools for run %s task %s (tools=%s)",
+            run_id,
+            task_id,
+            tools,
+        )
+
+    def get_planner1_tasks(
+        self,
+        run_id: str,
+    ) -> List[Dict[str, Any]]:
+        """
+        Load all unified planning tasks for a given run (Planner 1 + Planner 2).
+
+        Returns a list of task dictionaries using the schema from PlannerStage1
+        plus optional Planner 2 fields (tools, tool_params, dependency_paths).
+        """
+        cursor = self.conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                task_id,
+                description,
+                assigned_agent,
+                mappable,
+                dependencies,
+                dependency_paths,
+                priority,
+                agent_params,
+                tools,
+                tool_params,
+                created_at
+            FROM planner1_tasks
+            WHERE run_id = ?
+            ORDER BY id ASC
+            """,
+            (run_id,),
+        )
+
+        rows = cursor.fetchall()
+        tasks: List[Dict[str, Any]] = []
+
+        for row in rows:
+            try:
+                dependencies = json.loads(row["dependencies"]) if row["dependencies"] else []
+            except json.JSONDecodeError:
+                dependencies = []
+
+            try:
+                dependency_paths = json.loads(row["dependency_paths"]) if row["dependency_paths"] else []
+            except json.JSONDecodeError:
+                dependency_paths = []
+
+            try:
+                agent_params = json.loads(row["agent_params"]) if row["agent_params"] else {}
+            except json.JSONDecodeError:
+                agent_params = {}
+
+            try:
+                tools = json.loads(row["tools"]) if row["tools"] else []
+            except json.JSONDecodeError:
+                tools = []
+
+            try:
+                tool_params = json.loads(row["tool_params"]) if row["tool_params"] else {}
+            except json.JSONDecodeError:
+                tool_params = {}
+
+            task_dict = {
+                "id": row["task_id"],
+                "description": row["description"] or "",
+                "assigned_agent": row["assigned_agent"],
+                "dependencies": dependencies,
+                "dependency_paths": dependency_paths,
+                "priority": row["priority"] if row["priority"] is not None else 1,
+                "mappable": bool(row["mappable"]),
+                "agent_params": agent_params,
+                "created_at": row["created_at"],
+            }
+            
+            # Include Planner 2 fields if present
+            if tools:
+                task_dict["tools"] = tools
+            if tool_params:
+                task_dict["tool_params"] = tool_params
+
+            tasks.append(task_dict)
+
+        return tasks
 
     def update_task_plan_tools(
         self,
@@ -642,6 +939,53 @@ class WorkersDB:
                 return False
         
         return True
+    
+    def wait_for_task_completion(
+        self,
+        run_id: str,
+        task_id: str,
+        timeout_seconds: int = 300
+    ) -> bool:
+        """
+        Wait for a specific task to complete (used for shared task coordination).
+        
+        When multiple parallel scripts try to execute the same shared task, one
+        claims it and executes, while others wait using this method to reuse
+        the result.
+        
+        Args:
+            run_id: Orchestration run ID
+            task_id: Task ID to wait for
+            timeout_seconds: Maximum wait time
+            
+        Returns:
+            True if task completed successfully, False if timeout or failed
+        """
+        import time
+        
+        logger.debug(f"Waiting for task {task_id} to complete (timeout: {timeout_seconds}s)")
+        
+        start_time = time.time()
+        
+        while True:
+            status = self.get_task_status(run_id, task_id)
+            
+            if status == 'success':
+                logger.debug(f"Task {task_id} completed successfully")
+                return True
+            
+            if status == 'failed':
+                logger.warning(f"Task {task_id} failed")
+                return False
+            
+            # Check timeout
+            elapsed = time.time() - start_time
+            if elapsed > timeout_seconds:
+                logger.error(f"Timeout waiting for task {task_id} ({timeout_seconds}s)")
+                return False
+            
+            # Wait a bit before checking again
+            time.sleep(0.5)
     
     def get_failed_tasks(
         self,

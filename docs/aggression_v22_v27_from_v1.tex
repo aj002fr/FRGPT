@@ -1,0 +1,1174 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=0.82in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,array,longtable,enumitem,microtype,xcolor,fancyhdr,lastpage}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{caption}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue,citecolor=black}
+
+\definecolor{darkblue}{RGB}{26,54,93}
+
+\titleformat{\section}{\large\bfseries\color{darkblue}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.6em}{}
+
+\setlist[itemize]{leftmargin=1.3em,itemsep=0.2em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.5em,itemsep=0.2em,topsep=0.25em}
+\setlength{\tabcolsep}{3pt}
+\setlength{\LTleft}{0pt}
+\setlength{\LTright}{0pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Aggression Monitors V2.2 and V2.7}
+\rhead{From V1 residual to fade clocks}
+\cfoot{\thepage\ / \pageref{LastPage}}
+\setlength{\headheight}{14pt}
+
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\abs}[1]{\lvert #1 \rvert}
+\newcommand{\eps}{\varepsilon}
+
+\title{\vspace{-1.5cm}\textbf{Aggression Monitors V2.2 and V2.7}\\[0.25em]
+\large How session residual fade and a 10-minute local nowcast were
+ideated from Aggression Monitor V1}
+\author{}
+\date{Implementation as of 7 September 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+\vspace{-1.2em}
+
+\begin{abstract}
+This note is the companion to the V1 measurement note
+(\code{docs/aggression_v1_v22_research_program.tex}).
+It assumes that note has already been read: TotalAggress, BuySell
+Ratio, the two contemporaneous OLS fair-value lines, implied passive
+as \(\Delta e\), and the flow-dominance banner are taken as known.
+Nothing here re-derives those constructions.
+
+V1 asked whether a TY price move was in the aggressive curve prints.
+The leftover after that fit---the residual---was a description, not an
+object to trade.  V2.2 and V2.7 are isolated research pages that take
+that leftover seriously.  V2.2 keeps a session-scale multi-feature
+Ridge of same-day price change, fades large residuals, and overlays
+the non-directional H5 range lean labeled LIFO FRIENDLY.
+V2.7 replaces the session line with a 10-minute local nowcast
+(\code{B1_W10}) and adds a paper clock that only opens when that
+local lean agrees with a modest V2 session residual.
+
+Neither page is a trading system.  Neither emits executable long or
+short.  Neither has an after-cost PASS.  Live V1 on port 5050, live V2
+on 5052, and every other aggression monitor stay unchanged.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{How to read this note}
+
+Read the V1 note first.  This document starts at the question V1
+could not answer and then specifies two later pages in enough detail
+that a first-time reader can reconstruct every number they see.
+
+The lineage is linear:
+
+\begin{center}
+V1 measurement
+\;\(\longrightarrow\)\;
+V2 session Ridge residual
+\;\(\longrightarrow\)\;
+V2.2 isolated copy + LIFO FRIENDLY
+\;\(\longrightarrow\)\;
+V2.7 isolated copy + local 10-minute nowcast.
+\end{center}
+
+V2 itself is the research ancestor, not a page this note documents
+end-to-end.  V2.2 \emph{is} that ancestor, copied onto its own port
+and store, plus one overlay.  V2.7 is a copy of V2.2 with the fair
+value and the clock swapped.  Named V2.7 because V2.3 already belongs
+to the move-exhaustion monitor on port 5059.
+
+Two ideas stay fixed from V1 through both later pages:
+
+\begin{itemize}
+    \item A positive residual still means price is rich versus the
+    fitted line of that page.  A negative residual still means cheap.
+    \item ``Implied passive'' and ``fair value'' remain
+    contemporaneous descriptions.  They are not forecasts of the next
+    print, and they are not resting-order identity.
+\end{itemize}
+
+What changes is the line being subtracted, the features that build
+it, and whether the leftover is only drawn or also turned into a
+paper episode.
+
+
+\section{The question V1 left open}
+
+V1's job is measurement.  Panel~4 fits
+\(P_t=\alpha+\beta A_t+e_t\) once per session on TotalAggress
+\(A_t\).  The banner then splits each completed minute's price change
+into \(\beta\Delta A_t\) (aggress) and \(\Delta e_t\) (implied
+passive) and names a winner.  That answers: \emph{is this move in the
+prints?}
+
+It does not answer three follow-on questions that a researcher
+watching the same tape naturally asks:
+
+\begin{enumerate}
+    \item If price is rich or cheap versus that line, does the gap
+    close, and does it close because price moves or because the line
+    chases?
+    \item Is a one-feature OLS on session TotalAggress the most
+    useful line, or does quote-at-trade context (spread, depth, size
+    mix, wing flow) change the leftover?
+    \item When the leftover is large \emph{and} the tape is quiet,
+    is the next half-hour more often a continued range than a
+    breakout?
+\end{enumerate}
+
+Question~1 is a residual-as-object question.  V1 never opened a
+paper trade, never scored a fade, and never wrote a live store.
+Question~2 is a specification question: same residual idea, richer
+right-hand side, still contemporaneous.  Question~3 is an environment
+question, not a long/short.  It came from the offline V1
+flow--dispersion foundations study, not from the live V1 banner.
+
+V2.2 is the live page that takes (1) and (2) together and hangs (3)
+on as a banner.  V2.7 is the later page that asks V1's measurement
+question on the last ten minutes: did this short stretch of TY
+match the short stretch of prints?  The session residual was too
+flippy to watch as a 5--10~minute leftover, so the line was
+shortened.  The leftover is still a consistency check, not a
+target.
+
+
+\section{The V2 step, in one sitting}
+
+Before V2.2 can be specified, the V2 construction it copies has to be
+named.  This section is the bridge, not a second V1-style manual for
+live V2 (port 5052).
+
+V1's fair value is a same-session OLS of price on one flow sum.
+V2 keeps the leftover idea and changes three things.
+
+\paragraph{Target.}
+Raw price is a level.  A regression on a level can ride the session
+drift.  V2 therefore fits the same-day price change:
+
+\begin{equation}
+  y^{\mathrm{session}}_t
+  =
+  P_t - P_{\mathrm{open}},
+  \qquad
+  \mathrm{FV}^{\mathrm{session}}_t
+  =
+  P_{\mathrm{open}}
+  +
+  \mathrm{Ridge}(X^{\mathrm{session}}_t,\, y^{\mathrm{session}}),
+  \qquad
+  e^{\mathrm{session}}_t
+  =
+  P_t - \mathrm{FV}^{\mathrm{session}}_t.
+\end{equation}
+
+\(P_t\) is the TY last print in the completed one-minute bar.
+\(P_{\mathrm{open}}\) is the first TY last-print in the current live
+feature frame.  Cumulative flow in that frame is also reset to zero
+at the first bar.  That is the operational analogue of V1's
+session-from-open TotalAggress; it is not a second 18:00~ET clock
+inside the feature file.
+
+\paragraph{Features.}
+The right-hand side is no longer only \(A_t\).  V2 builds a
+quote-at-trade pack from FV, TU, TY, and US: session cumulative
+signed DV01 flow, 5- and 30-minute flow, BuySell Ratio, trade
+intensity, size mix, wing 5-minute flow, spread and depth at the
+print, 30-minute realized vol, 5-minute momentum, and minutes since
+01:00~ET.  The exact list is in the V2.2 feature section below.
+Aggressor sign, DV01 weights, and the BuySell EMA are the V1
+mappings; they are not re-derived here.
+
+\paragraph{Estimator.}
+Ridge with a StandardScaler, alphas
+\(\{0.01,0.1,1,10,100\}\), fit once per UTC date on the published
+TBBO matrix, not on the live buffer.  OLS was competitive on
+in-sample fit; Ridge is what the live residual signal uses because
+the features are collinear.
+
+\paragraph{What the research found.}
+On 54{,}835 clean rows / 74 dates, continuous residuals were not a
+forecast.  Sparse extremes were the interesting object: fade
+\(\operatorname{sign}(e)\) when \(\abs{z}\ge 2\) and hold 30 minutes
+had an 81\% holdout hit on last-print direction.  That is a research
+letter, not an after-cost PASS.  The later 2026-07-09 forward-return
+and EV gates stayed negative after costs.  V2.2 inherits the display
+and the paper scoreboard; it does not inherit a ship decision.
+
+The reading shift from V1 is therefore this: V1 asks whether the
+\emph{move} is in the prints.  V2 asks whether the \emph{level} is
+rich or cheap versus a session-scale flow-and-book line, and whether
+that gap later shrinks.
+
+
+\section{V2.2: isolation and goal}
+\label{sec:v22-goal}
+
+V2.2 is an isolated copy of live V2 plus one display overlay.
+Live V2 (\code{scripts/aggression_dashboard_v2/}, port 5052,
+\code{workspace/analysis/aggression_v2_live/}) is not edited, not
+written, and not restarted by this page.
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Item & Value \\
+\midrule
+Package & \code{scripts/aggression_dashboard_v22/} \\
+Port & 5058, manual-only \\
+Local URL & \url{http://127.0.0.1:5058} \\
+Tailscale & \url{https://aasthajain.tail174727.ts.net:8444/}
+\(\rightarrow\) \code{127.0.0.1:5058} \\
+Store & \code{workspace/analysis/aggression_v22_live/} \\
+Status & \code{PROVISIONAL / LIFO-FRIENDLY / RANGE-LEAN / NON-DIRECTIONAL}
+on the overlay; residual fade stays research-only \\
+Live V1 / V2 / V2.7 & unchanged \\
+SOD / Telegram / execution & not wired \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The page has four jobs:
+
+\begin{itemize}
+    \item Draw TY last print against the session Ridge line.
+    \item Standardize the leftover and name WATCH / DISLOCATION.
+    \item Open a paper fade episode on that leftover and score
+    15- and 30-minute last-print marks, plus whether \(\abs{z}\)
+    fell back through 1 before 30 minutes.
+    \item When \(\abs{z}\ge 1\) and trade intensity is in the quiet
+    third of the session so far, show \textbf{LIFO FRIENDLY} as a
+    non-directional range lean.
+\end{itemize}
+
+Launch:
+
+\begin{verbatim}
+py -3 -m scripts.aggression_dashboard_v22.app --host 127.0.0.1 --port 5058
+\end{verbatim}
+
+File changes do not appear until a manual restart.  Existing V2.2
+processes are not killed from this note.
+
+
+\section{V2.2: page, inputs, and outputs}
+
+\subsection{What the user sees}
+
+Top to bottom:
+
+\begin{enumerate}
+    \item Title and isolation sentence.  Status chip reports feed
+    source (AccessAPI or Databento backup) and model warmup.
+    \item LIFO FRIENDLY strip when the H5 rule is on.  The text is
+    only \textbf{LIFO FRIENDLY}.  No factor callouts.
+    \item Historical model/date selectors.  Refresh updates the
+    research pane (holdout charts, coefficients, holdout rules).
+    It does not refit the live Ridge.
+    \item Live banner: \code{NONE} / \code{WATCH} / \code{DISLOCATION}
+    from session \(\abs{z}\), plus last print and feed health.
+    \item Stat cards: alerts issued, WATCH / DISLOCATION splits,
+    hold expectations, LIFO observational counts.
+    \item Live charts: last print vs session fair value, and
+    residual \(z\).
+    \item Live Alert Outcomes table (Today / All) and a glossary
+    for resolved vs expired vs 30-minute paper marks.
+    \item Holdout readout, best rule card, and the V2 explainer
+    text.
+\end{enumerate}
+
+The browser polls live state every 3 seconds.  A background
+evaluator appends the V2.2 signal log every 20 seconds.
+Responses are marked \code{Cache-Control: no-store}.
+
+\subsection{Inputs}
+
+V2.2 does not reuse V1's trade-schema pull as its live path.  It
+reads quote-at-trade TBBO so the book features exist.
+
+\begin{center}
+\begin{tabular}{@{}p{0.28\textwidth}p{0.64\textwidth}@{}}
+\toprule
+Input & Role \\
+\midrule
+AccessAPI live TBBO
+(\code{ws://100.79.30.21:8001/ws/live/stream})
+& Primary prints.  Startup seeds
+\code{/live/tbbo/recent}.  Symbols FV, TU, TY, US.
+Only action-\code{T} prints are kept. \\
+Databento live TBBO backup
+& Starts if AccessAPI is stale for 30 seconds;
+returns after 60 seconds of primary health.
+Feed continuity only. \\
+Published TBBO matrix
+\code{workspace/analysis/aggression_v2_tbbo/tbbo_feature_matrix.csv}
+& Once-per-UTC-date Ridge fit and historical residual moments.
+Read-only. \\
+V2 model artifacts
+\code{workspace/analysis/aggression_v2_tbbo_models/}
+& Holdout charts, coefficients, rule cards.  Read-only. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+An 18-hour in-memory buffer holds the live prints.  Trades with
+non-positive size, price outside \((80,150)\), non-positive bid or
+ask size, or \(ask < bid\) are dropped.  Front-month identity is
+whatever AccessAPI stamps on the print; V2.2 does not re-run V1's
+max-size-by-UTC-date selector on the live path.
+
+\subsection{Outputs}
+
+Writes stay under \code{workspace/analysis/aggression_v22_live/}:
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+File & Role \\
+\midrule
+\code{signal_log_YYYYMMDD.csv} & Session price, FV, residual, \(z\) \\
+\code{alert_episodes.json} & Open and finalized fade episodes \\
+\code{alert_log.csv} & Append-only finalized fade rows \\
+\code{lifo_episodes.json} & LIFO FRIENDLY episode state \\
+\code{lifo_episodes.csv} & LIFO FRIENDLY log \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The page never writes V1, live V2, V2.7, SOD, or Telegram.
+
+
+\section{V2.2: from a print to a session feature row}
+
+The live builder is V2's \code{build_live_features}, imported
+read-only.  The grid is one-minute buckets, as in V1.
+
+Each print is signed with the V1 aggressor map (\(+1\) lift the
+offer, \(-1\) hit the bid, \(0\) otherwise).  Size is multiplied by
+the same fixed dollar DV01 (FV 42, TU 36, TY 85, US 125) and summed
+across the four roots.  That one-minute signed sum is
+\code{agg_1m}.  It is V1's \(\Delta A_t\) under another name.
+
+On top of that increment the session pack is:
+
+\begin{center}
+\begin{tabular}{@{}llp{0.48\textwidth}@{}}
+\toprule
+Column & Kind & Role \\
+\midrule
+\code{agg_cum_daily} & flow & Running sum of \code{agg_1m},
+reset to 0 at the first bar of the live frame.
+V1 TotalAggress analogue. \\
+\code{agg_5m}, \code{agg_30m} & flow & Rolling sums of
+\code{agg_1m}. \\
+\code{FV_agg_5m}, \code{TU_agg_5m}, \code{US_agg_5m}
+& curve & Wing 5-minute signed flow.  TY is the price;
+the wings ask whether the rest of the curve agrees. \\
+\code{buysell_ratio} & pressure & V1 EMA BuySell Ratio
+(span 10, \code{ignore_na=True}). \\
+\code{trade_intensity} & activity & Curve trade count per minute. \\
+\code{avg_trade_size}, \code{large_trade_share} & size
+& Size mix; large \(\ge 100\). \\
+\code{spread_mean} & book & Mean bid--ask at trade. \\
+\code{size_imbalance_mean} & book
+& \((\mathrm{bid}-\mathrm{ask})/(\mathrm{bid}+\mathrm{ask})\). \\
+\code{displayed_depth_mean} & book
+& \(\mathrm{bid\_size}+\mathrm{ask\_size}\). \\
+\code{trade_size_vs_depth} & book
+& Print size over displayed depth. \\
+\code{depth_adjusted_signed_flow} & book
+& Signed flow over displayed depth. \\
+\code{realized_vol} & regime
+& 30-minute std.\ of 1-minute price changes
+(min.\ 5 points). \\
+\code{mom_5m} & regime & \(P_t-P_{t-5}\). \\
+\code{minutes_since_open} & clock
+& Minutes past 01:00~ET.  Legacy V2 clock, not the
+18:00 Globex open. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Price on the row is TY last-in-bucket, forward-filled.  Book
+features are means inside the TY bucket.  Empty-volume minutes keep
+flow at zero after fillna; they do not invent prints.
+
+This is the processing that V1 never did: the same aggressor tape,
+plus the quote that was present at the print, rolled into one
+feature vector per minute.
+
+
+\section{V2.2: session Ridge fair value}
+
+After at least the cleanliness filter on the historical matrix
+(500 rows per ET date, price in \((80,150)\), session-target
+standard deviation in \((0.01,1)\)), one Ridge is fit for the UTC
+calendar date:
+
+\begin{equation}
+  \widehat{\Delta}^{\mathrm{session}}_t
+  =
+  \mathrm{RidgeCV}(X^{\mathrm{session}}_t,\, y^{\mathrm{session}}),
+  \qquad
+  \mathrm{FV}^{\mathrm{session}}_t
+  =
+  P_{\mathrm{open}} + \widehat{\Delta}^{\mathrm{session}}_t,
+  \qquad
+  e^{\mathrm{session}}_t
+  =
+  P_t - \mathrm{FV}^{\mathrm{session}}_t.
+\end{equation}
+
+Positive \(e\): last print is rich versus the session line.
+Negative \(e\): cheap.  The paper lean fades \(e\): short when
+rich, long when cheap.
+
+Two contrasts with V1 panel~4 matter.
+
+\begin{itemize}
+    \item V1 fits \(\alpha+\beta A_t\) on \emph{this} session's
+    aligned minutes and caches \(\alpha,\beta\) until the session
+    key changes.  V2.2 fits on the historical matrix and applies
+    those coefficients to today.  Today's leftover is
+    out-of-sample with respect to the live day.
+    \item V1's dashed line is a function of one flow sum.  V2.2's
+    dashed line is a function of the whole pack.  A large V2.2
+    residual means ``price is away from this multi-feature session
+    nowcast,'' not ``price is away from TotalAggress alone.''
+\end{itemize}
+
+The live fair-value chart is that dashed line against solid last
+print.  The dual-axis visual scaling of V1 panel~1 is not used
+here; both series are in price points.
+
+
+\section{V2.2: residual \(z\)-score}
+
+Alerts use \(z\), not raw \(e\).  Method \code{prior_blend_v1}:
+
+\begin{align}
+  \mu_{\mathrm{hist}} &= \text{training-residual mean}, \\
+  \sigma_{\mathrm{hist}} &= \text{median of per-day residual std.\ (positive days)}, \\
+  w_t &= \frac{60}{60 + n_t},
+\end{align}
+
+where \(n_t\) is the expanding count of live residuals so far in
+the current frame.  The live mean and std.\ use an expanding window
+with a 30-point minimum.  Until that minimum, the historical
+moments stand in.
+
+\begin{equation}
+  \mu_t = w_t\,\mu_{\mathrm{hist}} + (1-w_t)\,\mu^{\mathrm{today}}_t,
+  \qquad
+  \sigma_t^2 = w_t\,\sigma_{\mathrm{hist}}^2 + (1-w_t)\,(\sigma^{\mathrm{today}}_t)^2,
+  \qquad
+  z_t = \frac{e_t - \mu_t}{\sigma_t}.
+\end{equation}
+
+This is not V1's \(z^{\mathrm{V1,live}}=e/s_e\) on the current
+aligned frame, and it is not the banner's \(z_A,z_P\).  Early in
+the day the historical prior dominates, so a launch at 10:00~ET
+does not invent a new scale.
+
+Live banner states from \(\abs{z}\) alone:
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\(\abs{z}\) & State \\
+\midrule
+\(< 1.5\) & \code{NONE} \\
+\(\ge 1.5\) & \code{WATCH} \\
+\(\ge 2.0\) & \code{DISLOCATION} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+WATCH and DISLOCATION are labels on the same clock.  A WATCH can
+escalate to DISLOCATION if \(\abs{z}\) later reaches 2.  They are
+not two strategies.
+
+
+\section{V2.2: paper fade clock}
+
+One episode may be open at a time.  TY tick size is \(1/64\).
+Direction is fade:
+
+\begin{equation}
+  \mathrm{sign}
+  =
+  \begin{cases}
+    -1 & e_t > 0 \quad (\mathrm{SHORT\_RICH}), \\
+    +1 & e_t < 0 \quad (\mathrm{LONG\_CHEAP}).
+  \end{cases}
+\end{equation}
+
+A new episode opens when \(\abs{z}\ge 1.5\) and no episode is
+already open.  There is no session-tick gate on V2.2; that filter
+arrives only on V2.7.
+
+While open:
+
+\begin{itemize}
+    \item \textbf{Resolved.}
+    \(\abs{z}\) falls below 1 before 30 minutes.  The first such
+    bar is the close for the signal scoreboard.
+    \item \textbf{Expired.}
+    Thirty minutes pass with \(\abs{z}\) still at or above 1.
+    \item \textbf{15m / 30m marks.}
+    Last-print fade P\&L and adverse path are scored at those
+    horizons whether or not \(z\) reset.  The 30-minute mark is
+    also the deadline that finalizes the episode.
+\end{itemize}
+
+Paper P\&L on a path is \(\mathrm{sign}\times(P-P_{\mathrm{open}})\).
+Positive means the fade made last-print ticks.
+
+Two scoreboards can disagree, and that disagreement is the point.
+Resolved means the \emph{model gap} closed (\(\abs{z}<1\)).
+Thirty-minute hit means \emph{price} moved the fade way.  Fair
+value can chase price (resolved, little PnL).  Price can pay the
+fade while \(z\) stays elevated (hit, still open or expired).
+
+Hold-expectation cards report, for resolved episodes: median
+minutes to \(\abs{z}<1\), median adverse ticks before that, and
+price share of reversion
+
+\begin{equation}
+  \mathrm{share}
+  =
+  \mathrm{clip}_{[-1,2]}
+  \left(
+    \mathrm{sign}(e_{\mathrm{open}})
+    \frac{P_{\mathrm{open}}-P_{\mathrm{close}}}{\abs{e_{\mathrm{open}}}}
+  \right)
+\end{equation}
+
+when \(\abs{e_{\mathrm{open}}}\) is at least one tick.  Share near
+0 means the nowcast moved to price (FV chase).  Share near 1 means
+price moved to the nowcast (the fade the clock claims).
+
+These are last-print research marks.  They are not fills, not
+bid/ask, and not after-cost.
+
+
+\section{V2.2: LIFO FRIENDLY}
+\label{sec:lifo}
+
+Display-only.  Not a second entry clock.  Not long or short.
+
+The rule comes from the 2026-07-17 V1 foundations study, cell
+\code{H5_trade_int_lo}.  On the primary 30-minute / 8~bps / \(k=1\)
+range-versus-breakout label, low trade intensity while the residual
+was large predicted CONTINUED\_RANGE: validation restrictive PASS
+at \(+10.6\)~pp, FINAL lift \(+8.15\)~pp, one-sided CI failed.
+That is why the overlay may be shown and may not be shipped.
+
+V2.2 applies the same inequality to \emph{its own} session
+\(z\) and V2 trade intensity, not to V1's panel-4 \(z\):
+
+\begin{equation}
+  \abs{z_t}\ge 1
+  \quad\text{and}\quad
+  \text{trade intensity}_t
+  \le
+  \text{session expanding } p_{33}
+  \text{ (prior bars, min.\ 20)}.
+\end{equation}
+
+The quantile is causal: it is computed on earlier bars of the same
+ET date, then compared to the current bar.  Until 20 prior bars
+exist, the low-intensity leg cannot fire.
+
+UI text is only \textbf{LIFO FRIENDLY}.
+Label
+\code{PROVISIONAL / LIFO-FRIENDLY / RANGE-LEAN / NON-DIRECTIONAL}.
+The stats card counts finalized LIFO episodes scored as RANGE /
+TREND / ambiguous over a 30-minute forward window, plus how many
+are active.  Those counts are observational.  They do not promote
+the overlay.
+
+``LIFO'' here is an environment word: a quiet tape with a large
+leftover is friendlier to last-in-first-out / mean-reversion style
+participation than to a breakout chase.  It is not an inventory
+instruction.
+
+
+\section{Why V2.7 existed}
+
+V1 already answers the session-scale question: is today's move in
+the prints?  A researcher watching a single burst still needs the
+same question on that burst.  Session Ridge leftover is the wrong
+object for that.  It is a session-scale level.  On the 2026-08-31
+short-horizon study, the raw sign of that residual flipped about
+every two minutes (7.0 flips/hour).  You cannot read a 10-minute
+stretch against a leftover that dies in two.
+
+The useful replacement is not a better fade.  It is a nowcast of
+the stretch just taken: did the last \(W\) minutes of TY match the
+last \(W\) minutes of flow?  Ten minutes is the window that still
+fits that stretch without the \(W=5\) leak, and that lasts long
+enough to look at.  It is not a claim that ten minutes is true
+fair value.
+
+Three tracks were run on the published TBBO matrix, walk-forward
+by ET date, locked holdout 2026-05-13 through 2026-06-05
+(15 days).  Live V2.2 was not retuned.
+
+\paragraph{Track A.}
+A forward Ridge of \(P_{t+h}-P_t\).  Sign skill existed
+(1-minute AUC 0.67).  \(R^2\) lift versus random walk was of order
+\(10^{-5}\).  That does not draw a useful new price line.
+
+\paragraph{Track B.}
+A rolling-anchor nowcast of the last \(W\) minutes.  Pack B1
+(short flow, no \code{agg_30m}) beat the session pack except at
+\(W=5\), which is invalid: live \code{mom_5m} \emph{is} the local
+target at that window (\(R^2=1\), specification leak).  \(W=10\)
+does not have that leak.  Holdout local-target \(R^2\) for
+B1\_W10 was 0.724; tracking MAE 0.85 ticks.  Fade-the-residual
+hit rates stayed near 51--52\%.  The nowcast explains the last
+ten minutes.  It does not, by itself, pick the next ten.
+
+\paragraph{Track C.}
+Hysteresis on those residuals, aimed at a frozen hold profile
+(typical hold 5--10 minutes, typical wrong-way about 3 ticks,
+too flippy if lean duration \(<3\) minutes, too sticky if
+\(>20\)).  The sweet-spot cell was B1\_W10 with enter
+\(\abs{z}\ge 1.5\), fade-side exit through 0.5 after a five-minute
+min-hold.  Median lean 5.5 minutes; 5.81 flips/hour versus session
+raw 6.98; share of 10-minute windows with \(\ge 3\) changes 4.3\%
+versus 22\%.  \(\mathrm{P}(\text{5m adverse}\le 3\text{ ticks})=0.980\).
+High adverse-in-band rates are easier on a local residual because
+the gap is already small.  That is a stability result.
+\code{ship_gate} stayed false.
+
+A follow-up 38-clock grid (2026-08-31) asked whether a print- or
+volume-count deadline would turn FV-chase resolves into price
+fades.  Usable 5--15~minute clocks kept median percent-via-price
+\(=0\).  Live V2.7 therefore keeps a 10-minute wall \emph{mark}
+and does not flatten on it.
+
+The 2026-09-02 live tape then showed the remaining problem: most
+local \(\abs{z}\ge 1.5\) bars were nowcast-only chatter (session
+residual under 2 ticks).  An L1 autopsy of 52 paper trades
+authorized an alert-rate filter---session residual 2--6 ticks,
+same sign, no same-sign re-entry---not an after-cost PASS.
+Official executable-PnL work remains after-cost negative.
+
+V2.7 is the isolated page that installs that cell and that
+filter.  It does not swap live V2 or V2.2 session fair value.
+
+
+\section{V2.7: isolation and goal}
+\label{sec:v27-goal}
+
+V2.7 is an isolated copy of V2.2 with the session Ridge replaced
+by B1\_W10 and the clock replaced by the Track~C / 2026-09-02
+rules.  LIFO FRIENDLY is kept.
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Item & Value \\
+\midrule
+Package & \code{scripts/aggression_dashboard_v27/} \\
+Port & 5063, manual-only \\
+Local URL & \url{http://127.0.0.1:5063} \\
+Tailscale & \url{https://aasthajain.tail174727.ts.net:8445/}
+\(\rightarrow\) \code{127.0.0.1:5063} \\
+Store & \code{workspace/analysis/aggression_v27_live/} \\
+Status & \code{PROVISIONAL / RESEARCH-ONLY / LOCAL-10M-FV / NOT AFTER-COST VALIDATED} \\
+Construction & \code{B1_W10} \\
+Live V1 / V2 / V2.2 / V2.3 & unchanged; not rewritten; not restarted \\
+SOD / Telegram / execution & not wired \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Tailscale HTTPS is a display proxy only.  It does not replace V2.2
+on \code{:8444}.
+
+The useful job is V1's question on a short window.  The page is
+helpful when you want to know whether \emph{this} 10-minute burst
+was paid for in recent curve flow, whether a local stretch is
+unexplained, or whether a fresh impulse just rewrote the nowcast.
+It is not helpful as a place price should revert to.  New flow is
+supposed to move the dashed line.
+
+What was implemented still has four surfaces:
+
+\begin{itemize}
+    \item Draw last print against the 10-minute local nowcast
+    (the measurement).
+    \item Show the local residual and its \(z\)-score.
+    \item Name a paper ENTRY / EXIT clock when the conviction gate
+    passes, and score last-print marks from entry to exit
+    (diagnostic scoreboard only; not the goal).
+    \item Keep the V2.2 LIFO FRIENDLY banner as a range-lean
+    annotation, now on local \(z\).
+\end{itemize}
+
+Launch:
+
+\begin{verbatim}
+py -3 -m scripts.aggression_dashboard_v27.app --host 127.0.0.1 --port 5063
+\end{verbatim}
+
+A V2.7-only implementation note also exists
+(\code{docs/aggression_v27_monitor.tex}).  This document is the
+lineage; that note is the same clock written as a standalone V2.7
+page.
+
+
+\section{V2.7: page, inputs, and outputs}
+
+\subsection{What the user sees}
+
+The V2.2 layout, plus two strips V2.2 does not have:
+
+\begin{enumerate}
+    \item Session-day banner: paper ticks captured, issued /
+    closed / open counts, and win / lose / flat among closed
+    trades, since the visible session start.
+    \item Trade-signal strip: ENTRY, EXIT, NOW.  Research display.
+    Last-print marks, not executable.
+\end{enumerate}
+
+Today's table uses the same Globex window as the session banner,
+not the calendar date.
+
+\subsection{Inputs}
+
+The live TBBO path is the same family as V2.2 (own 18-hour
+AccessAPI buffer, Databento failover 30s/60s).  Minute features
+reuse V2's \code{build_live_features} read-only, then add the
+local-nowcast columns on that frame.
+
+Two extra read-only joins:
+
+\begin{center}
+\begin{tabular}{@{}p{0.36\textwidth}p{0.56\textwidth}@{}}
+\toprule
+Input & Role \\
+\midrule
+Published TBBO matrix
+& B1\_W10 Ridge fit, once per UTC date. \\
+\code{workspace/analysis/aggression_v2_short_horizon_fv/}
+& Holdout charts.  Read-only. \\
+Live V2 \code{signal_log_YYYYMMDD.csv}
+& Session residual \(e^{\mathrm{session}}\) on the same UTC
+minute, for the conviction gate.  V2.7 never writes that
+directory. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+If the V2 log is missing or the minute has no row, the gate
+returns \code{SESSION_UNAVAILABLE} and no paper trade opens.
+
+\subsection{Outputs}
+
+Writes stay under \code{workspace/analysis/aggression_v27_live/}
+(same file names as V2.2: signal log, alert episodes, alert log,
+LIFO episodes).  ENTRY / EXIT may also append to
+\code{workspace/analysis/aggression_v1_v27_banner_alerts/banner_alerts.sqlite},
+stamped with the latest V1 banner state.  That log does not change
+V1's banner or V2.7's clock.
+
+
+\section{V2.7: B1\_W10}
+
+Let \(P_t\) be the TY last print in the completed 1-minute bar.
+The local anchor is the print ten minutes earlier:
+
+\begin{equation}
+  A_t = P_{t-10},
+  \qquad
+  y^{\mathrm{B1}}_t = P_t - A_t.
+\end{equation}
+
+The first ten bars of a session have no anchor and produce no
+prediction.  There is no lookahead: \(A_t\) is a shift of \(P\).
+
+\begin{equation}
+  \widehat{\Delta}_t = \mathrm{RidgeCV}(X^{\mathrm{B1}}_t,\, y^{\mathrm{B1}}),
+  \qquad
+  \mathrm{FV}_t = A_t + \widehat{\Delta}_t,
+  \qquad
+  e_t = P_t - \mathrm{FV}_t.
+\end{equation}
+
+Positive \(e_t\): last print is rich versus the 10-minute nowcast.
+Negative \(e_t\): cheap.  The paper lean still fades \(e_t\).
+
+RidgeCV uses the same live V2 alphas and cleanliness filter as
+V2.2.  Fit is once per UTC date on the historical matrix after the
+local columns are added.  The live buffer is not the training set.
+
+B1 is the short pack.  It is not the session V2 feature list.
+\code{agg_30m} and \code{minutes_since_open} are excluded.
+\code{minutes_since_anchor} is the constant 10 once the anchor
+exists.  \code{agg_cum_10m} is the 10-minute sum of
+\code{agg_1m}.  \code{realized_vol_5} is the 5-minute std.\ of
+1-minute price changes.  \code{mom_5m} is safe at \(W=10\).
+
+\begin{center}
+\begin{tabular}{@{}llp{0.48\textwidth}@{}}
+\toprule
+Column & Kind & Role \\
+\midrule
+\code{agg_cum_10m} & flow & 10-minute sum of curve \code{agg_1m} \\
+\code{agg_1m}, \code{agg_5m} & flow & Signed DV01 flow, 1- and 5-minute \\
+\code{FV_agg_5m}, \code{TU_agg_5m}, \code{US_agg_5m} & curve & Wing 5-minute signed flow \\
+\code{buysell_ratio} & pressure & Smoothed buy vs sell imbalance \\
+\code{trade_intensity} & activity & Curve trade count per minute \\
+\code{avg_trade_size}, \code{large_trade_share} & size & Size mix; large \(\ge 100\) \\
+\code{realized_vol_5} & regime & 5-minute std.\ of 1-minute price changes \\
+\code{mom_5m} & regime & \(P_t-P_{t-5}\) (safe at \(W=10\)) \\
+\code{spread_mean} & book & Mean bid--ask at trade \\
+\code{size_imbalance_mean} & book & \((\mathrm{bid}-\mathrm{ask})/(\mathrm{bid}+\mathrm{ask})\) \\
+\code{displayed_depth_mean} & book & \(\mathrm{bid\_size}+\mathrm{ask\_size}\) \\
+\code{trade_size_vs_depth} & book & Print size over displayed depth \\
+\code{depth_adjusted_signed_flow} & book & Signed flow over displayed depth \\
+\code{minutes_since_anchor} & clock & Constant 10 once the anchor exists \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Local \(z\) uses the same \code{prior_blend_v1} formula as V2.2,
+on the \emph{local} residual.  Local residuals are typically
+sub-tick to about one tick.  A large \(z\) can therefore be a
+small economic gap.  Treat \(z\) as a stability score, not a
+dollar dislocation.
+
+The live banner WATCH / DISLOCATION thresholds are the same
+numbers (\(1.5\) / \(2.0\)) applied to local \(z\).  They are
+labels.  They do not open a paper trade by themselves.
+
+
+\section{V2.7: conviction entry and exit}
+
+Local \(\abs{z}\ge 1.5\) is necessary and not sufficient.  Let
+\(e^{\mathrm{sess}}_t\) be live V2's session residual on the same
+minute, and \(\tau_t = e^{\mathrm{sess}}_t / (1/64)\) its tick
+value.  A new episode opens only when all of the following hold
+and no episode is already open:
+
+\begin{enumerate}
+    \item Session residual is present (else \code{SESSION_UNAVAILABLE}).
+    \item \(2 \le \abs{\tau_t} \le 6\)
+    (else \code{NOWCAST_ONLY} if too small, \code{REGIME_TAIL} if too large).
+    \item \(\mathrm{sign}(e_t)=\mathrm{sign}(e^{\mathrm{sess}}_t)\)
+    and neither is zero (else \code{DISAGREE}).
+    \item That session sign is not the same as the last finalized
+    episode's exit session-sign in the current 18:00~ET Globex
+    session (else \code{SAME_SIGN_OPEN}).
+\end{enumerate}
+
+The live strip then shows
+\code{FLAT --- SKIP <reason>}
+when \(z\) is hot but gated, or the wait text
+``FLAT --- wait for \(\abs{z}\ge 1.5\), session 2--6 ticks, same sign,
+new session-sign after exit.''
+
+This gate is an alert-rate filter from the 2026-09-02 correction
+tape.  It is not an after-cost PASS.  C1 (\(\abs{\tau}\ge 2\)) was
+persistence on that tape, not expectancy.
+
+Once open:
+
+\begin{itemize}
+    \item \textbf{EXIT Z-RESET.}
+    After five minutes, the fade side dies:
+    short exits at \(z\le 0.5\), long at \(z\ge -0.5\).
+    \item \textbf{EXIT FLIP.}
+    Opposite \(\abs{z}\ge 1\), even during the five-minute min-hold.
+    Short flips at \(z\le -1\); long flips at \(z\ge +1\).
+    \item \textbf{10M MARK.}
+    Ten minutes after entry is scored (5-minute and 10-minute path
+    marks) and drawn on the chart.  The trade stays open.  A
+    \(z\)-reset or flip still closes it after the mark.
+\end{itemize}
+
+A closed trade frees the next entry, subject to the same-sign
+lockout for the rest of the 18:00 session.  The lockout is on
+session-residual sign, not on local \(z\).
+
+Each entry\(\rightarrow\)exit is one row.  Table \textbf{trade pnl}
+is last-print fade from the open last print to the exit last
+print.  \textbf{Trade adverse} is the worst fade-path mark between
+those two prints.
+
+The session-day banner sums \code{dir_pnl_trade_ticks} over
+finalized rows in the visible window.  Open trades count as
+issued/open and do not enter ticks until they close.  Win / lose /
+flat split those closed tick values at zero.
+
+Globex session open is the most recent 18:00~ET at or before now.
+Same-sign re-entry always uses that full session.  The banner and
+Today's table use a one-session cutover: for the Globex day that
+contains 2026-09-02 12:07~ET, visible stats start there
+(conviction-gate restart).  After the next 18:00~ET open they use
+the full trading day again.
+
+LIFO FRIENDLY on V2.7 is the same H5 inequality as
+Section~\ref{sec:lifo}, evaluated on V2.7's local \(z\) and the
+same trade-intensity series.  It is still not confluence with an
+open SHORT/LONG.
+
+
+\section{What changed, side by side}
+
+\begin{center}
+\begin{tabular}{@{}p{0.22\textwidth}p{0.24\textwidth}p{0.24\textwidth}p{0.22\textwidth}@{}}
+\toprule
+ & V1 (5050) & V2.2 (5058) & V2.7 (5063) \\
+\midrule
+Question & Is the session move in the prints? & Is the session level rich/cheap vs a multi-feature line? & Did the last 10 minutes of TY match the last 10 minutes of prints? \\
+Fair value & OLS of \(P\) (or session \(\Delta P\)) on TotalAggress & Session Ridge of \(P-P_{\mathrm{open}}\) & B1\_W10 local nowcast \\
+Residual use & Banner contribution \(\Delta e\) & Paper fade on session \(z\) & Paper fade on local \(z\), gated by session ticks \\
+Enter & none & \(\abs{z}\ge 1.5\) & Local \(\abs{z}\ge 1.5\) plus session 2--6 ticks, same sign, new session-sign \\
+Exit & none & \(\abs{z}<1\) or 30m expire & Fade-side through 0.5 after 5m, or flip at opposite \(\abs{z}\ge 1\) \\
+10 minutes & n/a & n/a as local mark & Score/display only; not a flatten \\
+Paper horizons & none & 15m / 30m & 5m / 10m marks + entry-to-exit \\
+LIFO FRIENDLY & not on V1 live & Yes, on session \(z\) & Same rule, on local \(z\) \\
+Dominance banner & Yes & No & No (may stamp V1 state into a side log) \\
+Session residual source & Own panel-4 OLS & Own session Ridge & Read-only join of live V2 logs \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+
+\section{How to read the two pages}
+
+These are reading habits, not validated states.  Neither banner
+becomes a long or short.
+
+\subsection{V2.2: quiet session leftover}
+
+Live state is NONE, \(\abs{z}<1.5\), dashed session line hugs
+price.  V1's question (is the move in the prints?) can still be
+answered on port 5050.  V2.2 has nothing sparse to fade.
+
+\subsection{V2.2: WATCH / DISLOCATION}
+
+Price is away from the session Ridge.  Ask the two scoreboards
+separately.  If Hold Expectations show price share near 0, the
+gap is closing because the line is moving.  That is V1's
+``unexplained extension'' habit in reverse: the model is catching
+the print, not the print reverting.
+
+\subsection{V2.2: LIFO without a fade}
+
+LIFO FRIENDLY can print at \(\abs{z}\ge 1\) while the fade clock
+is still NONE (\(\abs{z}<1.5\)).  That is intended.  H5 is a range
+environment at a lower threshold.  It is not permission to fade.
+
+\subsection{V2.7: flow-explained stretch}
+
+Last print and the 10-minute nowcast travel together.  The burst
+is in the recent prints.  The useful read is to stop inventing a
+fade.  V1 may still be naming a session-scale winner; this page
+is only about the last ten minutes.
+
+\subsection{V2.7: unexplained local stretch}
+
+Price ran over the last ten minutes while the nowcast did not.
+Something other than the recent curve prints is carrying TY.  If
+the dashed line later catches the print, that is an impulse
+rewrite, not a successful fade.
+
+\subsection{V2.7: nowcast-only heat}
+
+Local \(\abs{z}\ge 1.5\) but the strip says \code{SKIP NOWCAST_ONLY}.
+The 10-minute model is extended; V2's session residual is under 2
+ticks.  The 2026-09-02 tape was mostly this case.  Treat it as
+nowcast chatter, not a session dislocation.
+
+\subsection{V2.7: gated disagreement}
+
+Local and session signs differ (\code{DISAGREE}), or session ticks
+exceed 6 (\code{REGIME_TAIL}), or the last exit still owns this
+session sign (\code{SAME_SIGN_OPEN}).  The page is working.  It is
+refusing a second look at the same session residual.
+
+\subsection{V2.7: open paper clock}
+
+ENTRY names SHORT or LONG at the open last print.  That strip is
+the diagnostic scoreboard, not the goal.  If the closed row's
+price share is near 0, the leftover died because the nowcast
+moved --- the usual outcome.  Do not read ENTRY as a trade.
+
+\subsection{V2.7: 10-minute mark still open}
+
+The chart can show 10M MARK while NOW says the trade is still
+holding.  That is intended.  Score the 5m/10m columns; do not
+invent a flatten.
+
+\subsection{V2.7: LIFO on an open fade}
+
+LIFO FRIENDLY during an open SHORT/LONG is not confluence.  H5 is
+non-directional range lean.  The fade clock is directional paper.
+They share a \(z\) threshold family and nothing else.
+
+\subsection{Both pages versus V1}
+
+If V1 is AGGRESS DOMINANT and V2.2/V2.7 \(z\) is small, the move
+is in the prints and the leftover pages have little to say.  If
+V1 is IMPLIED PASSIVE DOMINANT and V2.7 is SKIP NOWCAST\_ONLY, the
+session leftover is still small in ticks: V1 is naming a
+contribution winner, not a 2-tick dislocation.  If V1 is QUIET and
+V2.7 opens a fade, trust the gate: session residual is 2--6 ticks
+even if V1's 15-row \(z_A,z_P\) are both under 0.5.  The two
+\(z\) families are different objects.
+
+\subsection{Holdout pane versus live pane}
+
+On both pages the model/date charts are historical walk-forward
+drawings.  They are not today's Ridge, not the conviction gate,
+and not today's tape.  Use them to remember why the construction
+exists.
+
+
+\section{What this is not}
+
+\begin{itemize}
+    \item Not an after-cost PASS, and not a reopen of the
+    2026-07-09 forward-return FAIL.
+    \item Not a swap of live V2 or V2.2 session fair value.
+    \item Not executable long/short, SOD, Tailscale-as-broker, or
+    Telegram.
+    \item Not V1's dominance banner, not V2.3 move-exhaustion, not
+    V2.6 C018 fade, not V3 flow-effort EXHAUSTION.
+    \item Not MBP-1 event time.  Clocks are 1-minute last-print
+    bars.
+    \item Not authorization to retune thresholds from live
+    dashboard rates.
+    \item Not a claim that LIFO FRIENDLY survived FINAL CI.
+\end{itemize}
+
+Existing V2.2 and V2.7 processes require an explicit manual
+restart for file changes to appear.
+
+
+\section{Parameter register}
+
+\subsection{Shared / inherited from V1}
+
+\begin{longtable}{@{}p{0.34\linewidth}p{0.20\linewidth}p{0.38\linewidth}@{}}
+\toprule
+Name & Value & Role \\
+\midrule
+\endfirsthead
+\toprule
+Name & Value & Role \\
+\midrule
+\endhead
+Price & TY & Residual contract. \\
+Aggression symbols & FV, TU, TY, US & Flow contributors. \\
+Bucket & 1 minute & All series. \\
+DV01 FV/TU/TY/US & 42 / 36 / 85 / 125 & Dollars per bp. \\
+BuySell EMA span & 10 & Same as V1. \\
+Aggressor map & V1 \(B=+1\), \(A=-1\) & No quote-rule fallback. \\
+Trade price filter & \((80,150)\) & Plus TBBO book sanity. \\
+Live buffer & 18 hours & AccessAPI memory. \\
+Backup stale / recover & 30s / 60s & Databento failover. \\
+Tick size & \(1/64\) & Paper ticks. \\
+Ridge alphas & \(0.01,0.1,1,10,100\) & RidgeCV. \\
+Cleanliness & 500 rows/day, target std.\ \((0.01,1)\) & Training dates. \\
+\(z\) method & \code{prior_blend_v1} & Both pages. \\
+Prior observations & 60 & Blend weight. \\
+Min points for live \(z\) & 30 & Else historical moments. \\
+Evaluator period & 20\,s & Signal log. \\
+Browser poll & 3\,s & Live API. \\
+\bottomrule
+\end{longtable}
+
+\subsection{V2.2 only}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Name & Value & Role \\
+\midrule
+Fair value & session Ridge & \(P_{\mathrm{open}}+\mathrm{Ridge}(X)\) \\
+\code{WATCH_Z} & 1.5 & Enter / WATCH \\
+\code{DISLOCATION_Z} & 2.0 & Label; research sparse flag \\
+\code{RESET_Z} & 1.0 & Resolved if \(\abs{z}\) falls through \\
+\code{HORIZON_MINUTES} & 30 & Expire / finalize \\
+\code{SCORE_HORIZONS} & (15, 30) & Path marks \\
+LIFO \(\abs{z}\) & 1.0 & Display overlay \\
+LIFO intensity & session expanding \(p_{33}\), min.\ 20 & Display overlay \\
+LIFO forward score & 30 minutes & RANGE / TREND / ambiguous \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{V2.7 only}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Name & Value & Role \\
+\midrule
+\code{ANCHOR_MIN} & 10 & Local FV \\
+\code{WATCH_Z} & 1.5 & Enter / WATCH \\
+\code{DISLOCATION_Z} & 2.0 & Label only \\
+\code{RESET_Z} & 0.5 & Fade-side exit after min-hold \\
+\code{FLIP_Z} & 1.0 & Opposite-side exit, any time \\
+\code{MIN_HOLD_MINUTES} & 5 & Z-RESET arming \\
+\code{HORIZON_MINUTES} & 10 & Score/display mark \\
+\code{SCORE_HORIZONS} & (5, 10) & Path marks \\
+\code{SESSION_MIN_TICKS} & 2 & Conviction floor \\
+\code{SESSION_MAX_TICKS} & 6 & Conviction cap \\
+\code{SESSION_OPEN_HOUR_ET} & 18 & Globex day / same-sign lockout \\
+\code{STATS_CUTOVER_ET} & 2026-09-02 12:07 ET & One-session banner/table \\
+LIFO & same H5 numbers, local \(z\) & Display overlay \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+
+\section{Files}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Path & Role \\
+\midrule
+\code{scripts/aggression_dashboard_v22/} & V2.2 app, clock, LIFO, buffer \\
+\code{scripts/aggression_dashboard_v27/} & V2.7 app, B1\_W10, conviction clock \\
+\code{scripts/aggression_dashboard_v2/features.py} & Shared live feature builder (read-only) \\
+\code{docs/aggression_v1_v22_research_program.tex} & V1 companion note \\
+\code{docs/aggression_v22_lifo.md} & Short V2.2 isolation card \\
+\code{docs/aggression_v27_local_fv.md} & Short V2.7 isolation card \\
+\code{docs/aggression_v27_monitor.tex} & V2.7-only live-page note \\
+\code{docs/aggression_v2_model_explainer.md} & V2 research explainer \\
+\code{docs/aggression_v1_dispersion_foundations_experiments.md} & H5 provenance \\
+\code{docs/aggression_v2_short_horizon_fv_experiments.md} & Track A/B/C \\
+\code{docs/aggression_v2_alert_clock_experiments.md} & Clock grid \\
+\code{tests/test_v22_lifo.py} & V2.2 isolation tests \\
+\code{tests/test_v27_local_fv.py} & V2.7 isolation and clock tests \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}

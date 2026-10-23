@@ -1,0 +1,18 @@
+# base.yaml — Move Exhaustion Phase 1 freeze
+package: move_exhaustion
+version: "0.1.0"
+random_seed: 42
+decision_grid: "1min"  # Phase 1; 5s rebuild deferred
+session_convention: legacy_v2_01_et
+day_open_rule: first_ty_price_in_session
+primary_symbol: TY
+symbols: [TY, FV, TU, US]
+v2_model: ridge
+outputs_root: workspace/analysis/aggression_v2_move_exhaustion
+isolation:
+  dashboards_untouched: true
+  live_stores_forbidden: true
+  sod_telegram_forbidden: true
+holdout:
+  unlocked: false
+  note: Do not inspect final holdout until Phase 5 freeze.

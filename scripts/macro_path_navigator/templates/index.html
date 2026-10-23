@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Macro Path Navigator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v={{ asset_version }}">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Macro Path Navigator</h1>
+        <p>Live TY runway through the inter-FOMC cycle. Attribution is provisional unless marked confirmed.</p>
+      </div>
+      <div id="overall-status" class="status-pill">Loading</div>
+    </section>
+
+    <section id="health-strip" class="health-strip"></section>
+
+    <section class="panel signal-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Signals & Watches</h2>
+          <p id="signals-meta" class="small-note">Loading headline/event signals...</p>
+        </div>
+        <span id="flow-context" class="badge">flow n/a</span>
+      </div>
+      <div id="signals-list" class="signals-list"></div>
+    </section>
+
+    <section class="annotation-controls panel">
+      <div class="annotation-toggle-row">
+        <label><input id="toggle-events" type="checkbox" checked> Events</label>
+        <label><input id="toggle-headlines" type="checkbox" checked> Headlines</label>
+        <label>Theme
+          <select id="theme-filter">
+            <option value="all">All</option>
+            <option value="inflation">Inflation</option>
+            <option value="labor">Labor</option>
+            <option value="growth">Growth</option>
+            <option value="other">Other / geopolitics</option>
+          </select>
+        </label>
+        <span class="small-note">Markers live in the rail below each chart. Hover for detail; click a marker to pin details here.</span>
+      </div>
+      <div id="annotation-detail" class="annotation-detail small-note">No marker selected.</div>
+    </section>
+
+    <section class="panel distribution-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Event Distribution</h2>
+          <p id="distribution-note" class="small-note">Projected event move distributions load from historical TY reactions. Bands are centered on current live price and ignore pre-event drift.</p>
+        </div>
+        <div class="distribution-controls">
+          <label>Event <select id="distribution-event"></select></label>
+          <label>Window
+            <select id="distribution-window">
+              <option value="2h" selected>Release +2h</option>
+              <option value="eod">Release to EOD</option>
+            </select>
+          </label>
+          <label>Scenario
+            <select id="distribution-scenario">
+              <option value="baseline" selected>Baseline</option>
+              <option value="hot">Hot</option>
+              <option value="inline">Inline</option>
+              <option value="cool">Cool</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div id="distribution-summary" class="distribution-summary"></div>
+      <div id="distribution-chart" class="chart distribution-chart"></div>
+    </section>
+
+    <section class="runway-grid">
+      <div class="panel wide">
+        <div class="panel-header">
+          <h2>Runway</h2>
+          <span id="cycle-label"></span>
+        </div>
+        <div id="runway-chart" class="chart"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Next Events</h2>
+        <div id="events-list"></div>
+      </div>
+    </section>
+
+    <section class="panel historical-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Historical TY Candlesticks</h2>
+          <p id="history-coverage" class="small-note">Loading coverage...</p>
+        </div>
+        <label class="inline-control">
+          Window
+          <select id="history-window">
+            <option value="1D">1D</option>
+            <option value="5D">5D</option>
+            <option value="1M" selected>1M</option>
+            <option value="3M">3M</option>
+            <option value="6M">6M</option>
+            <option value="1Y">1Y</option>
+            <option value="All">All</option>
+          </select>
+        </label>
+      </div>
+      <div id="history-chart" class="chart history-chart"></div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Add Ad-hoc Event</h2>
+        <form id="adhoc-form">
+          <label>Name <input name="name" placeholder="US-Iran meeting"></label>
+          <label>Datetime <input name="ts" type="datetime-local"></label>
+          <label>Type
+            <select name="type">
+              <option value="geopolitical">geopolitical</option>
+              <option value="speaker">speaker</option>
+              <option value="data">data</option>
+              <option value="other">other</option>
+            </select>
+          </label>
+          <label>Theme <input name="theme" placeholder="geopolitics"></label>
+          <label>Prior Direction <input name="prior_direction" placeholder="yields_up / yields_down / unknown"></label>
+          <label>Prior Magnitude bps <input name="prior_magnitude_bps" type="number" step="0.1"></label>
+          <button type="submit">Add Event</button>
+        </form>
+        <p id="adhoc-result" class="small-note"></p>
+      </div>
+
+      <div class="panel">
+        <h2>Factor Weights</h2>
+        <div class="factor-row"><span>Inflation</span><input id="w-inflation" type="range" min="0" max="100" value="34"><b id="w-inflation-v">34</b></div>
+        <div class="factor-row"><span>Labor</span><input id="w-labor" type="range" min="0" max="100" value="33"><b id="w-labor-v">33</b></div>
+        <div class="factor-row"><span>Growth</span><input id="w-growth" type="range" min="0" max="100" value="33"><b id="w-growth-v">33</b></div>
+        <div class="factor-row"><span>Data blend alpha</span><input id="w-alpha" type="range" min="0" max="100" value="100"><b id="w-alpha-v">100</b></div>
+        <p id="assumption-badge" class="badge hidden">Includes user assumptions</p>
+      </div>
+
+      <div class="panel">
+        <h2>Live Headlines</h2>
+        <div id="headline-feed"></div>
+      </div>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+schema_version: 1
+experiment_id: E002
+base_spec_hash: 466f3b12ac904b36435ba3e090934b8541f5a9856674235b4517b8af8e6586ce
+kind: predictive
+candidate:
+  response: price - day_open_price
+  predictors: [agg_cum_daily, TY_agg_5m, buysell_ratio, size_imbalance_mean, microprice_dev_mean, realized_vol, mom_5m, trade_intensity, spread_mean, minutes_since_open]
+  intercept: true
+  imputation: discovery_median
+  scaling: discovery_mean_std_unit_for_constant
+  inner_fold_rule: expanding_calendar_months_min_two_train_one_score
+  ridge_lambdas: [0.1, 1.0, 10.0]
+  ridge_metric: stationary_price_delta_mse
+  outputs: [formation_gap, price_led_score, absolute_gap, gap_age, recent_price_momentum]
+evaluator:
+  baseline_features: [absolute_gap, gap_age, recent_price_momentum, realized_vol, trade_intensity, spread_mean, session_sin, session_cos, event_blackout, roll_flag]
+  augmented_features: [price_led_score]
+  imputation: discovery_median
+  scaling: discovery_mean_std_unit_for_constant
+  logit_l2: 0.000001
+selection:
+  outer_folds:
+    - {train_end: "2024-12-31", score_start: "2025-01-01", score_end: "2025-02-28"}
+    - {train_end: "2025-02-28", score_start: "2025-03-01", score_end: "2025-04-30"}
+    - {train_end: "2025-04-30", score_start: "2025-05-01", score_end: "2025-06-30"}
+    - {train_end: "2025-06-30", score_start: "2025-07-01", score_end: "2025-08-31"}
+  embargo_minutes: 30
+  nested_order: ridge_lambda_inner_then_formation_lookback_outer
+  positive_folds_required: 3
+  ranking: pooled_equal_date_brier_improvement_desc
+  lookback_tie_break: [15, 5, 30]
+outcome:
+  horizon_minutes: 30
+  convergence_fraction: 0.5
+  adverse_fraction: 1.0
+  entry_gap_ticks: 2
+  large_gap_ticks: 4
+  tick_size: 0.015625
+  boundary: equality_crosses_close_only
+  anchor_spacing_minutes: 30
+  minimum_future_coverage: 0.8
+  endpoint_tolerance_minutes: 2

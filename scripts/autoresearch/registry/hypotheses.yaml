@@ -1,0 +1,51 @@
+schema_version: 1
+hypotheses:
+  - hypothesis_id: H001
+    family: FAM_DOMINANCE_MAP
+    title: Dominance proxy descriptive map
+    status: exploratory
+    statement: Causal dominance proxies may vary descriptively by session and volatility state.
+    mechanism: Flow composition and liquidity conditions can vary across market contexts.
+    observable_proxy: Registered causal dominance features crossed with frozen context buckets.
+    primary_claim: Discovery-only descriptive map; adaptive cells are non-evidentiary.
+    required_data: [causal_flow_features, session, causal_volatility]
+    confounders: [time_of_day, event_proximity, recent_price_path]
+    prior_work: [aggress_passive_dominance_no_pass, dominance_parameter_sweep_no_pass]
+    notes: May propose at most two preregistered child hypotheses for untouched cohorts.
+  - hypothesis_id: H002
+    family: FAM_RESIDUAL_OSCILLATION
+    title: Residual sign-flip and oscillation dynamics
+    status: proposed
+    statement: Frozen causal residual oscillation may incrementally predict a future path class.
+    mechanism: Repeated failed displacement may identify unresolved two-sided price discovery.
+    observable_proxy: Deadbanded sign changes with frozen dwell and lookback definitions.
+    primary_claim: A future experiment must register exactly one contrast and outcome.
+    required_data: [causal_residual, causal_price_features]
+    confounders: [residual_magnitude, residual_age, volatility, session, events]
+    prior_work: [flow_price_dispersion_provisional_stop]
+    notes: No experiment is registered; no-flip and one-flip handling remain to be specified.
+  - hypothesis_id: H003
+    family: FAM_FV_CONVERGENCE
+    title: Price convergence toward frozen fair value
+    status: proposed
+    statement: A causal feature may improve prediction of price convergence toward fair value frozen at formation.
+    mechanism: A formation-time valuation gap may resolve through subsequent price movement.
+    observable_proxy: Price movement toward a formation-time fair-value snapshot.
+    primary_claim: Fair-value movement toward price is excluded from the target.
+    required_data: [formation_fair_value, causal_price_features, evaluator_price_path]
+    confounders: [session, volatility, event_proximity, residual_magnitude, residual_age]
+    prior_work: [v2_convergence_fragile_price_led_fade]
+    notes: Baseline and exact future estimand require future preregistration.
+  - hypothesis_id: H004
+    family: FAM_OPTIONS_CONTEXT
+    title: Options volatility and skew context
+    status: blocked
+    statement: New option-active dates might eventually support a context interaction study.
+    mechanism: Options repricing may identify a state relevant to futures path resolution.
+    observable_proxy: Matched-leg causal option metrics from genuinely new dates.
+    primary_claim: Blocked pending new independent data and a power audit.
+    required_data: [new_option_active_dates, causal_option_metrics, causal_futures_features]
+    confounders: [price_led_shocks, event_proximity, liquidity, session]
+    prior_work: [options_context_no_pass, skew_price_no_pass, skew_leg_no_pass, option_flow_no_pass]
+    notes: Prior dates are not untouched evidence; no arbitrary minimum-date rule is used.
+

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aggression V2.6 Research</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}?v={{ asset_version }}">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Aggression V2.6 Research Dashboard</h1>
+        <p>Isolated V2.2 copy with LIFO FRIENDLY, reduced C018 fade context, and human grading.</p>
+        <strong class="provisional-label">PROVISIONAL / RESEARCH-ONLY / NON-EXECUTABLE</strong>
+      </div>
+      <div id="status">Loading...</div>
+    </section>
+
+    <section id="lifo-alert" class="signal-alert lifo-alert hidden" role="status" aria-live="polite">
+      <strong>LIFO FRIENDLY</strong>
+    </section>
+    <section id="c018-alert" class="signal-alert c018-alert hidden" role="status" aria-live="polite">
+      <div>
+        <strong>C018 FADE LEAN: <span id="c018-fade-lean">n/a</span></strong>
+        <p>PROVISIONAL / C018-FADE-LEAN / NOT OFFLINE C018 / NON-EXECUTABLE</p>
+      </div>
+      <div id="c018-event-detail"></div>
+    </section>
+
+    <section class="controls">
+      <label>
+        Model
+        <select id="model-select"></select>
+      </label>
+      <label>
+        Date
+        <select id="date-select"></select>
+      </label>
+      <button id="refresh-btn">Refresh</button>
+    </section>
+
+    <section id="live-banner" class="live-banner none">
+      <div>
+        <strong id="live-state">LIVE SIGNAL</strong>
+        <p id="live-message">Waiting for live signal...</p>
+      </div>
+      <div class="live-side">
+        <div id="live-price">Price: n/a</div>
+        <div id="live-feed-status"></div>
+      </div>
+    </section>
+
+    <section class="cards stats-cards">
+      <div class="card">
+        <h3>Alerts Issued</h3>
+        <p id="alert-issued">WATCH 0 | DISLOCATION 0</p>
+      </div>
+      <div class="card">
+        <h3>WATCH Stats</h3>
+        <p id="watch-stats">0 issued | 0.0% resolved</p>
+      </div>
+      <div class="card">
+        <h3>DISLOCATION Stats</h3>
+        <p id="dislocation-stats">0 issued | 0.0% resolved</p>
+      </div>
+      <div class="card">
+        <h3>Hold Expectations</h3>
+        <p id="hold-expectations">Median resolve n/a | adverse n/a ticks | price share n/a</p>
+      </div>
+      <div class="card">
+        <h3>LIFO FRIENDLY</h3>
+        <p id="lifo-state">NORMAL</p>
+        <p id="lifo-stats" class="small-note">finalized 0 | RANGE n/a | TREND n/a | amb n/a | active 0</p>
+      </div>
+      <div class="card">
+        <h3>C018 Reduced Heuristic</h3>
+        <p id="c018-state">WARMING UP</p>
+        <p id="c018-stats" class="small-note">30-bar prior range | T3 ≥ 10.5 ticks</p>
+      </div>
+    </section>
+
+    <section class="panel feedback-panel">
+      <div class="table-header">
+        <div>
+          <h2>Today’s Human Feedback (ET)</h2>
+          <p id="feedback-date" class="small-note">Right = human grade only.</p>
+        </div>
+        <div id="feedback-status" role="status" aria-live="polite"></div>
+      </div>
+      <div class="feedback-cards">
+        <div class="feedback-card">
+          <h3>LIFO FRIENDLY</h3>
+          <div id="lifo-feedback-stats" class="feedback-metrics"></div>
+        </div>
+        <div class="feedback-card">
+          <h3>C018 Fade Lean</h3>
+          <div id="c018-feedback-stats" class="feedback-metrics"></div>
+        </div>
+      </div>
+      <h3>Today’s Alert Grades</h3>
+      <p class="small-note">Use Grade to add or replace a judgment. Every submission remains in feedback.jsonl; the latest grade is shown.</p>
+      <div id="feedback-table"></div>
+    </section>
+
+    <section class="grid live-grid">
+      <div class="panel"><div id="live-fair-value-chart" class="chart"></div></div>
+      <div class="panel"><div id="live-residual-chart" class="chart"></div></div>
+    </section>
+
+    <section class="panel table-panel outcomes-panel">
+      <div class="table-header">
+        <h3>Live V2 Alert Outcomes</h3>
+        <div>
+          <select id="alert-scope">
+            <option value="today" selected>Today</option>
+            <option value="all">All</option>
+          </select>
+          <span class="small-note">workspace/analysis/aggression_v26_live/</span>
+        </div>
+      </div>
+      <div id="alert-log-stats" class="small-note"></div>
+      <div id="alert-log-table"></div>
+    </section>
+
+    <section class="cards">
+      <div class="card">
+        <h3>Latest Readout</h3>
+        <p id="readout"></p>
+      </div>
+      <div class="card">
+        <h3>Best Historical V2 Rule</h3>
+        <p id="best-rule"></p>
+      </div>
+      <div class="card">
+        <h3>Research Constraint</h3>
+        <p>C018 is a reduced 1-minute heuristic, not offline C018. Human grades are observational and do not validate or authorize execution.</p>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel"><div id="fair-value-chart" class="chart"></div></div>
+      <div class="panel"><div id="residual-chart" class="chart"></div></div>
+      <div class="panel"><div id="metrics-chart" class="chart"></div></div>
+      <div class="panel"><div id="drivers-chart" class="chart"></div></div>
+      <div class="panel table-panel">
+        <h3>Holdout Rules</h3>
+        <div id="holdout-table"></div>
+      </div>
+      <div class="panel table-panel">
+        <h3>Conditional Rule Search</h3>
+        <div id="conditional-table"></div>
+      </div>
+    </section>
+
+    <section class="explainer">
+      <h2>How To Read The Base V2 Panel</h2>
+      <pre id="explainer-text"></pre>
+    </section>
+  </main>
+
+  <dialog id="grade-dialog" aria-labelledby="grade-title">
+    <form method="dialog" id="grade-form">
+      <h2 id="grade-title">Was this alert correct?</h2>
+      <p id="grade-episode-summary"></p>
+      <p class="small-note">Yes/No sets the human grade. Skip leaves it pending. You can re-grade from the table.</p>
+      <label>
+        Optional note
+        <textarea id="grade-note" maxlength="500" rows="3"></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="grade-yes" data-correct="true">Yes</button>
+        <button type="button" class="grade-no" data-correct="false">No</button>
+        <button type="button" class="grade-skip" data-correct="null">Skip</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="{{ url_for('static', filename='dashboard.js') }}?v={{ asset_version }}"></script>
+</body>
+</html>

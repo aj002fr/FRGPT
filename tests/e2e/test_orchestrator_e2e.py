@@ -15,11 +15,9 @@ class TestOrchestratorAgent:
         agent = OrchestratorAgent()
         
         assert agent.workspace.exists()
-        assert agent.taskmaster is not None
-        assert agent.task_mapper is not None
-        assert agent.code_generator is not None
-        assert agent.consolidator is not None
-        assert agent.validator is not None
+        assert agent.planner1 is not None
+        assert agent.coder is not None
+        assert agent.manifest is not None
     
     def test_workspace_structure(self, clean_workspace):
         """Test workspace directory structure is created."""
@@ -143,128 +141,15 @@ class TestTaskMapping:
         assert 'template' in params
 
 
-class TestCodeGeneration:
-    """Test dynamic code generation."""
+class TestCoder:
+    """Test script generation with the new Coder."""
     
-    def test_code_generator_initialization(self):
-        """Test code generator can be initialized."""
-        from src.agents.orchestrator_agent.code_generator import CodeGenerator
+    def test_coder_initialization(self):
+        """Test coder can be initialized."""
+        from src.agents.orchestrator_agent.coder import Coder
         
-        generator = CodeGenerator()
-        assert generator is not None
-    
-    def test_simple_script_generation(self):
-        """Test generating a simple script."""
-        from src.agents.orchestrator_agent.code_generator import CodeGenerator
-        
-        generator = CodeGenerator()
-        
-        mapped_tasks = [
-            {
-                "id": 1,
-                "description": "Search polymarket",
-                "mapped_agent": "polymarket_agent",
-                "agent_params": {"query": "Bitcoin", "limit": 5},
-                "mappable": True,
-                "dependencies": []
-            }
-        ]
-        
-        execution_order = [[1]]
-        
-        script = generator.generate_script(mapped_tasks, execution_order)
-        
-        assert "import asyncio" in script
-        assert "async def task_1" in script
-        assert "async def main" in script
-        assert "PolymarketAgent" in script
-    
-    def test_parallel_script_generation(self):
-        """Test generating script with parallel tasks."""
-        from src.agents.orchestrator_agent.code_generator import CodeGenerator
-        
-        generator = CodeGenerator()
-        
-        mapped_tasks = [
-            {
-                "id": 1,
-                "description": "Search polymarket",
-                "mapped_agent": "polymarket_agent",
-                "agent_params": {"query": "Bitcoin"},
-                "mappable": True,
-                "dependencies": []
-            },
-            {
-                "id": 2,
-                "description": "Query market data",
-                "mapped_agent": "market_data_agent",
-                "agent_params": {"template": "all_valid"},
-                "mappable": True,
-                "dependencies": []
-            }
-        ]
-        
-        execution_order = [[1, 2]]  # Parallel
-        
-        script = generator.generate_script(mapped_tasks, execution_order)
-        
-        assert "async def task_1" in script
-        assert "async def task_2" in script
-        assert "asyncio.gather" in script
-
-
-class TestConsolidation:
-    """Test result consolidation."""
-    
-    def test_consolidator_initialization(self):
-        """Test consolidator can be initialized."""
-        from src.agents.orchestrator_agent.consolidator import ResultConsolidator
-        
-        consolidator = ResultConsolidator()
-        assert consolidator is not None
-    
-    def test_consolidate_successful_results(self):
-        """Test consolidating successful results."""
-        from src.agents.orchestrator_agent.consolidator import ResultConsolidator
-        
-        consolidator = ResultConsolidator()
-        
-        task_results = [
-            {
-                "status": "success",
-                "task_id": 1,
-                "agent": "polymarket_agent",
-                "data": {
-                    "data": [{
-                        "markets": [
-                            {"title": "Bitcoin $100k?", "prices": {"Yes": 0.65}}
-                        ]
-                    }]
-                }
-            }
-        ]
-        
-        task_plan = {"subtasks": [{"id": 1, "description": "Test"}]}
-        
-        result = consolidator.consolidate("Test query", task_results, task_plan)
-        
-        assert 'answer' in result
-        assert 'data' in result
-        assert 'metadata' in result
-        assert result['metadata']['successful_tasks'] == 1
-        assert result['metadata']['failed_tasks'] == 0
-
-
-class TestValidation:
-    """Test validation layer."""
-    
-    def test_validator_initialization(self):
-        """Test validator can be initialized."""
-        from src.agents.orchestrator_agent.validator import AnswerValidator
-        
-        validator = AnswerValidator()
-        assert validator is not None
-        assert validator.taskmaster is not None
+        coder = Coder()
+        assert coder is not None
 
 
 class TestFileOutput:

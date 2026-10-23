@@ -1,0 +1,58 @@
+schema_version: 2
+study_id: D001
+hypothesis_id: H001
+hypothesis_family: FAM_DOMINANCE_MAP
+status: frozen
+hashes:
+  data_hash: dd2cceb815a503836556ae19b555474518eb3c51a5bcee0107e85397a30d7949
+  split_hash: 76e613b172094a576325a660378edc9de2156a809a4e0be078404ba8ab49e932
+  exposure_hash: a88df9a6b01a8e0d7d6f065a1b7f041911dd8a996746d3c2bb617fa089f728fb
+  spec_hash: 4cab244b5ef07c9281dea843a753b3af2c5896b413f922923235cbfafb194f88
+  evaluator_hash: 6c8951141b042a3b49714838a8e729ea9c5bef126e03dff31c0d3991a7e6a812
+  candidate_code_hash: b5fbe9fd57f72b0234b8108db0e80ce4bc82c728203b6dde0487c79c032872f9
+  state_code_hash: b6d47cacd31b81ab8f2700b91a92ad91287c18a182ee519a397c835aa0c55362
+candidate:
+  allowed_inputs:
+    - formation_ts
+    - price
+    - buysell_ratio
+    - large_trade_share
+    - trade_intensity
+    - realized_vol
+    - minutes_since_open
+  registered_feature_map:
+    buysell_ratio: Causal signed-flow balance proxy, mapped separately.
+    large_trade_share: Causal large-print share proxy, mapped separately.
+    trade_intensity: Causal print-count proxy, mapped separately.
+    realized_vol_context: Discovery-only causal volatility context.
+design:
+  grids:
+    proxy: [buysell_ratio, large_trade_share, trade_intensity]
+    proxy_bucket: [LOW, MID, HIGH]
+    session: [ASIA, LONDON, RATES_RTH]
+    volatility_bucket: [LOW, MID, HIGH]
+    horizon_minutes: [15, 30, 60]
+  selection_rule: Produce 243 declared cells by mapping each proxy separately, never a full interaction among proxies. Use discovery-frozen p10/p90 buckets for buysell_ratio and discovery terciles for large_trade_share, trade_intensity, and realized volatility. Use non-overlapping anchors. LATE is aggregate diagnostic only.
+  cells:
+    DECLARED_243: Three separate proxies times three proxy buckets times three sessions times three volatility buckets times three horizons.
+    LATE_AGGREGATE_DIAGNOSTIC: Session time 15:01-16:59 ET, reported only in aggregate and never nomination-eligible.
+  cells_may_overlap: true
+outcome:
+  name: DESCRIPTIVE_PATH_MAP_NON_EVIDENTIARY
+  definition: For each cell report bounded-excursion share, resolved share, and path efficiency equal to absolute net move divided by the sum of absolute one-minute moves.
+  horizon_minutes: 30
+  censoring: Discovery dates only; non-overlapping date/session anchors with the common 80 percent future-minute and two-minute endpoint requirements.
+  boundary_policy: Horizons 15, 30, and 60 are separate declared descriptive cells; no validation, confirmation, p-value, or causal claim.
+diagnostics:
+  - Counts and independent dates for every one of 243 cells, including failures.
+  - Bounded-excursion share, resolved share, path efficiency, and chronological-half lifts.
+  - Event, session, roll, holiday, volatility, and exclusion concentration.
+  - LATE aggregate diagnostic with explicit thin-coverage warning.
+nomination_rule: Split discovery into two fixed chronological halves. A cell is nomination-eligible only with at least 25 dates and 50 anchors in each half, same-sign bounded-excursion lift of at least 8 percentage points in both halves, and no material session or event reversal. Rank by the smaller absolute half-lift, then simpler proxy and context. Add at most two proposed child hypotheses; all 243 cells remain in the audit table and no p-value is evidentiary.
+nomination_cap: 2
+attempt_cap: 5
+confirmation:
+  eligible: false
+  policy: Descriptive and discovery-only; it cannot open validation or confirmation. Any nominated child requires a new preregistered predictive experiment and untouched cohort.
+  prospective_only: true
+  approval_required: true

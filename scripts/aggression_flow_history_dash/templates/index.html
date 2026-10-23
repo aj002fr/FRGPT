@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>V1 Flow History</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dash.css') }}?v=17">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">V1 Flow History</div>
+    <div id="feed-status" class="feed">Checking feed…</div>
+    <div class="label">{{ status_label }}</div>
+  </header>
+
+  <main>
+    <section class="controls">
+      <label>Symbol
+        <select id="symbol">
+          {% for symbol in symbols %}
+          <option value="{{ symbol }}" {% if symbol == "TY" %}selected{% endif %}>{{ symbol }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Start
+        <input id="start" type="date">
+      </label>
+      <label>End
+        <input id="end" type="date">
+      </label>
+      <label>Event filter
+        <select id="family">
+          <option value="all" selected>All days</option>
+          <option value="auction">Auction / supply</option>
+          <option value="month_end">Month-end</option>
+          <option value="tier1">Tier-1</option>
+          <option value="nfp">NFP</option>
+          <option value="cpi">CPI</option>
+          <option value="fomc">FOMC</option>
+          <option value="mon">Monday</option>
+          <option value="tue">Tuesday</option>
+          <option value="wed">Wednesday</option>
+          <option value="thu">Thursday</option>
+          <option value="fri">Friday</option>
+        </select>
+      </label>
+      <label>Units
+        <select id="units">
+          <option value="contracts" selected>Contracts</option>
+          <option value="dv01">$DV01</option>
+        </select>
+      </label>
+      <button id="reload" type="button">Load</button>
+    </section>
+
+    <section class="dist-controls">
+      <div class="dist-head">
+        <strong>bps / $1mm DV01 distribution</strong>
+        <label class="inline">Mode
+          <select id="dist-mode">
+            <option value="separate" selected>Separate tags</option>
+            <option value="combined">Combined intersection</option>
+          </select>
+        </label>
+      </div>
+      <div class="tag-picks" id="dist-tags">
+        <label><input type="checkbox" value="all"> All days</label>
+        <label><input type="checkbox" value="auction" checked> Auction / supply</label>
+        <label><input type="checkbox" value="month_end" checked> Month-end</label>
+        <label><input type="checkbox" value="tier1" checked> Tier-1</label>
+        <label><input type="checkbox" value="Mon"> Mon</label>
+        <label><input type="checkbox" value="Tue"> Tue</label>
+        <label><input type="checkbox" value="Wed"> Wed</label>
+        <label><input type="checkbox" value="Thu"> Thu</label>
+        <label><input type="checkbox" value="Fri"> Fri</label>
+      </div>
+      <p class="legend">Daily signed bps / $1mm net DV01. Days with |net| under $250k are dropped. Separate = one series per checked tag. Combined = days that match every checked tag. Session day = Sun 18:00–Mon 17:00 ET is Monday; closed Fri 17:00–Sun 18:00.</p>
+    </section>
+
+    <section id="today" class="today">
+      <div class="today-head">
+        <strong id="today-title">Today</strong>
+        <span id="today-tags"></span>
+        <span class="today-note">Historical analog · not a forecast</span>
+      </div>
+      <p id="today-considered" class="legend"></p>
+      <p id="today-analog" class="legend"></p>
+      <div id="today-cards" class="cards"></div>
+    </section>
+
+    <p class="legend">Bid aggress = took the ask (buy). Ask aggress = hit the bid (sell). Store is 1-minute completed bars built from every trade print. Session days, not midnight ET dates.</p>
+    <p id="status" class="status"></p>
+
+    <section id="cards" class="cards"></section>
+    <section id="dist-cards" class="cards"></section>
+    <section id="dist-chart" class="chart"></section>
+    <section id="scatter-chart" class="chart"></section>
+    <section id="daily-chart" class="chart"></section>
+    <section id="intraday-chart" class="chart"></section>
+
+    <section class="table-wrap">
+      <table id="days">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>DOW</th>
+            <th>Bid</th>
+            <th>Ask</th>
+            <th>Net</th>
+            <th>Ticks</th>
+            <th>bps/$1mm</th>
+            <th>Tags</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+  <script src="{{ url_for('static', filename='dash.js') }}?v=18"></script>
+</body>
+</html>

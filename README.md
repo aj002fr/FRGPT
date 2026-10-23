@@ -62,6 +62,7 @@ python scripts/show_logs.py
 - **[Index](docs/INDEX.md)** - Central documentation hub
 - **[Architecture](docs/ARCHITECTURE.md)** - System design & patterns
 - **[API Reference](docs/API.md)** - Complete tool reference
+- **[Unified Dashboard Runbook](docs/unified_dashboard_runbook.md)** - Local live pre/post event dashboard with scheduled data refresh
 - **[Memory Bank](memory-bank/)** - Technical knowledge base
 - **[Changelog](CHANGELOG.md)** - Version history and changes
 
@@ -72,28 +73,31 @@ python scripts/show_logs.py
 ```
 market_data_puller/
 ├── src/
-│   ├── agents/          # AI agents (polymarket, market data, consumer)
-│   ├── servers/         # MCP tools (marketdata, polymarket)
+│   ├── agents/          # AI agents
+│   │   ├── orchestrator_agent/  # Multi-agent coordination (11 files)
+│   │   ├── market_data_agent/   # SQL query producer
+│   │   ├── polymarket_agent/    # Prediction market search
+│   │   ├── eventdata_puller_agent/  # Economic events
+│   │   ├── analytics_agent/     # Statistical analysis
+│   │   ├── runner_agent/        # Final answer generation (GPT)
+│   │   └── consumer_agent/      # Statistics consumer (demo)
+│   ├── servers/         # MCP tools
+│   │   ├── marketdata/      # SQL queries
+│   │   ├── polymarket/      # Polymarket API tools
+│   │   ├── analytics/       # Statistics & plotting tools
+│   │   ├── distro_analytics/  # Distribution analysis tools (used by analytics_agent)
+│   │   └── tradingeconomics/  # Economic calendar API
 │   ├── bus/             # File-based communication
 │   ├── mcp/             # Tool discovery & execution
-│   └── core/            # Logging utilities
+│   └── core/            # Utilities (logging, telegram, scheduling, run store)
 ├── scripts/             # CLI tools & test scripts
-├── tests/               # E2E test suite
+├── tests/e2e/           # E2E test suite
 ├── docs/                # Documentation
-│   ├── agents/          # Agent-specific docs
-│   ├── implementation/  # Technical implementation notes
-│   ├── ARCHITECTURE.md  # System design
-│   └── USAGE.md         # Detailed usage guide
 ├── memory-bank/         # Knowledge base
-│   ├── activeContext.md # Current system state
-│   ├── code-index.md    # File summaries
-│   ├── io-schema.md     # API contracts
-│   └── progress.md      # Implementation history
 ├── config/              # Configuration
 ├── workspace/           # Agent outputs (auto-generated)
-├── logs/                # System logs (auto-generated)
-├── README.md            # This file (START HERE)
-└── CHANGELOG.md         # Version history
+├── runs/                # Orchestration run artifacts (auto-generated)
+└── README.md            # This file
 ```
 
 ---
@@ -105,11 +109,14 @@ market_data_puller/
 - **Execution**: Direct Python function calls (no network)
 - **Tools**: SQL queries, API searches, price history
 
-### 2. **Agents** (4 Core Agents)
-- **OrchestratorAgent**: Meta-agent that coordinates multiple workers for complex queries
-- **PolymarketAgent**: Simple API-only Polymarket search (volume-sorted, keyword-filtered)
+### 2. **Agents** (7 Agents)
+- **OrchestratorAgent**: Two-stage planner coordinating multiple workers for complex queries
+- **RunnerAgent**: GPT-powered final answer generation and consolidation
 - **MarketDataAgent**: SQL query execution with whitelist security
-- **ConsumerAgent**: Data processing & statistics computation
+- **PolymarketAgent**: Simple API-only Polymarket search (volume-sorted, keyword-filtered)
+- **EventDataPullerAgent**: Economic calendar fetching and querying
+- **AnalyticsAgent**: Statistical analysis and visualization
+- **ConsumerAgent**: Data processing & statistics computation (demo)
 
 ### 3. **File Bus** (Inter-Agent Communication)
 - **Atomic Writes**: Crash-safe operations
@@ -121,8 +128,12 @@ market_data_puller/
 - **run_query**: Execute SQL on market_data table
 - **search_polymarket_markets**: Search Polymarket markets via Gamma API
 - **get_market_price_history**: Historical prices from CLOB API
-- **get_market_price_range**: Price trends over date ranges
-- **get_*_history**: Query history retrieval
+- **query_event_history**: Economic events from Trading Economics
+- **compute_returns_distribution**: Session-based returns analysis
+- **compute_volatility_distribution**: Volatility analysis
+- **compute_probability_matrix**: Price movement probabilities
+- **compute_event_distribution**: Event impact analysis
+- **compute_statistics**: Pure Python statistical functions
 
 ---
 

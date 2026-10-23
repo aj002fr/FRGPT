@@ -1,0 +1,94 @@
+schema_version: 2
+experiment_id: E002
+hypothesis_id: H003
+hypothesis_family: FAM_FV_CONVERGENCE
+status: frozen
+hashes:
+  data_hash: dd2cceb815a503836556ae19b555474518eb3c51a5bcee0107e85397a30d7949
+  split_hash: 76e613b172094a576325a660378edc9de2156a809a4e0be078404ba8ab49e932
+  exposure_hash: a88df9a6b01a8e0d7d6f065a1b7f041911dd8a996746d3c2bb617fa089f728fb
+  spec_hash: 466f3b12ac904b36435ba3e090934b8541f5a9856674235b4517b8af8e6586ce
+  evaluator_hash: 6c8951141b042a3b49714838a8e729ea9c5bef126e03dff31c0d3991a7e6a812
+  candidate_code_hash: b5fbe9fd57f72b0234b8108db0e80ce4bc82c728203b6dde0487c79c032872f9
+  state_code_hash: b6d47cacd31b81ab8f2700b91a92ad91287c18a182ee519a397c835aa0c55362
+candidate:
+  allowed_inputs:
+    - formation_ts
+    - price
+    - day_open_price
+    - agg_cum_daily
+    - TY_agg_5m
+    - buysell_ratio
+    - size_imbalance_mean
+    - microprice_dev_mean
+    - realized_vol
+    - mom_5m
+    - trade_intensity
+    - spread_mean
+    - minutes_since_open
+  registered_feature_map:
+    formation_gap: Fair value frozen at formation minus formation price, in TY points.
+    price_led_score: Absolute price formation minus absolute fair-value formation divided by their sum plus epsilon.
+    absolute_gap: Absolute formation gap supplied to both baseline and augmented models.
+    gap_age: Minutes the frozen-sign gap state has persisted.
+    recent_price_momentum: Five-minute price momentum supplied to both models.
+  numeric_direction: Evaluator derives sign(formation_gap); candidate direction output is forbidden.
+design:
+  grids:
+    ridge_lambda: [0.1, 1.0, 10.0]
+    formation_lookback_minutes: [5, 15, 30]
+    entry_gap_ticks: [2]
+  selection_rule: Select ridge lambda only in inner expanding discovery folds by current stationary price-delta error; score each formation lookback on common outer-fold anchors, require positive equal-date Brier improvement in at least 3 of 4 folds, select greatest pooled improvement, tie-break at 15 minutes then shorter lookback, refit one fair-value model on full discovery, and freeze before validation.
+  cells:
+    ALL_ELIGIBLE: Absolute formation gap is at least 2 TY ticks.
+    LARGE_GAP: Absolute formation gap is at least 4 TY ticks.
+  cells_may_overlap: true
+outcome:
+  name: FV_CLOSE_FIRST_PASSAGE_50_BEFORE_100_ADVERSE_30M
+  definition: With fair value and gap sign frozen at t, target is one when the first one-minute close moving at least 50 percent of the formation gap toward frozen fair value occurs before the first close moving at least 100 percent of the gap adversely; adverse-first or neither is zero.
+  horizon_minutes: 30
+  censoring: Date/session grouped anchors at least 30 minutes apart; require at least 80 percent of expected future minutes and a price observation within two minutes of horizon; no session crossing.
+  boundary_policy: Exact equality is a crossing; eligibility at absolute gap at least 2 ticks makes simultaneous favorable and adverse equality impossible; intraminute touches do not count.
+analysis:
+  model:
+    fair_value: Ridge model predicts price minus day-open price with an intercept and discovery-frozen scaling; fair value equals day open plus predicted stationary delta.
+    baseline: Logistic regression with absolute gap, gap age, momentum and path, volatility, event proximity, liquidity, roll state, session, trade intensity, and discovery-frozen scaling and imputation.
+    augmented: Baseline plus price_led_score only.
+    metric: Equal-date mean of per-date mean baseline Brier minus augmented Brier.
+    common_population: Absolute gap at least 2 ticks; all configurations use identical anchors.
+  inference:
+    alpha: 0.05
+    multiplicity: Holm one-sided correction over both registered E002 cells, retaining this denominator through confirmation.
+    discovery_resamples: 999
+    validation_confirmation_resamples: 9999
+    estimator: Studentized date-cluster wild bootstrap with equal date weight.
+    serial_falsification: Within-session circular or block shifts of at least 30 minutes; unrestricted row permutation is forbidden.
+    event_manifest_sha256: c3730de19a073e62fcb46c63d644e22fc26135b1b481e4e2ff13d5ba5e7463ed
+    event_blackout_minutes: [-10, 30]
+    diagnostics_only: Horizons 15 and 60 minutes; convergence fractions 0.25 and 0.75; historical quarantine replication.
+  power:
+    absolute_sesoi_brier: 0.005
+    relative_brier_skill_minimum: 0.02
+    minimum_dates: 25
+    minimum_class_count_each: 30
+    target_power: 0.80
+    required_dates_formula: ceil(((z_(1-0.05/2)+z_0.80)*discovery_OOF_sigma_date/0.005)^2); validation remains unopened if underpowered.
+  utility:
+    selector: Discovery-frozen 80th percentile of augmented probability minus baseline probability.
+    minimum_coverage: 0.10
+    minimum_selected_episodes: 30
+    minimum_target_rate_lift: 0.08
+    required_ci: Clustered lower confidence bound above zero.
+    predictive_gate: Delta at least 0.005, Holm p at most 0.05, CI lower above zero, shift-null p at most 0.05, positive in at least 60 percent of at least four validation months, no date above 25 percent of positive effect, and no required slice at or below -0.0025 or significantly reversed.
+    tradability_diagnostic: Enter one minute later toward frozen fair value; charge 0.5 tick round trip; exit at first 50 percent closure, first 100 percent adverse expansion, or 30 minutes; report equal-date net expectancy, clustered CI, MAE, turnover, coverage, RTH/no-event, and overnight stability.
+    failure_states: not_confirmed; positive_but_trivial; inconclusive; invalid; blocked_underpowered; non_actionable.
+  diagnostics:
+    - Report calibration intercept and slope and relative Brier skill.
+    - Report per-date effects, monthly signs, concentration, exclusions, rolls, holidays, events, and high-volatility sessions.
+    - Keep predictive evidence separate from economic actionability.
+attempt_cap: 5
+confirmation:
+  eligible: true
+  policy: Prospective sessions strictly after 2026-07-22T17:07:04.239793Z accumulate until the frozen power requirement is met; begin_confirmation requires separate spec-bound owner approval, atomically retires the family cohort before outcomes load, and uses the identical frozen pipeline. Confirmed requires ALL_ELIGIBLE to pass every predictive gate; confirmed_limited requires LARGE_GAP pass with ALL_ELIGIBLE delta positive; no second cohort.
+  prospective_only: true
+  approval_required: true

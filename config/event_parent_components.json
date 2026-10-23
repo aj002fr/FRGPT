@@ -1,0 +1,1174 @@
+{
+  "version": "2026-06-29",
+  "source": "Z:/Aastha/US Eco Events.xlsx (Sheet1, EVENT_NAME column)",
+  "description": "Parent release -> component event_name mapping. event_name matches the workbook EVENT_NAME column and is the join key used across the system.",
+  "field_notes": {
+    "event_name": "Canonical name from the workbook EVENT_NAME column (the cross-system join key).",
+    "bbg_ticker": "Bloomberg index ticker feeding the workbook.",
+    "scaling_factor": "Workbook SCALING_FACTOR (unit hint: % / k / m / b).",
+    "headline": "true for the primary print that defines the parent release.",
+    "category": "High-level bucket: Employment / Inflation / Growth / Housing / Surveys / Regional Fed / Trade / Monetary Policy / Fiscal / Other."
+  },
+  "parents": {
+    "NFP": {
+      "display_name": "Employment Situation (Jobs Report)",
+      "category": "Employment",
+      "headline_event_name": "Change in Nonfarm Payrolls",
+      "components": [
+        {
+          "event_name": "Change in Nonfarm Payrolls",
+          "bbg_ticker": "NFP TCH Index",
+          "scaling_factor": "k",
+          "headline": true
+        },
+        {
+          "event_name": "Unemployment Rate",
+          "bbg_ticker": "USURTOT Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Underemployment Rate",
+          "bbg_ticker": "USUDMAER Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Average Hourly Earnings MoM",
+          "bbg_ticker": "AHE MOM% Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Average Hourly Earnings YoY",
+          "bbg_ticker": "AHE YOY% Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Average Weekly Hours All Employees",
+          "bbg_ticker": "AWH TOTL Index"
+        },
+        {
+          "event_name": "Change in Private Payrolls",
+          "bbg_ticker": "NFP PCH Index",
+          "scaling_factor": "k"
+        },
+        {
+          "event_name": "Change in Manufact. Payrolls",
+          "bbg_ticker": "USMMMNCH Index",
+          "scaling_factor": "k"
+        },
+        {
+          "event_name": "Labor Force Participation Rate",
+          "bbg_ticker": "PRUSTOT Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Nonfarm Payrolls 3-Mo Avg Chg",
+          "bbg_ticker": "NFPPTCH3 Index",
+          "scaling_factor": "k"
+        },
+        {
+          "event_name": "Two-Month Payroll Net Revision",
+          "bbg_ticker": "ECONGECC Index",
+          "scaling_factor": "k"
+        }
+      ]
+    },
+    "Jobless Claims": {
+      "display_name": "Jobless Claims",
+      "category": "Employment",
+      "headline_event_name": "Initial Jobless Claims",
+      "components": [
+        {
+          "event_name": "Initial Jobless Claims",
+          "bbg_ticker": "INJCJC Index",
+          "scaling_factor": "k",
+          "headline": true
+        },
+        {
+          "event_name": "Initial Claims 4-Wk Moving Avg",
+          "bbg_ticker": "INJCJC4 Index",
+          "scaling_factor": "k"
+        },
+        {
+          "event_name": "Continuing Claims",
+          "bbg_ticker": "INJCSP Index",
+          "scaling_factor": "k"
+        }
+      ]
+    },
+    "ADP": {
+      "display_name": "ADP Employment",
+      "category": "Employment",
+      "headline_event_name": "ADP Employment Change",
+      "components": [
+        {
+          "event_name": "ADP Employment Change",
+          "bbg_ticker": "ADP CHNG Index",
+          "scaling_factor": "k",
+          "headline": true
+        },
+        {
+          "event_name": "ADP Weekly Employment Change",
+          "bbg_ticker": "ADPUWKLY Index",
+          "scaling_factor": "k"
+        }
+      ]
+    },
+    "JOLTS": {
+      "display_name": "JOLTS Job Openings & Labor Turnover",
+      "category": "Employment",
+      "headline_event_name": "JOLTS Job Openings",
+      "components": [
+        {
+          "event_name": "JOLTS Job Openings",
+          "bbg_ticker": "JOLTTOTL Index",
+          "scaling_factor": "k",
+          "headline": true
+        },
+        {
+          "event_name": "JOLTS Job Openings Rate",
+          "bbg_ticker": "JOLTOPEN Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "JOLTS Quits Level",
+          "bbg_ticker": "JLTSQUIS Index",
+          "scaling_factor": "k"
+        },
+        {
+          "event_name": "JOLTS Quits Rate",
+          "bbg_ticker": "JOLTQUIS Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "JOLTS Layoffs Level",
+          "bbg_ticker": "JLTSLAYS Index",
+          "scaling_factor": "k"
+        },
+        {
+          "event_name": "JOLTS Layoffs Rate",
+          "bbg_ticker": "JOLTLAYS Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Challenger": {
+      "display_name": "Challenger Job Cuts",
+      "category": "Employment",
+      "headline_event_name": "Challenger Job Cuts Total",
+      "components": [
+        {
+          "event_name": "Challenger Job Cuts Total",
+          "bbg_ticker": "CHALTOTL Index",
+          "headline": true
+        },
+        {
+          "event_name": "Challenger Job Cuts YoY",
+          "bbg_ticker": "CHALYOY% Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Productivity & Costs": {
+      "display_name": "Productivity & Costs",
+      "category": "Employment",
+      "headline_event_name": "Nonfarm Productivity",
+      "components": [
+        {
+          "event_name": "Nonfarm Productivity",
+          "bbg_ticker": "PRODNFR% Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Unit Labor Costs",
+          "bbg_ticker": "COSTNFR% Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "CPI": {
+      "display_name": "Consumer Price Index",
+      "category": "Inflation",
+      "headline_event_name": "CPI MoM",
+      "components": [
+        {
+          "event_name": "CPI MoM",
+          "bbg_ticker": "CPI CHNG Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "CPI YoY",
+          "bbg_ticker": "CPI YOY Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Core CPI MoM",
+          "bbg_ticker": "CPUPXCHG Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Core CPI YoY",
+          "bbg_ticker": "CPI XYOY Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "CPI Index NSA",
+          "bbg_ticker": "CPURNSA Index"
+        },
+        {
+          "event_name": "Core CPI Index SA",
+          "bbg_ticker": "CPUPAXFE Index"
+        }
+      ]
+    },
+    "Real Earnings": {
+      "display_name": "Real Earnings",
+      "category": "Inflation",
+      "headline_event_name": "Real Avg Hourly Earning YoY",
+      "components": [
+        {
+          "event_name": "Real Avg Hourly Earning YoY",
+          "bbg_ticker": "REALYRAW Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Real Avg Weekly Earnings YoY",
+          "bbg_ticker": "REALYRAE Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "PPI": {
+      "display_name": "Producer Price Index",
+      "category": "Inflation",
+      "headline_event_name": "PPI Final Demand MoM",
+      "components": [
+        {
+          "event_name": "PPI Final Demand MoM",
+          "bbg_ticker": "FDIDFDMO Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "PPI Final Demand YoY",
+          "bbg_ticker": "FDIUFDYO Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "PPI Ex Food and Energy MoM",
+          "bbg_ticker": "FDIDSGMO Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "PPI Ex Food and Energy YoY",
+          "bbg_ticker": "FDIUSGYO Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "PPI Ex Food, Energy, Trade MoM",
+          "bbg_ticker": "FDIDSGUM Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "PPI Ex Food, Energy, Trade YoY",
+          "bbg_ticker": "FDIUSGUY Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Personal Income & Outlays": {
+      "display_name": "Personal Income & Outlays (PCE)",
+      "category": "Inflation",
+      "headline_event_name": "Personal Income",
+      "components": [
+        {
+          "event_name": "Personal Income",
+          "bbg_ticker": "PITLCHNG Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Personal Spending",
+          "bbg_ticker": "PCE CRCH Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Real Personal Spending",
+          "bbg_ticker": "PCE CHNC Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "PCE Price Index MoM",
+          "bbg_ticker": "PCE DEFM Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "PCE Price Index YoY",
+          "bbg_ticker": "PCE DEFY Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Core PCE Price Index MoM",
+          "bbg_ticker": "PCE CMOM Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Core PCE Price Index YoY",
+          "bbg_ticker": "PCE CYOY Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Import/Export Prices": {
+      "display_name": "Import & Export Prices",
+      "category": "Inflation",
+      "headline_event_name": "Import Price Index MoM",
+      "components": [
+        {
+          "event_name": "Import Price Index MoM",
+          "bbg_ticker": "IMP1CHNG Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Import Price Index YoY",
+          "bbg_ticker": "IMP1YOY% Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Import Price Index ex Petroleum MoM",
+          "bbg_ticker": "IMP1XPM% Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Export Price Index MoM",
+          "bbg_ticker": "EXP1CMOM Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Export Price Index YoY",
+          "bbg_ticker": "EXP1CYOY Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "GDP": {
+      "display_name": "Gross Domestic Product",
+      "category": "Growth",
+      "headline_event_name": "GDP Annualized QoQ",
+      "components": [
+        {
+          "event_name": "GDP Annualized QoQ",
+          "bbg_ticker": "GDP CQOQ Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Personal Consumption",
+          "bbg_ticker": "GDPCTOT% Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "GDP Price Index",
+          "bbg_ticker": "GDP PIQQ Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Core PCE Price Index QoQ",
+          "bbg_ticker": "GDPCPCEC Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Industrial Production": {
+      "display_name": "Industrial Production",
+      "category": "Growth",
+      "headline_event_name": "Industrial Production MoM",
+      "components": [
+        {
+          "event_name": "Industrial Production MoM",
+          "bbg_ticker": "IP  CHNG Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Manufacturing Production MoM",
+          "bbg_ticker": "IPMGCHNG Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Capacity Utilization",
+          "bbg_ticker": "CPTICHNG Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Retail Sales": {
+      "display_name": "Retail Sales",
+      "category": "Growth",
+      "headline_event_name": "Retail Sales Advance MoM",
+      "components": [
+        {
+          "event_name": "Retail Sales Advance MoM",
+          "bbg_ticker": "RSTAMOM Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Retail Sales Ex Auto MoM",
+          "bbg_ticker": "RSTAXMOM Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Retail Sales Ex Auto and Gas",
+          "bbg_ticker": "RSTAXAG% Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Retail Sales Control Group",
+          "bbg_ticker": "RSTAXAGM Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Durable Goods": {
+      "display_name": "Durable Goods Orders",
+      "category": "Growth",
+      "headline_event_name": "Durable Goods Orders",
+      "components": [
+        {
+          "event_name": "Durable Goods Orders",
+          "bbg_ticker": "DGNOCHNG Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Durables Ex Transportation",
+          "bbg_ticker": "DGNOXTCH Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Cap Goods Orders Nondef Ex Air",
+          "bbg_ticker": "CGNOXAI% Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Cap Goods Ship Nondef Ex Air",
+          "bbg_ticker": "CGSHXAI% Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Factory Orders": {
+      "display_name": "Factory Orders",
+      "category": "Growth",
+      "headline_event_name": "Factory Orders",
+      "components": [
+        {
+          "event_name": "Factory Orders",
+          "bbg_ticker": "TMNOCHNG Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Factory Orders Ex Trans",
+          "bbg_ticker": "TMNOXTM% Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Wholesale Trade": {
+      "display_name": "Wholesale Trade",
+      "category": "Growth",
+      "headline_event_name": "Wholesale Inventories MoM",
+      "components": [
+        {
+          "event_name": "Wholesale Inventories MoM",
+          "bbg_ticker": "MWINCHNG Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Wholesale Trade Sales MoM",
+          "bbg_ticker": "MWSLCHNG Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Business Inventories": {
+      "display_name": "Business Inventories",
+      "category": "Growth",
+      "headline_event_name": "Business Inventories",
+      "components": [
+        {
+          "event_name": "Business Inventories",
+          "bbg_ticker": "MTIBCHNG Index",
+          "scaling_factor": "%",
+          "headline": true
+        }
+      ]
+    },
+    "Retail Inventories": {
+      "display_name": "Retail Inventories",
+      "category": "Growth",
+      "headline_event_name": "Retail Inventories MoM",
+      "components": [
+        {
+          "event_name": "Retail Inventories MoM",
+          "bbg_ticker": "RSRSTMOM Index",
+          "scaling_factor": "%",
+          "headline": true
+        }
+      ]
+    },
+    "ISM Manufacturing": {
+      "display_name": "ISM Manufacturing",
+      "category": "Surveys",
+      "headline_event_name": "ISM Manufacturing",
+      "components": [
+        {
+          "event_name": "ISM Manufacturing",
+          "bbg_ticker": "NAPMPMI Index",
+          "headline": true
+        },
+        {
+          "event_name": "ISM Prices Paid",
+          "bbg_ticker": "NAPMPRIC Index"
+        },
+        {
+          "event_name": "ISM New Orders",
+          "bbg_ticker": "NAPMNEWO Index"
+        },
+        {
+          "event_name": "ISM Employment",
+          "bbg_ticker": "NAPMEMPL Index"
+        }
+      ]
+    },
+    "ISM Services": {
+      "display_name": "ISM Services",
+      "category": "Surveys",
+      "headline_event_name": "ISM Services Index",
+      "components": [
+        {
+          "event_name": "ISM Services Index",
+          "bbg_ticker": "NAPMNMI Index",
+          "headline": true
+        },
+        {
+          "event_name": "ISM Services Prices Paid",
+          "bbg_ticker": "NAPMNPRC Index"
+        },
+        {
+          "event_name": "ISM Services New Orders",
+          "bbg_ticker": "NAPMNNO Index"
+        },
+        {
+          "event_name": "ISM Services Employment",
+          "bbg_ticker": "NAPMNEMP Index"
+        }
+      ]
+    },
+    "S&P Global PMI": {
+      "display_name": "S&P Global US PMIs",
+      "category": "Surveys",
+      "headline_event_name": "S&P Global US Manufacturing PMI",
+      "components": [
+        {
+          "event_name": "S&P Global US Manufacturing PMI",
+          "bbg_ticker": "MPMIUSMA Index",
+          "headline": true
+        },
+        {
+          "event_name": "S&P Global US Services PMI",
+          "bbg_ticker": "MPMIUSSA Index"
+        },
+        {
+          "event_name": "S&P Global US Composite PMI",
+          "bbg_ticker": "MPMIUSCA Index"
+        }
+      ]
+    },
+    "MNI Chicago PMI": {
+      "display_name": "MNI Chicago PMI",
+      "category": "Surveys",
+      "headline_event_name": "MNI Chicago PMI",
+      "components": [
+        {
+          "event_name": "MNI Chicago PMI",
+          "bbg_ticker": "CHPMINDX Index",
+          "headline": true
+        }
+      ]
+    },
+    "Conference Board": {
+      "display_name": "Conference Board Consumer Confidence",
+      "category": "Surveys",
+      "headline_event_name": "Conf. Board Consumer Confidence",
+      "components": [
+        {
+          "event_name": "Conf. Board Consumer Confidence",
+          "bbg_ticker": "CONCCONF Index",
+          "headline": true
+        },
+        {
+          "event_name": "Conf. Board Expectations",
+          "bbg_ticker": "CONCEXP Index"
+        },
+        {
+          "event_name": "Conf. Board Present Situation",
+          "bbg_ticker": "CONCPSIT Index"
+        }
+      ]
+    },
+    "U. of Mich. Sentiment": {
+      "display_name": "University of Michigan Sentiment",
+      "category": "Surveys",
+      "headline_event_name": "U. of Mich. Sentiment",
+      "components": [
+        {
+          "event_name": "U. of Mich. Sentiment",
+          "bbg_ticker": "CONSSENT Index",
+          "headline": true
+        },
+        {
+          "event_name": "U. of Mich. Current Conditions",
+          "bbg_ticker": "CONSCURR Index"
+        },
+        {
+          "event_name": "U. of Mich. Expectations",
+          "bbg_ticker": "CONSEXP Index"
+        },
+        {
+          "event_name": "U. of Mich. 1 Yr Inflation",
+          "bbg_ticker": "CONSPXMD Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "U. of Mich. 5-10 Yr Inflation",
+          "bbg_ticker": "CONSP5MD Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "NFIB Small Business Optimism": {
+      "display_name": "NFIB Small Business Optimism",
+      "category": "Surveys",
+      "headline_event_name": "NFIB Small Business Optimism",
+      "components": [
+        {
+          "event_name": "NFIB Small Business Optimism",
+          "bbg_ticker": "SBOITOTL Index",
+          "headline": true
+        }
+      ]
+    },
+    "Leading Index": {
+      "display_name": "Conference Board Leading Index",
+      "category": "Surveys",
+      "headline_event_name": "Leading Index",
+      "components": [
+        {
+          "event_name": "Leading Index",
+          "bbg_ticker": "LEI CHNG Index",
+          "scaling_factor": "%",
+          "headline": true
+        }
+      ]
+    },
+    "Empire State Manufacturing": {
+      "display_name": "Empire State Manufacturing (NY Fed)",
+      "category": "Regional Fed",
+      "headline_event_name": "Empire Manufacturing",
+      "components": [
+        {
+          "event_name": "Empire Manufacturing",
+          "bbg_ticker": "EMPRGBCI Index",
+          "headline": true
+        }
+      ]
+    },
+    "Philadelphia Fed Manufacturing": {
+      "display_name": "Philadelphia Fed Manufacturing",
+      "category": "Regional Fed",
+      "headline_event_name": "Philadelphia Fed Business Outlook",
+      "components": [
+        {
+          "event_name": "Philadelphia Fed Business Outlook",
+          "bbg_ticker": "OUTFGAF Index",
+          "headline": true
+        }
+      ]
+    },
+    "Philadelphia Fed Non-Manufacturing": {
+      "display_name": "Philadelphia Fed Non-Manufacturing",
+      "category": "Regional Fed",
+      "headline_event_name": "Philadelphia Fed Non-Manufacturing Activity",
+      "components": [
+        {
+          "event_name": "Philadelphia Fed Non-Manufacturing Activity",
+          "bbg_ticker": "PNMARADI Index",
+          "headline": true
+        }
+      ]
+    },
+    "Richmond Fed": {
+      "display_name": "Richmond Fed Manufacturing & Services",
+      "category": "Regional Fed",
+      "headline_event_name": "Richmond Fed Manufact. Index",
+      "components": [
+        {
+          "event_name": "Richmond Fed Manufact. Index",
+          "bbg_ticker": "RCHSINDX Index",
+          "headline": true
+        },
+        {
+          "event_name": "Richmond Fed Business Conditions",
+          "bbg_ticker": "RCSSCLBC Index"
+        }
+      ]
+    },
+    "Dallas Fed Manufacturing": {
+      "display_name": "Dallas Fed Manufacturing",
+      "category": "Regional Fed",
+      "headline_event_name": "Dallas Fed Manf. Activity",
+      "components": [
+        {
+          "event_name": "Dallas Fed Manf. Activity",
+          "bbg_ticker": "DFEDGBA Index",
+          "headline": true
+        }
+      ]
+    },
+    "Dallas Fed Services": {
+      "display_name": "Dallas Fed Services",
+      "category": "Regional Fed",
+      "headline_event_name": "Dallas Fed Services Activity",
+      "components": [
+        {
+          "event_name": "Dallas Fed Services Activity",
+          "bbg_ticker": "DSERGBCC Index",
+          "headline": true
+        }
+      ]
+    },
+    "Kansas City Fed Manufacturing": {
+      "display_name": "Kansas City Fed Manufacturing",
+      "category": "Regional Fed",
+      "headline_event_name": "Kansas City Fed Manf. Activity",
+      "components": [
+        {
+          "event_name": "Kansas City Fed Manf. Activity",
+          "bbg_ticker": "KCLSSACI Index",
+          "headline": true
+        }
+      ]
+    },
+    "Kansas City Fed Services": {
+      "display_name": "Kansas City Fed Services",
+      "category": "Regional Fed",
+      "headline_event_name": "Kansas City Fed Services Activity",
+      "components": [
+        {
+          "event_name": "Kansas City Fed Services Activity",
+          "bbg_ticker": "KCSSMCOM Index",
+          "headline": true
+        }
+      ]
+    },
+    "Chicago Fed National Activity": {
+      "display_name": "Chicago Fed National Activity Index",
+      "category": "Regional Fed",
+      "headline_event_name": "Chicago Fed Nat Activity Index",
+      "components": [
+        {
+          "event_name": "Chicago Fed Nat Activity Index",
+          "bbg_ticker": "CFNAI Index",
+          "headline": true
+        }
+      ]
+    },
+    "NY Fed Services Business Activity": {
+      "display_name": "NY Fed Services Business Activity",
+      "category": "Regional Fed",
+      "headline_event_name": "New York Fed Services Business Activity",
+      "components": [
+        {
+          "event_name": "New York Fed Services Business Activity",
+          "bbg_ticker": "NYBLCNBA Index",
+          "headline": true
+        }
+      ]
+    },
+    "NY Fed Inflation Expectations": {
+      "display_name": "NY Fed Survey of Consumer Expectations",
+      "category": "Inflation",
+      "headline_event_name": "NY Fed 1-Yr Inflation Expectations",
+      "components": [
+        {
+          "event_name": "NY Fed 1-Yr Inflation Expectations",
+          "bbg_ticker": "NYCNM1IR Index",
+          "scaling_factor": "%",
+          "headline": true
+        }
+      ]
+    },
+    "Housing Starts": {
+      "display_name": "Housing Starts & Building Permits",
+      "category": "Housing",
+      "headline_event_name": "Housing Starts",
+      "components": [
+        {
+          "event_name": "Housing Starts",
+          "bbg_ticker": "NHSPSTOT Index",
+          "scaling_factor": "k",
+          "headline": true
+        },
+        {
+          "event_name": "Housing Starts MoM",
+          "bbg_ticker": "NHCHSTCH Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Building Permits",
+          "bbg_ticker": "NHSPATOT Index",
+          "scaling_factor": "k"
+        },
+        {
+          "event_name": "Building Permits MoM",
+          "bbg_ticker": "NHCHATCH Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "New Home Sales": {
+      "display_name": "New Home Sales",
+      "category": "Housing",
+      "headline_event_name": "New Home Sales",
+      "components": [
+        {
+          "event_name": "New Home Sales",
+          "bbg_ticker": "NHSLTOT Index",
+          "scaling_factor": "k",
+          "headline": true
+        },
+        {
+          "event_name": "New Home Sales MoM",
+          "bbg_ticker": "NHSLCHNG Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Existing Home Sales": {
+      "display_name": "Existing Home Sales",
+      "category": "Housing",
+      "headline_event_name": "Existing Home Sales",
+      "components": [
+        {
+          "event_name": "Existing Home Sales",
+          "bbg_ticker": "ETSLTOTL Index",
+          "scaling_factor": "m",
+          "headline": true
+        },
+        {
+          "event_name": "Existing Home Sales MoM",
+          "bbg_ticker": "ETSLMOM Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Pending Home Sales": {
+      "display_name": "Pending Home Sales",
+      "category": "Housing",
+      "headline_event_name": "Pending Home Sales MoM",
+      "components": [
+        {
+          "event_name": "Pending Home Sales MoM",
+          "bbg_ticker": "USPHTMOM Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "Pending Home Sales NSA YoY",
+          "bbg_ticker": "USPHTYOY Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Case-Shiller HPI": {
+      "display_name": "S&P CoreLogic/Cotality Case-Shiller HPI",
+      "category": "Housing",
+      "headline_event_name": "S&P Cotality CS 20-City YoY NSA",
+      "components": [
+        {
+          "event_name": "S&P Cotality CS 20-City YoY NSA",
+          "bbg_ticker": "SPCS20Y% Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "S&P Cotality CS 20-City MoM SA",
+          "bbg_ticker": "SPCS20SM Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "S&P Cotality CS US HPI YoY NSA",
+          "bbg_ticker": "SPCSUSAY Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "FHFA House Price Index": {
+      "display_name": "FHFA House Price Index",
+      "category": "Housing",
+      "headline_event_name": "FHFA House Price Index MoM",
+      "components": [
+        {
+          "event_name": "FHFA House Price Index MoM",
+          "bbg_ticker": "HPIMMOM% Index",
+          "scaling_factor": "%",
+          "headline": true
+        }
+      ]
+    },
+    "NAHB Housing Market Index": {
+      "display_name": "NAHB Housing Market Index",
+      "category": "Housing",
+      "headline_event_name": "NAHB Housing Market Index",
+      "components": [
+        {
+          "event_name": "NAHB Housing Market Index",
+          "bbg_ticker": "USHBMIDX Index",
+          "headline": true
+        }
+      ]
+    },
+    "Construction Spending": {
+      "display_name": "Construction Spending",
+      "category": "Housing",
+      "headline_event_name": "Construction Spending MoM",
+      "components": [
+        {
+          "event_name": "Construction Spending MoM",
+          "bbg_ticker": "CNSTTMOM Index",
+          "scaling_factor": "%",
+          "headline": true
+        }
+      ]
+    },
+    "MBA Mortgage Applications": {
+      "display_name": "MBA Mortgage Applications",
+      "category": "Housing",
+      "headline_event_name": "MBA Mortgage Applications",
+      "components": [
+        {
+          "event_name": "MBA Mortgage Applications",
+          "bbg_ticker": "MBAVCHNG Index",
+          "scaling_factor": "%",
+          "headline": true
+        }
+      ]
+    },
+    "Trade Balance": {
+      "display_name": "International Trade Balance",
+      "category": "Trade",
+      "headline_event_name": "Trade Balance",
+      "components": [
+        {
+          "event_name": "Trade Balance",
+          "bbg_ticker": "USTBTOT Index",
+          "scaling_factor": "b",
+          "headline": true
+        },
+        {
+          "event_name": "Exports MoM",
+          "bbg_ticker": "USTBEXPM Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Imports MoM",
+          "bbg_ticker": "USTBIMPM Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Advance Trade": {
+      "display_name": "Advance Goods Trade Balance",
+      "category": "Trade",
+      "headline_event_name": "Advance Goods Trade Balance",
+      "components": [
+        {
+          "event_name": "Advance Goods Trade Balance",
+          "bbg_ticker": "USTGTTCB Index",
+          "scaling_factor": "b",
+          "headline": true
+        },
+        {
+          "event_name": "Advance Goods Exports MoM SA",
+          "bbg_ticker": "USTGEXPC Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Advance Goods Imports MoM SA",
+          "bbg_ticker": "USTGIMPC Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Current Account": {
+      "display_name": "Current Account Balance",
+      "category": "Trade",
+      "headline_event_name": "Current Account Balance",
+      "components": [
+        {
+          "event_name": "Current Account Balance",
+          "bbg_ticker": "USCABAL Index",
+          "scaling_factor": "b",
+          "headline": true
+        }
+      ]
+    },
+    "TIC Flows": {
+      "display_name": "Treasury International Capital Flows",
+      "category": "Trade",
+      "headline_event_name": "Net Long-term TIC Flows",
+      "components": [
+        {
+          "event_name": "Net Long-term TIC Flows",
+          "bbg_ticker": "FRNTTOTL Index",
+          "scaling_factor": "b",
+          "headline": true
+        },
+        {
+          "event_name": "Total Net TIC Flows",
+          "bbg_ticker": "FRNTTNET Index",
+          "scaling_factor": "b"
+        }
+      ]
+    },
+    "FOMC": {
+      "display_name": "FOMC Rate Decision & Projections",
+      "category": "Monetary Policy",
+      "headline_event_name": "FOMC Rate Decision (Upper Bound)",
+      "components": [
+        {
+          "event_name": "FOMC Rate Decision (Upper Bound)",
+          "bbg_ticker": "FDTR Index",
+          "scaling_factor": "%",
+          "headline": true
+        },
+        {
+          "event_name": "FOMC Rate Decision (Lower Bound)",
+          "bbg_ticker": "FDTRFTRL Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "FOMC Median Rate Forecast: Current Yr",
+          "bbg_ticker": "DOTDY0MD Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "FOMC Median Rate Forecast: Next Yr",
+          "bbg_ticker": "DOTDY1MD Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "FOMC Median Rate Forecast: +2 Yrs",
+          "bbg_ticker": "DOTDY2MD Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "FOMC Median Rate Forecast: Long-Run",
+          "bbg_ticker": "DOTDLTMD Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Fed Interest on Reserve Balances Rate",
+          "bbg_ticker": "IRRBIOER Index",
+          "scaling_factor": "%"
+        },
+        {
+          "event_name": "Fed Reverse Repo Rate",
+          "bbg_ticker": "TOMOTCSO Index",
+          "scaling_factor": "%"
+        }
+      ]
+    },
+    "Beige Book": {
+      "display_name": "Fed Beige Book",
+      "category": "Monetary Policy",
+      "headline_event_name": "Fed Releases Beige Book",
+      "components": [
+        {
+          "event_name": "Fed Releases Beige Book",
+          "headline": true
+        }
+      ]
+    },
+    "Federal Budget": {
+      "display_name": "Monthly Treasury Budget Statement",
+      "category": "Fiscal",
+      "headline_event_name": "Federal Budget Balance",
+      "components": [
+        {
+          "event_name": "Federal Budget Balance",
+          "bbg_ticker": "FDDSSD Index",
+          "scaling_factor": "b",
+          "headline": true
+        }
+      ]
+    },
+    "Consumer Credit": {
+      "display_name": "Consumer Credit",
+      "category": "Other",
+      "headline_event_name": "Consumer Credit",
+      "components": [
+        {
+          "event_name": "Consumer Credit",
+          "bbg_ticker": "CICRTOT Index",
+          "scaling_factor": "b",
+          "headline": true
+        }
+      ]
+    },
+    "Household Net Worth": {
+      "display_name": "Household Change in Net Worth (Z.1)",
+      "category": "Other",
+      "headline_event_name": "Household Change in Net Worth",
+      "components": [
+        {
+          "event_name": "Household Change in Net Worth",
+          "bbg_ticker": "NWORCHNG Index",
+          "scaling_factor": "b",
+          "headline": true
+        }
+      ]
+    },
+    "Vehicle Sales": {
+      "display_name": "Total Vehicle Sales",
+      "category": "Other",
+      "headline_event_name": "Omdia Total Vehicle Sales",
+      "components": [
+        {
+          "event_name": "Omdia Total Vehicle Sales",
+          "bbg_ticker": "SAARTOTL Index",
+          "scaling_factor": "m",
+          "headline": true
+        }
+      ]
+    },
+    "Bloomberg Survey": {
+      "display_name": "Bloomberg US Economic Survey",
+      "category": "Other",
+      "headline_event_name": "Bloomberg June United States Economic Survey",
+      "components": [
+        {
+          "event_name": "Bloomberg June United States Economic Survey",
+          "headline": true
+        }
+      ]
+    }
+  }
+}

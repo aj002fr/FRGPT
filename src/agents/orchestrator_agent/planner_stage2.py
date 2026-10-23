@@ -6,8 +6,20 @@ from typing import Dict, Any, List, Optional
 from src.mcp.taskmaster_client import TaskPlannerClient
 from .tool_loader import ToolLoader
 from .task_mapper import TaskMapper
+from .workers_db import WorkersDB
+from .config import get_db_path
+
+# TEMPORARY: Force reload dependency_resolver to pick up latest changes
+import importlib
+import sys
+# Always try to reload if it exists
+if 'src.agents.orchestrator_agent.dependency_resolver' in sys.modules:
+    del sys.modules['src.agents.orchestrator_agent.dependency_resolver']
+
+from .dependency_resolver import DependencyResolver, build_context_from_plan
 
 logger = logging.getLogger(__name__)
+logger.info("LOADED dependency_resolver (forced fresh import)")
 
 
 class PlannerStage2:
@@ -42,7 +54,8 @@ class PlannerStage2:
     def discover_tools_and_params(
         self,
         all_subtasks: List[Dict[str, Any]],
-        user_query: Optional[str] = None
+        user_query: Optional[str] = None,
+        run_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Discover tools and parameters for this path using AI reasoning.
@@ -56,11 +69,51 @@ class PlannerStage2:
         """
         logger.info(f"Discovering tools for path '{self.path_id}'")
         
-        # Step 1: Filter tasks for this path
+        # Step 1: Load tasks for this path.
+        #
+        # Preferred path: if a run_id is provided, read the normalized Planner 1
+        # tasks for this run directly from WorkersDB so that the entire
+        # orchestrator pipeline can operate from a shared SQLite state instead
+        # of intermediate JSON artifacts.
+        if run_id:
+            try:
+                db_path = get_db_path()
+                with WorkersDB(db_path) as db:
+                    all_tasks_from_db = db.get_planner1_tasks(run_id)
+                logger.info(
+                    "Loaded %d Planner 1 tasks from DB for run %s",
+                    len(all_tasks_from_db),
+                    run_id,
+                )
+            except Exception as exc:
+                logger.error(
+                    "Failed to load Planner 1 tasks from DB for run %s: %s; "
+                    "falling back to in-memory subtasks.",
+                    run_id,
+                    exc,
+                )
+                all_tasks_from_db = None
+        else:
+            all_tasks_from_db = None
+
+        source_subtasks = all_tasks_from_db or all_subtasks
+
+        # Debug: log which tasks we're filtering for
+        logger.debug(f"Path {self.path_id}: Looking for task_ids: {self.task_ids}")
+        logger.debug(f"Path {self.path_id}: Source subtasks: {[t['id'] for t in source_subtasks]}")
+        
         path_tasks = [
-            task for task in all_subtasks
-            if task['id'] in self.task_ids and task.get('mappable', False)
+            task
+            for task in source_subtasks
+            if task["id"] in self.task_ids and task.get("mappable", False)
         ]
+        
+        # Debug: log which tasks we found
+        found_task_ids = [t['id'] for t in path_tasks]
+        missing_task_ids = [tid for tid in self.task_ids if tid not in found_task_ids]
+        if missing_task_ids:
+            logger.warning(f"Path {self.path_id}: Missing tasks in path_tasks: {missing_task_ids}")
+        logger.debug(f"Path {self.path_id}: Found path_tasks: {found_task_ids}")
         
         if not path_tasks:
             logger.warning(f"No mappable tasks in path '{self.path_id}'")
@@ -99,7 +152,8 @@ class PlannerStage2:
             ai_selection = self.ai_planner.select_tools_for_path(
                 self.path_id,
                 ai_input_tasks,
-                available_tools
+                available_tools,
+                user_query=user_query
             )
             logger.info(f"AI tool selection complete: {ai_selection.get('method', 'unknown')}")
         except Exception as e:
@@ -151,19 +205,61 @@ class PlannerStage2:
                 
                 logger.debug(f"Injected user query into runner_agent task {task_id}")
             
+            # Extract dependencies from tool parameters (__task_ref__ directives)
+            explicit_deps = set(task.get('dependencies', []))
+            implicit_deps = self._extract_task_references(tool_params)
+            all_deps = sorted(explicit_deps | implicit_deps)
+            
+            if implicit_deps:
+                logger.info(f"Task {task_id}: Added implicit dependencies from __task_ref__: {implicit_deps}")
+            
             task_plan = {
                 'task_id': task_id,
                 'agent': agent_name,
                 'description': task.get('description', ''),
                 'tools': task_selection.get('selected_tools', []),
                 'tool_params': tool_params,
-                'dependencies': task.get('dependencies', []),
+                'dependencies': all_deps,
                 'agent_params': task.get('agent_params', {}),
                 'ai_reasoning': task_selection.get('reasoning', '')
             }
             execution_plan.append(task_plan)
         
-        # Step 8: Build path plan
+        # Step 8: Resolve soft dependencies
+        # Scan for tools with soft_dependencies and inject prerequisite tasks
+        resolver = DependencyResolver(self.tool_loader)
+        
+        # DEBUG: Log what we're passing to context builder
+        logger.info(f"Building context from {len(execution_plan)} tasks")
+        for t in execution_plan:
+            logger.debug(f"  Task {t.get('task_id')}: tools={t.get('tools')}, tool_params keys={list(t.get('tool_params', {}).keys())}")
+        
+        context = build_context_from_plan(execution_plan, user_query)
+        
+        resolved_plan, resolution_notes = resolver.resolve_dependencies(execution_plan, context)
+        
+        if resolution_notes:
+            injected_count = sum(1 for n in resolution_notes if n.get('type') == 'injected')
+            skipped_count = sum(1 for n in resolution_notes if n.get('type') == 'skip')
+            if injected_count:
+                logger.info(f"Dependency resolution: injected {injected_count} tasks")
+            if skipped_count:
+                logger.info(f"Dependency resolution: skipped {skipped_count} (missing context)")
+        
+        # Use resolved plan (may have injected tasks)
+        execution_plan = resolved_plan
+        
+        # Update tools_loaded to include any newly required tools from injected tasks
+        for task_plan in execution_plan:
+            if task_plan.get('_is_soft_dependency'):
+                for tool_name in task_plan.get('tools', []):
+                    if tool_name not in tool_names:
+                        tool_info = self.tool_loader.load_tool(tool_name)
+                        if tool_info:
+                            tools_loaded[tool_name] = tool_info
+                            tool_names.append(tool_name)
+        
+        # Step 9: Build path plan
         path_plan = {
             'path_id': self.path_id,
             'tasks': self.task_ids,
@@ -185,6 +281,33 @@ class PlannerStage2:
                    f"{len(execution_plan)} tasks, {len(tool_names)} tools (AI-selected)")
         
         return path_plan
+    
+    def _extract_task_references(self, params: Any) -> set:
+        """
+        Recursively extract all task IDs referenced via __task_ref__ in parameters.
+        
+        Args:
+            params: Tool parameters (can be dict, list, or primitive)
+            
+        Returns:
+            Set of task IDs found in __task_ref__ directives
+        """
+        task_refs = set()
+        
+        if isinstance(params, dict):
+            if "__task_ref__" in params:
+                task_id = params.get("__task_ref__")
+                if task_id:
+                    task_refs.add(task_id)
+            # Recursively check nested dicts
+            for value in params.values():
+                task_refs |= self._extract_task_references(value)
+        elif isinstance(params, list):
+            # Recursively check list items
+            for item in params:
+                task_refs |= self._extract_task_references(item)
+        
+        return task_refs
     
     def _build_task_plan(
         self,
@@ -352,14 +475,6 @@ class PlannerStage2:
                     "country": agent_params.get("country"),
                     "lookback_days": agent_params.get("lookback_days"),
                     "limit": agent_params.get("limit", 100)
-                }
-            elif tool_name == "find_correlated_events":
-                return {
-                    "target_event_name": agent_params.get("event_name"),
-                    "window_hours": agent_params.get("window_hours", 12.0),
-                    "min_importance": agent_params.get("importance"),
-                    "country": agent_params.get("country"),
-                    "limit": agent_params.get("limit", 50)
                 }
             elif tool_name == "search_events":
                 return {

@@ -1,0 +1,22 @@
+# symbols.yaml
+symbols:
+  TY:
+    dashboard_symbol: TY
+    databento_root: ZN
+    tick_size: 0.015625  # 1/64
+  FV:
+    dashboard_symbol: FV
+    databento_root: ZF
+    tick_size: 0.0078125  # 1/128
+  TU:
+    dashboard_symbol: TU
+    databento_root: ZT
+    tick_size: 0.00390625  # 1/256
+  US:
+    dashboard_symbol: US
+    databento_root: ZB
+    tick_size: 0.03125  # 1/32
+dv01_config: config/aggression_dv01.json
+note: >
+  Tick sizes follow CME Treasury futures minimum price increments.
+  Do not hardcode a single tick for all contracts.

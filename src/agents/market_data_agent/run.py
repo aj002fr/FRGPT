@@ -184,6 +184,31 @@ class MarketDataAgent:
             for param in required:
                 if param not in params:
                     raise ValueError(f"Missing required parameter: {param}")
+
+        # by_filters must have at least one filter key
+        if template == "by_filters":
+            if not params or not any(
+                key in params and params[key] is not None
+                for key in [
+                    "symbol_pattern",
+                    "start_timestamp",
+                    "end_timestamp",
+                    "min_open",
+                    "max_open",
+                    "min_high",
+                    "max_high",
+                    "min_low",
+                    "max_low",
+                    "min_close",
+                    "max_close",
+                    "min_volume",
+                    "max_volume",
+                ]
+            ):
+                raise ValueError(
+                    "Template 'by_filters' requires at least one filter parameter "
+                    "(symbol_pattern, start/end timestamp, or min/max price/volume)."
+                )
         
         # Check limit
         if limit is not None:
@@ -241,6 +266,149 @@ class MarketDataAgent:
         write_atomic(log_path, log_data)
         
         return log_path
+    
+    def run_multi_date(
+        self,
+        symbol: str,
+        dates: List[str],
+        columns: Optional[List[str]] = None,
+        limit_per_date: int = 10000,
+        offset_minutes: int = 0,
+        window_minutes: Optional[int] = None
+    ) -> Path:
+        """
+        Execute multi-date query and write to file bus.
+        
+        This method is for "for each date, get timeseries" queries where you have
+        a list of dates or timestamps (e.g., event dates) and want market data for each.
+        
+        Args:
+            symbol: Symbol to query (e.g., "TY", "ES")
+            dates: List of dates/timestamps (ISO format: "2024-12-06" or "2024-12-06T13:00:00")
+            columns: Columns to select (default: timestamp, open, high, low, close)
+            limit_per_date: Max rows per date (default: 10000)
+            offset_minutes: Minutes after timestamp to START fetching (default: 0)
+            window_minutes: Duration of time window in minutes (default: None = full day)
+            
+        Returns:
+            Path to output file
+            
+        Raises:
+            ValueError: If invalid inputs
+            Exception: If query or write fails
+        """
+        start_time = time.time()
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        
+        logger.info(f"Run {run_id}: Starting multi-date query for symbol={symbol}, dates={dates}")
+        
+        try:
+            # Validate inputs
+            if not symbol:
+                raise ValueError("Symbol is required")
+            if not dates:
+                raise ValueError("Dates list cannot be empty")
+            if limit_per_date <= 0:
+                raise ValueError("limit_per_date must be positive")
+            if limit_per_date > MAX_ROWS:
+                raise ValueError(f"limit_per_date exceeds maximum: {MAX_ROWS}")
+            
+            # Use default columns if not specified
+            if columns is None:
+                columns = ["timestamp", "open", "high", "low", "close"]
+            
+            # Call run_multi_date_query tool
+            logger.info("Calling run_multi_date_query tool")
+            result = self.mcp_client.call_tool(
+                "run_multi_date_query",
+                arguments={
+                    "symbol": symbol,
+                    "dates": dates,
+                    "columns": columns,
+                    "limit_per_date": limit_per_date,
+                    "offset_minutes": offset_minutes,
+                    "window_minutes": window_minutes
+                }
+            )
+            
+            # Check for tool-level errors
+            if not result.get("success", False):
+                raise Exception(f"Tool returned error: {result.get('error', 'Unknown error')}")
+            
+            # Extract results
+            results_data = result["results"]
+            metadata_raw = result["metadata"]
+            
+            # Calculate total rows from all dates
+            total_rows = sum(r.get("row_count", 0) for r in results_data)
+            
+            logger.info(f"Tool returned {total_rows} total rows across {len(results_data)} dates")
+            
+            # Get next output path
+            output_path = self.manifest.get_next_filepath(subdir=OUT_DIR)
+            
+            # Create standardized output with multi-date structure
+            output_data = create_output_template(
+                data=results_data,  # Array of {date, data, row_count, ...}
+                query=f"run_multi_date_query(symbol={symbol}, dates={len(dates)} dates, offset={offset_minutes}m, window={window_minutes}m)",
+                agent_name=AGENT_NAME,
+                version=AGENT_VERSION
+            )
+            
+            # Add multi-date metadata
+            output_data["metadata"]["tool"] = "run_multi_date_query"
+            output_data["metadata"]["query_params"] = {
+                "symbol": symbol,
+                "dates_count": len(dates),
+                "offset_minutes": offset_minutes,
+                "window_minutes": window_minutes
+            }
+            output_data["metadata"]["tool_metadata"] = metadata_raw
+            
+            # Write output atomically
+            logger.info(f"Writing output to {output_path}")
+            write_atomic(output_path, output_data)
+            
+            # Calculate duration
+            duration_ms = (time.time() - start_time) * 1000
+            
+            # Write run log
+            log_path = self._write_run_log(
+                run_id=run_id,
+                sql=f"run_multi_date_query(symbol={symbol}, dates={len(dates)})",
+                params={
+                    "symbol": symbol,
+                    "dates": dates,
+                    "offset_minutes": offset_minutes,
+                    "window_minutes": window_minutes
+                },
+                output_path=output_path,
+                status="success",
+                row_count=total_rows,
+                duration_ms=duration_ms
+            )
+            
+            logger.info(f"Run {run_id}: Completed successfully. Output: {output_path}")
+            logger.info(f"Run log: {log_path}")
+            
+            return output_path
+            
+        except Exception as e:
+            # Log failure
+            duration_ms = (time.time() - start_time) * 1000
+            
+            self._write_run_log(
+                run_id=run_id,
+                sql=f"run_multi_date_query(symbol={symbol})",
+                params={"symbol": symbol, "dates": dates},
+                output_path=None,
+                status="failed",
+                error=str(e),
+                duration_ms=duration_ms
+            )
+            
+            logger.error(f"Run {run_id}: Failed - {e}")
+            raise
     
     def get_stats(self) -> Dict[str, Any]:
         """Get agent statistics."""

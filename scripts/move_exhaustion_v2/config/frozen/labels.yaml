@@ -1,0 +1,41 @@
+# FROZEN — Move Exhaustion V2 outcome-label definitions
+# Source of truth: research/PROGRAM.md §4.2 (verbatim scientific content).
+# Any edit requires user approval + dated PROGRAM.md §10 addendum + MANIFEST.sha256 re-hash.
+schema_version: 3
+frozen_utc: "2026-08-12"
+
+labels:
+  anchor: "t_star = first touch of B"
+  barrier_price_series: mid
+  reversal_barrier: "-R ticks from m_tstar, against move direction"
+  continuation_barrier: "+C ticks beyond m_tstar, in move direction"
+  classes:
+    - REVERSAL                 # reversal barrier touched first
+    - CONTINUATION             # continuation barrier touched first
+    - OSCILLATORY_UNRESOLVED   # neither barrier within H; first-class prediction target
+  excluded_label: UNRESOLVED_AMBIGUOUS   # both barriers inside one event burst (same ts_event); excluded
+  censored_label: CENSORED_INCOMPLETE_HORIZON
+  incomplete_horizon_policy: "exclude the entire episode from that H cell before inspecting barrier outcomes; require t*+H <= scheduled close and source events through t*+H"
+  universe_h_coupling: "label H_minutes must exactly match the episode universe H_minutes; mismatch fails closed"
+  internal_no_event_policy: "on an X0 Q3-passing day, no selected-contract MBP-1 event means no observed L1 change and does not itself censor"
+  known_halt_policy: "if the forward H intersects a documented known halt, censor before inspecting barriers or path summaries"
+  x1_input_day_policy: "only X0 research-eligible dates; Q3-failing days never enter X1"
+  explicit_user_approval_utc: "2026-08-12"
+  all_three_classes_are_targets: true
+
+primary:
+  R_ticks: 4
+  C_ticks: 4
+  H_minutes: 15
+  H_clock: wall
+
+grid:
+  RC_ticks: [[2, 2], [4, 4], [8, 8], [3, 5], [5, 3]]
+  H_minutes: [5, 15, 30]
+  price_change_time_variants: "DEFERRED_INACTIVE_FOR_X1"
+  horizon_relevance: "empirical output; every headline result reported across the full H grid"
+
+cell_guardrails:
+  min_resolved_episodes_discovery: 100
+  max_unresolved_share: 0.80
+  max_one_class_share: 0.90

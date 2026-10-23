@@ -1,0 +1,96 @@
+schema_version: 2
+experiment_id: E001
+hypothesis_id: H002
+hypothesis_family: FAM_RESIDUAL_OSCILLATION
+status: frozen
+hashes:
+  data_hash: dd2cceb815a503836556ae19b555474518eb3c51a5bcee0107e85397a30d7949
+  split_hash: 76e613b172094a576325a660378edc9de2156a809a4e0be078404ba8ab49e932
+  exposure_hash: a88df9a6b01a8e0d7d6f065a1b7f041911dd8a996746d3c2bb617fa089f728fb
+  spec_hash: 2fdf32f13566c854bcbb0058030789f52369975583d302c64e468fb0406e61d3
+  evaluator_hash: 6c8951141b042a3b49714838a8e729ea9c5bef126e03dff31c0d3991a7e6a812
+  candidate_code_hash: b5fbe9fd57f72b0234b8108db0e80ce4bc82c728203b6dde0487c79c032872f9
+  state_code_hash: b6d47cacd31b81ab8f2700b91a92ad91287c18a182ee519a397c835aa0c55362
+candidate:
+  allowed_inputs:
+    - formation_ts
+    - price
+    - day_open_price
+    - agg_cum_daily
+    - TY_agg_5m
+    - FV_agg_5m
+    - TU_agg_5m
+    - US_agg_5m
+    - realized_vol
+    - mom_5m
+    - trade_intensity
+    - spread_mean
+    - minutes_since_open
+  registered_feature_map:
+    flip_count: Deadbanded residual sign flips in the selected trailing window.
+    absolute_residual: Absolute discovery-frozen causal price-versus-flow residual.
+    residual_age: Minutes since the residual sign was initialized or last changed.
+    residual_change: One-minute change in the causal residual.
+    recent_price_momentum: Five-minute price momentum supplied to both models.
+design:
+  grids:
+    window_minutes: [15, 30, 60]
+    deadband_ticks: [0.5, 1.0, 2.0]
+    dwell_minutes: [1, 2]
+  selection_rule: Four expanding outer folds with a 30-minute embargo; fit preprocessing on each training fold, score all 18 configurations on common anchors, require positive equal-date Brier improvement in at least 3 of 4 folds, select greatest pooled equal-date improvement, tie-break by smaller window then larger deadband then smaller dwell, refit on all discovery dates, and freeze state before validation.
+  cells:
+    ALL: Every eligible common anchor after 60 same-session warm-up minutes.
+    RATES_RTH_NO_EVENT: Session time 08:00-15:00 ET and outside the frozen event blackout.
+    OVERNIGHT: Session time 18:00-07:59 ET.
+  cells_may_overlap: true
+outcome:
+  name: BOUNDED_4T_30M
+  definition: Target is one iff the maximum close-to-formation absolute TY price displacement over (t,t+30m] is strictly less than 4 ticks.
+  horizon_minutes: 30
+  censoring: Date/session grouped anchors at least 30 minutes apart; require at least 80 percent of expected future minutes and a price observation within two minutes of horizon; no session crossing.
+  boundary_policy: Touching exactly 4 ticks is target zero; stale and incomplete paths are censored.
+analysis:
+  model:
+    baseline: Logistic regression with discovery-frozen scaling and imputation using absolute residual, residual age, residual change, recent momentum, volatility, session, trade intensity, liquidity, roll state, and event proximity.
+    augmented: Baseline plus flip_count only.
+    metric: Equal-date mean of per-date mean baseline Brier minus augmented Brier.
+    outer_folds:
+      - 2024-07-01/2024-12-31 -> 2025-01-01/2025-02-28
+      - through 2025-02-28 -> 2025-03-01/2025-04-30
+      - through 2025-04-30 -> 2025-05-01/2025-06-30
+      - through 2025-06-30 -> 2025-07-01/2025-08-31
+  inference:
+    alpha: 0.05
+    multiplicity: Holm one-sided correction over all 3 registered E001 cells, retaining this denominator through confirmation.
+    discovery_resamples: 999
+    validation_confirmation_resamples: 9999
+    estimator: Studentized date-cluster wild bootstrap with equal date weight.
+    serial_falsification: Within-session circular or block shifts of at least 30 minutes; unrestricted row permutation is forbidden.
+    event_manifest_sha256: c3730de19a073e62fcb46c63d644e22fc26135b1b481e4e2ff13d5ba5e7463ed
+    event_blackout_minutes: [-10, 30]
+    diagnostics_only: Horizons 15 and 60 minutes; bounds 3 and 6 ticks; historical quarantine replication.
+  power:
+    absolute_sesoi_brier: 0.005
+    relative_brier_skill_minimum: 0.02
+    minimum_dates: 25
+    minimum_class_count_each: 30
+    target_power: 0.80
+    required_dates_formula: ceil(((z_(1-0.05/3)+z_0.80)*discovery_OOF_sigma_date/0.005)^2); validation remains unopened if underpowered.
+  utility:
+    selector: Discovery-frozen 80th percentile of augmented probability minus baseline probability.
+    minimum_coverage: 0.10
+    minimum_selected_episodes: 30
+    minimum_target_rate_lift: 0.08
+    required_ci: Clustered lower confidence bound above zero.
+    predictive_gate: Delta at least 0.005, Holm p at most 0.05, CI lower above zero, shift-null p at most 0.05, positive in at least 60 percent of at least four validation months, no date above 25 percent of positive effect, and no required slice at or below -0.0025 or significantly reversed.
+    failure_states: not_confirmed; positive_but_trivial; inconclusive; invalid; blocked_underpowered.
+  diagnostics:
+    - Report calibration intercept and slope and relative Brier skill.
+    - Report per-date effects, monthly signs, concentration, exclusions, rolls, holidays, events, and high-volatility sessions.
+    - Report required stability slices and quarantine only as non-evidentiary context.
+attempt_cap: 5
+confirmation:
+  eligible: true
+  policy: Prospective sessions strictly after 2026-07-22T17:07:04.239793Z accumulate until the frozen power requirement is met; begin_confirmation requires separate spec-bound owner approval, atomically retires the family cohort before outcomes load, and uses the identical frozen pipeline. Confirmed requires ALL to pass every predictive gate; confirmed_limited requires a preregistered subgroup pass with ALL delta positive; no second cohort.
+  prospective_only: true
+  approval_required: true

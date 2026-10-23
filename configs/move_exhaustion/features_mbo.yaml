@@ -1,0 +1,3 @@
+# features_mbo.yaml
+enabled: false
+reason: E25 UNAVAILABLE — no historical MBO store in this environment.

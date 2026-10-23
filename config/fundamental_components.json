@@ -1,0 +1,84 @@
+{
+  "indicators": {
+    "labour": {
+      "name": "Labour",
+      "description": "Employment and labor market conditions",
+      "components": {
+        "nfp_headline": {
+          "name": "NFP Headline",
+          "event_pattern": "Nonfarm Payrolls",
+          "unit": "K",
+          "higher_is_stronger": true,
+          "weight": 1.0
+        },
+        "unemployment_rate": {
+          "name": "Unemployment Rate",
+          "event_pattern": "Unemployment Rate",
+          "unit": "%",
+          "higher_is_stronger": false,
+          "weight": 1.0
+        }
+      }
+    },
+    "economy": {
+      "name": "Economy",
+      "description": "Economic growth and activity",
+      "components": {
+        "retail_sales_control": {
+          "name": "Retail Sales Control Group",
+          "event_pattern": "Retail Sales Ex Autos",
+          "unit": "%",
+          "higher_is_stronger": true,
+          "weight": 1.0
+        },
+        "ism_manufacturing": {
+          "name": "ISM Manufacturing PMI",
+          "event_pattern": "ISM Manufacturing PMI",
+          "unit": "index",
+          "higher_is_stronger": true,
+          "weight": 1.0
+        }
+      }
+    },
+    "inflation": {
+      "name": "Inflation",
+      "description": "Price pressures and inflation trends",
+      "components": {
+        "core_cpi": {
+          "name": "Core CPI MoM",
+          "event_pattern": "Core Inflation Rate MoM",
+          "unit": "%",
+          "higher_is_stronger": true,
+          "weight": 1.0
+        }
+      }
+    }
+  },
+  "scoring": {
+    "zscore_weights": {
+      "level": 0.5,
+      "trend": 0.3,
+      "curvature": 0.2
+    },
+    "trend_lookback_periods": 3,
+    "quintile_thresholds": [0.2, 0.4, 0.6, 0.8, 1.0],
+    "score_labels": {
+      "1": "Very Weak",
+      "2": "Weak",
+      "3": "Neutral",
+      "4": "Strong",
+      "5": "Very Strong"
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2Y/5Y/7Y Supply Weeks</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dash.css') }}?v=18" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="top">
+        <h1>2Y/5Y/7Y Supply Weeks</h1>
+        <div id="feed-status" class="feed">Checking feed…</div>
+        <div class="label">{{ status_label }}</div>
+      </div>
+      <p class="subtitle">TY window net vs window bps around matched 2Y / 5Y / 7Y auction weeks. Month-end = 7Y in the last 7 calendar days. Sequence only — not a forecast.</p>
+      <div class="stats-bar">
+        <div class="stat-item"><div class="stat-label">Supply weeks</div><div class="stat-value" id="total-weeks">-</div></div>
+        <div class="stat-item"><div class="stat-label">Month-end weeks</div><div class="stat-value" id="month-end-weeks">-</div></div>
+        <div class="stat-item"><div class="stat-label">Data range</div><div class="stat-value" id="data-range">-</div></div>
+        <div class="stat-item"><div class="stat-label">This week</div><div class="stat-value" id="current-week">-</div></div>
+      </div>
+      <div class="row header-controls">
+        <select id="type-filter" class="btn">
+          <option value="all" selected>All weeks</option>
+          <option value="month_end">Month-end only</option>
+          <option value="non_month_end">Non month-end</option>
+        </select>
+        <button class="btn" id="reload" type="button">Load</button>
+      </div>
+    </header>
+
+    <section class="chart-container">
+      <div class="chart-header">
+        <span class="chart-title">Auction day vs a normal day</span>
+        <span class="badge" id="compare-badge">0 slices</span>
+      </div>
+      <p class="hint">The numbers in the middle are history: how much more buy, sell, and net an auction day has had than a normal day at that same clock. Auction-day move is the median price change on those days. Implied by auction net is the normal-day line, intercept plus slope times that net. This week, when it is a 2/5/7 week, sits above those. A clock that has not opened says when it opens. An open clock is so-far flow and updates with the 1m tape. It joins the historical median only after the clock finishes. Buy took the ask. Sell hit the bid.</p>
+      <div class="row">
+        <label class="inline">
+          <input id="drop-tier1" type="checkbox" />
+          Drop Tier-1 from normal days
+        </label>
+        <label class="inline">
+          <input id="drop-month-end" type="checkbox" />
+          Drop month-end from normal days
+        </label>
+      </div>
+      <div id="compare-board" class="compare-board"></div>
+    </section>
+
+    <section class="chart-container">
+      <div class="chart-header">
+        <span class="chart-title">Window net vs window bps</span>
+      </div>
+      <p class="hint">Same pairing as the OLS cards: 1m flow weeks only. White line is the fit. Beta is that line’s slope, bps per $1mm net. Gold marker is this week when it is a 2/5/7 week.</p>
+      <div class="heat-grid">
+        <div class="heat-pane">
+          <div class="row heat-head"><span>Pre-2Y</span><span class="badge" id="heat-badge-pre_2y">0 weeks</span><span class="heat-beta" id="heat-beta-pre_2y">beta —</span></div>
+          <div id="heat-pre_2y" class="heat"></div>
+        </div>
+        <div class="heat-pane">
+          <div class="row heat-head"><span>After 2Y</span><span class="badge" id="heat-badge-2y_to_5y">0 weeks</span><span class="heat-beta" id="heat-beta-2y_to_5y">beta —</span></div>
+          <div id="heat-2y_to_5y" class="heat"></div>
+        </div>
+        <div class="heat-pane">
+          <div class="row heat-head"><span>After 2Y+5Y / before 7Y</span><span class="badge" id="heat-badge-5y_to_7y">0 weeks</span><span class="heat-beta" id="heat-beta-5y_to_7y">beta —</span></div>
+          <div id="heat-5y_to_7y" class="heat"></div>
+        </div>
+        <div class="heat-pane">
+          <div class="row heat-head"><span>Post-7Y</span><span class="badge" id="heat-badge-post_7y">0 weeks</span><span class="heat-beta" id="heat-beta-post_7y">beta —</span></div>
+          <div id="heat-post_7y" class="heat"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chart-container">
+      <div class="chart-header">
+        <span class="chart-title">Sequence window flow / OLS</span>
+      </div>
+      <p id="window-note" class="hint">Typical net is the median of each week’s window net. Expected bps = intercept + slope × that net.</p>
+      <div id="window-cards" class="cards"></div>
+    </section>
+
+    <section class="chart-container">
+      <div class="chart-header">
+        <div class="row">
+          <span class="chart-title">Return distribution</span>
+          <span class="badge" id="distro-badge">0 samples</span>
+        </div>
+      </div>
+      <p class="hint">Each auction day has three windows: 8:00 to 13:00, 10:00 to 13:00, and 13:00 to 17:00. The 2Y row uses the 2Y date. The 5Y row uses the 5Y auction date. Dotted lines are month-end weeks. Changing the measure rebuilds all six.</p>
+      <div class="distro-controls">
+        <label>From year
+          <select id="distro-year"></select>
+        </label>
+        <label>Measure
+          <select id="distro-measure">
+            <option value="max_move" selected>Max move</option>
+            <option value="end_move">End-to-end move</option>
+            <option value="max_up">Max up</option>
+            <option value="max_down">Max down</option>
+            <option value="range">High-low range</option>
+          </select>
+        </label>
+        <label class="inline">
+          <input id="annotate-month-end" type="checkbox" checked />
+          Annotate month-end
+        </label>
+      </div>
+      <h3 class="distro-group">2Y auction day</h3>
+      <div class="distro-cats">
+        <div class="distro-cat">
+          <div class="row"><span>8:00 to auction</span><span class="badge" id="distro-badge-from_8">0 weeks</span></div>
+          <div id="distro-from_8" class="distro-chart"></div>
+          <p class="distro-mini" id="distro-stats-from_8"></p>
+        </div>
+        <div class="distro-cat">
+          <div class="row"><span>10:00 to auction</span><span class="badge" id="distro-badge-into">0 weeks</span></div>
+          <div id="distro-into" class="distro-chart"></div>
+          <p class="distro-mini" id="distro-stats-into"></p>
+        </div>
+        <div class="distro-cat">
+          <div class="row"><span>Auction to 17:00</span><span class="badge" id="distro-badge-after">0 weeks</span></div>
+          <div id="distro-after" class="distro-chart"></div>
+          <p class="distro-mini" id="distro-stats-after"></p>
+        </div>
+      </div>
+      <h3 class="distro-group">5Y auction day</h3>
+      <div class="distro-cats">
+        <div class="distro-cat">
+          <div class="row"><span>8:00 to auction</span><span class="badge" id="distro-badge-5y-from_8">0 weeks</span></div>
+          <div id="distro-5y-from_8" class="distro-chart"></div>
+          <p class="distro-mini" id="distro-stats-5y-from_8"></p>
+        </div>
+        <div class="distro-cat">
+          <div class="row"><span>10:00 to auction</span><span class="badge" id="distro-badge-5y-into">0 weeks</span></div>
+          <div id="distro-5y-into" class="distro-chart"></div>
+          <p class="distro-mini" id="distro-stats-5y-into"></p>
+        </div>
+        <div class="distro-cat">
+          <div class="row"><span>Auction to 17:00</span><span class="badge" id="distro-badge-5y-after">0 weeks</span></div>
+          <div id="distro-5y-after" class="distro-chart"></div>
+          <p class="distro-mini" id="distro-stats-5y-after"></p>
+        </div>
+      </div>
+    </section>
+    <p id="status" class="status"></p>
+  </div>
+  <script src="{{ url_for('static', filename='dash.js') }}?v=18"></script>
+</body>
+</html>

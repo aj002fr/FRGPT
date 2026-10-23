@@ -1,0 +1,91 @@
+# FROZEN — Move Exhaustion V2 episode definitions
+# Source of truth: research/PROGRAM.md §4.1 (verbatim scientific content).
+# Any edit requires user approval + dated PROGRAM.md §10 addendum + MANIFEST.sha256 re-hash.
+schema_version: 3
+frozen_utc: "2026-08-12"
+
+instrument:
+  symbol_root: ZN
+  contract_scope: outrights_only
+  tick_size: 0.015625            # 1/64 point
+  bps_note: "1 tick ~ 1.4 bps at price ~112; price ranged ~105-135 over 2010-2026; bps equivalents documented per era"
+
+episode:
+  price_series: mid
+  clock: event_time
+  direction: [-1, 1]
+  qualification_rule: "s*(m_t - m_t0) >= B before any counter-directional pullback > x, pullback measured from the running extreme"
+  B_ticks:
+    primary: 8
+    grid: [4, 6, 8, 12]
+  x_ticks:
+    primary: 2
+    grid: [1, 2, 3, 4]
+    vol_normalized_variant: "DEFERRED_INACTIVE_FOR_X1"
+  primary_status: "frozen_by_user_2026-08-11"
+  denomination_note: "tick-denominated primary; bps is reporting only (user decision 2026-08-11)"
+
+dedupe:
+  one_active_episode_per_direction: true
+  no_new_anchor_inside_unresolved_prior_horizon: true
+  block_scope: "per_direction"
+  opposite_direction_candidates: "survive and continue unchanged"
+  block_duration: "full H; never shortened by early barrier resolution"
+  episode_universe_index: [B_ticks, x_ticks, H_minutes]
+  label_h_must_match_universe_h: true
+  explicit_user_approval_utc: "2026-08-12"
+  min_anchor_separation_minutes_wall_clock: 5
+
+episode_variables_recorded:
+  - move_ticks
+  - move_bps
+  - time_to_B_lob_events
+  - time_to_B_trades
+  - time_to_B_price_changes
+  - time_to_B_wall_clock
+  - trade_count
+  - lob_event_count
+  - max_pullback
+  - realized_vol_during_move
+
+  - max_pullback
+  - realized_vol_during_move
+
+
+  - max_pullback
+  - realized_vol_during_move
+ve
+
+
+  - max_pullback
+  - realized_vol_during_move
+ove
+ve
+
+
+  - max_pullback
+  - realized_vol_during_move
+move
+ove
+ve
+
+
+  - max_pullback
+  - realized_vol_during_move
+_move
+move
+ove
+ve
+
+
+  - max_pullback
+  - realized_vol_during_move
+g_move
+_move
+move
+ove
+ve
+
+
+  - max_pullback
+  - realized_vol_during_move

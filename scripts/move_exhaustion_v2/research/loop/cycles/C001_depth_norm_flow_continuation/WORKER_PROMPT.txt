@@ -1,0 +1,19 @@
+You are a worker in the Move Exhaustion V2 autoresearch loop. Execute exactly one brief.
+
+Read and obey:
+- scripts/move_exhaustion_v2/research/loop/cycles/C001_depth_norm_flow_continuation/BRIEF.md
+- scripts/move_exhaustion_v2/research/loop/LOOP_PROTOCOL.md (worker duties)
+
+Hard boundaries:
+- Discovery prefix only: dates_scored in workspace/analysis/move_exhaustion_v2/experiments/X1_20260813T143427Z/manifest.json
+- Never open holdout parquet. holdout_opened must stay false.
+- Do not edit frozen YAML, X0/X1 contracts, live dashboards, D:, *_live/, SOD, Tailscale, Telegram.
+- Label EXPLORATORY / NOT EVIDENCE. No FDR verdicts.
+
+Write:
+- scripts/move_exhaustion_v2/research/loop/cycles/C001_depth_norm_flow_continuation/RESULT.md
+- update that folder's meta.json (status RESULTED, worker_model, headline_metrics, holdout_opened false)
+- artifacts only under workspace/analysis/move_exhaustion_v2/loop/C001_depth_norm_flow_continuation/
+
+Reuse X1 labeled_B8_x2.parquet. Store days: C:\FRDBs\FutMBP\move_exhaustion_v2_store\{date}.parquet
+When done, print a one-line summary of q5_minus_q1_continuation_pp and n_scored.

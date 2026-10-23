@@ -7,7 +7,6 @@ from .config import (
     get_workspace_path,
     get_db_path,
     AVAILABLE_ACTIONS,
-    DEFAULT_WINDOW_HOURS,
     DEFAULT_LOOKBACK_DAYS,
 )
 
@@ -18,7 +17,6 @@ __all__ = [
     "get_workspace_path",
     "get_db_path",
     "AVAILABLE_ACTIONS",
-    "DEFAULT_WINDOW_HOURS",
     "DEFAULT_LOOKBACK_DAYS",
 ]
 

@@ -1,0 +1,43 @@
+# FROZEN — Move Exhaustion V2 statistical gate
+# Source of truth: research/PROGRAM.md §3.1 (verbatim scientific content).
+# Any edit requires user approval + dated PROGRAM.md §10 addendum + MANIFEST.sha256 re-hash.
+schema_version: 1
+frozen_utc: "2026-08-10"
+
+scope: "pure information-content study; NO cost gates, NO tradability verdicts (PROGRAM.md §0 scope decision, 2026-08-10)"
+
+bootstrap:
+  draws: 10000
+  clustering: date
+  pass_requires_one_sided_lower_bound_geq: 0.0
+
+multiplicity:
+  method: benjamini_hochberg
+  q: 0.10
+  scope: within_experiment_preregistered_cells
+  addendum_rule: "cells added later are dated addenda and count against FDR in their own family"
+
+sample_floors:
+  min_episodes_per_cell: 50        # program floor; gate lib internal floor is 30 — see OPEN_QUESTIONS OQ-14
+  min_distinct_dates_per_cell: 8
+  below_floor_verdict: blocked_underpowered
+
+sesoi:
+  conditional_probability_lift_pp: 8.0
+  model_comparison_brier: 0.005
+  model_comparison_auc_pp: 2.0
+
+stability_gates:   # required for PASS (lesson of prior-program E30)
+  week_level_auc_or_effect_spread_max: 0.15   # unit for non-model effects unresolved — OPEN_QUESTIONS OQ-7
+  feature_psi_train_to_eval_max: 0.25
+  max_single_date_share_of_aggregate_effect: 0.40
+
+verdicts:
+  - PASS
+  - PROVISIONAL
+  - FAIL
+  - blocked_underpowered
+  - not_supported
+provisional_rule: "PROVISIONAL never authorizes anything downstream"
+
+shared_lib: "scripts/aggression_gate_lib.py (conventions reused; program floors above are applied on top)"

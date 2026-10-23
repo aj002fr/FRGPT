@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Any, List, Optional, Tuple
 
 from .config import AGENT_CAPABILITIES
+from src.servers.tradingeconomics.event_dictionary import fuzzy_find_event
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +198,8 @@ class TaskMapper:
                 params["template"] = "by_symbol_and_date"
             else:
                 params["template"] = "by_date"
-            params["params"]["file_date"] = date_match.group(0)
+            # Canonical key is 'date' (YYYY-MM-DD) for marketdata templates
+            params["params"]["date"] = date_match.group(0)
         
         # Detect price range filters (use custom template for complex WHERE)
         price_range_detected = False
@@ -272,7 +274,8 @@ class TaskMapper:
         
         # Determine what to sort by
         if any(kw in task_lower for kw in ['date', 'when', 'recent', 'latest', 'earliest']):
-            order_column = "file_date"
+            # In PostgreSQL OHLCV, the chronological field is 'timestamp' (logical alias of ts_event)
+            order_column = "timestamp"
         elif any(kw in task_lower for kw in ['price', 'highest', 'lowest', 'expensive', 'cheap']):
             order_column = "price"
             if any(kw in task_lower for kw in ['highest', 'expensive']):
@@ -281,7 +284,7 @@ class TaskMapper:
                 order_direction = "ASC"
         elif 'sort' in task_lower or 'order' in task_lower:
             # Default to date if sorting requested but column unclear
-            order_column = "file_date"
+            order_column = "timestamp"
         
         if order_column:
             params["order_by_column"] = order_column
@@ -307,7 +310,6 @@ class TaskMapper:
             "event_name": None,
             "country": None,
             "lookback_days": None,
-            "window_hours": 12.0,
             "importance": None,
             "update_calendar": False
         }
@@ -342,41 +344,54 @@ class TaskMapper:
              # Default to reasonable lookback for "recent"
              params["lookback_days"] = 90
         
-        # Extract window hours (for correlations)
-        window_match = re.search(r'within (\d+) (?:hour|hr)s?', desc_lower)
-        if window_match:
-            params["window_hours"] = float(window_match.group(1))
-        
         # Extract importance
         if 'high importance' in desc_lower or 'major' in desc_lower:
             params["importance"] = 'high'
         elif 'medium importance' in desc_lower:
             params["importance"] = 'medium'
             
-        # Extract event name (heuristic: look for common event names)
-        # This is tricky as event names can be anything. We'll look for known keywords.
+        # Extract event name using fuzzy matching against event dictionary
+        # This is more reliable than keyword matching
         event_keywords = [
             "nonfarm", "non-farm", "nfp", "payrolls",
-            "cpi", "inflation", "ppi",
+            "cpi", "inflation", "ppi", "pce",
             "gdp", "growth",
-            "fomc", "rate decision", "fed funds",
+            "fomc", "rate decision", "fed funds", "interest rate",
             "retail sales",
-            "unemployment", "jobless claims",
-            "ism", "pmi",
-            "consumer confidence",
+            "unemployment", "jobless claims", "initial claims",
+            "ism", "pmi", "manufacturing",
+            "consumer confidence", "michigan",
             "durable goods",
-            "housing starts",
-            "industrial production"
+            "housing starts", "building permits",
+            "industrial production",
+            "jolts", "job openings"
         ]
         
+        extracted_keyword = None
         for kw in event_keywords:
             if kw in desc_lower:
-                # If found, try to extract the full phrase or just use the keyword
-                params["event_name"] = kw
+                extracted_keyword = kw
                 break
         
-        # If no known keyword but "event" is mentioned, maybe extract nearby words?
-        # For now, let Planner 2 AI refine it if missing.
+        # Use fuzzy matching to find exact event name from dictionary
+        if extracted_keyword:
+            country_for_match = params["country"].lower() if params["country"] else None
+            # Map country codes to full names for dictionary lookup
+            if country_for_match:
+                code_to_name = {
+                    "us": "united states", "gb": "united kingdom", "uk": "united kingdom",
+                    "eu": "euro area", "jp": "japan", "cn": "china", "de": "germany",
+                    "ca": "canada", "au": "australia"
+                }
+                country_for_match = code_to_name.get(country_for_match, country_for_match)
+            
+            matches = fuzzy_find_event(extracted_keyword, country=country_for_match)
+            if matches:
+                params["event_name"] = matches[0]  # Use best match
+                logger.info(f"Normalized event name: '{extracted_keyword}' -> '{matches[0]}'")
+            else:
+                # Fallback to keyword if no match
+                params["event_name"] = extracted_keyword
         
         # Check for update request
         if 'update' in desc_lower and 'calendar' in desc_lower:
@@ -453,19 +468,14 @@ class TaskMapper:
         if any(k in desc_lower for k in ["percentile rank", "where does", "what percentile", "rank of"]):
             params["analysis_type"] = "percentile_rank"
         elif any(k in desc_lower for k in ["surprise", "actual vs", "actual minus", "beat", "miss", "consensus"]):
-            params["analysis_type"] = "surprise_analysis"
-            # Try to extract event name
-            event_patterns = [
-                r"(?:for|of)\s+([a-zA-Z\s]+?)(?:\s+event|\s+data|\s+release|$)",
-                r"(nonfarm|non-farm|gdp|cpi|ppi|unemployment|payroll|fomc|fed)",
-            ]
-            for pattern in event_patterns:
-                match = re.search(pattern, desc_lower)
-                if match:
-                    params["params"]["event_name_pattern"] = match.group(1).strip()
-                    break
+            # AnalyticsAgent no longer performs DB-backed surprise/event analyses.
+            # Leave this task as generic analytics unless Planner 1 maps it to eventdata_puller_agent / distro tools.
+            params["analysis_type"] = "descriptive"
+            params["params"]["title"] = "Distribution"
         elif any(k in desc_lower for k in ["market on event", "prices on", "market data on", "event dates"]):
-            params["analysis_type"] = "event_impact"
+            # AnalyticsAgent no longer performs DB-backed event impact analysis.
+            params["analysis_type"] = "descriptive"
+            params["params"]["title"] = "Distribution"
         elif any(k in desc_lower for k in ["compare", "comparison", "vs ", "versus", "difference between"]):
             params["analysis_type"] = "comparison"
         elif any(k in desc_lower for k in ["correlation", "correlated", "relationship between"]):

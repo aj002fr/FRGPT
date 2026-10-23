@@ -1,0 +1,16 @@
+# models.yaml — Phase 1 stubs only
+baselines:
+  - fade_immediate
+  - fade_no_extreme_30s
+  - fade_no_extreme_60s
+  - fade_first_1tick_retrace
+  - fade_nonpositive_velocity
+classification_sequence:
+  - logistic_ridge
+  - gam
+  - hist_gradient_boosting
+calibration:
+  - none
+  - platt
+  - isotonic
+note: No modelling until E00 passes.

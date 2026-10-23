@@ -1,0 +1,12 @@
+# Optional dependencies for YouTube transcript downloading
+# Install with: pip install -r requirements-youtube.txt
+#
+# These are required for:
+# - scripts/fetch_fed_press_conference_transcripts.py
+
+youtube-transcript-api>=0.6.0
+
+
+
+
+

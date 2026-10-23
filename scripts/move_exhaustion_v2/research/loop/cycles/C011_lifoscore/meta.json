@@ -1,0 +1,37 @@
+{
+  "cycle": "C011",
+  "slug": "lifoscore",
+  "tier": "EXPLORATORY",
+  "status": "REVIEWED",
+  "opened_utc": "2026-08-13T17:10:00Z",
+  "closed_utc": "2026-08-13T17:11:29Z",
+  "backlog_ref": "BL-8",
+  "parent_cycle": null,
+  "data_window_used": {
+    "start": "2022-01-05",
+    "end": "2022-04-25"
+  },
+  "dates_used_source": "workspace/analysis/move_exhaustion_v2/experiments/X1_20260813T143427Z/manifest.json",
+  "holdout_opened": false,
+  "artifact_paths": [
+    "workspace/analysis/move_exhaustion_v2/loop/C011_lifoscore/run_c011.py",
+    "workspace/analysis/move_exhaustion_v2/loop/C011_lifoscore/metrics.json",
+    "workspace/analysis/move_exhaustion_v2/loop/C011_lifoscore/episodes_c011.csv"
+  ],
+  "advisor_decision": "ITERATE",
+  "worker_model": "composer-2.5 (in-IDE fallback; Codex sandbox cannot access Y: share)",
+  "worker_agent_id": null,
+  "advisor_models": ["gpt-5.6-sol-max"],
+  "solo_review_reason": "Human waived the Fable 5 seat on 2026-08-13. Solo reviews may not PROMOTE_REQUEST.",
+  "headline_metrics": {
+    "osc_minus_resolved_lifoscore": 0.16853856410024637,
+    "osc_minus_resolved_ci95_low": 0.1228318056475375,
+    "osc_minus_resolved_ci95_high": 0.21220671035799768,
+    "n_osc": 323,
+    "n_resolved": 685,
+    "mean_lifoscore_osc": 0.7038183694530443,
+    "mean_lifoscore_resolved": 0.535279805352798,
+    "recommend": "ADVANCE"
+  },
+  "wall_clock_minutes": 0.12
+}

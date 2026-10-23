@@ -2,7 +2,7 @@
 
 ## Overview
 
-A comprehensive **pure Python** code-mode MCP system with file-based inter-agent communication. Features market data querying and predictive markets search capabilities.
+A comprehensive **pure Python** code-mode MCP system with file-based inter-agent communication. It now includes market data querying, predictive market search, economic event ingestion/analysis, Distro-style distribution analytics on OHLCV data, and a two-stage orchestration layer for multi-agent workflows.
 
 ## Design Principles
 
@@ -96,11 +96,26 @@ A comprehensive **pure Python** code-mode MCP system with file-based inter-agent
 - Column whitelist and parameterized queries
 - Template-based SQL (by_symbol, by_date, etc.)
 
-#### Polymarket Tool (`polymarket/`)
-- `search_polymarket_markets.py` - Direct Polymarket API with LLM scoring
+#### Polymarket Tools (`polymarket/`)
+- `search_markets.py` / `unified_search.py` - Direct Polymarket Gamma API search (volume-sorted, keyword-filtered; optional LLM scoring)
 - `get_history.py` - Query history retrieval
+- `get_price_history.py` - Historical price data via CLOB API
 - `schema.py` - Constants and validation
-- Hybrid search: keyword filtering + GPT-4 semantic ranking
+
+#### Trading Economics Tools (`tradingeconomics/`)
+- `fetch_calendar.py` - Fetch and update economic calendar into `economic_events.db`
+- `query_events.py` - Query historical economic events with rich filters
+- `search_event_names.py` - Fuzzy search over event names
+- `websocket_client.py` - WebSocket client for live economic releases
+- `schema.py`, `filters.py`, `event_dictionary.py` - Schema, filtering helpers, and canonical event mappings
+
+#### Distro Analytics Tools (`distro_analytics/`) – Optional
+- `returns_distribution.py` - Session-based returns distribution on OHLCV (PostgreSQL `ohlcv_1m` or parquet)
+- `volatility_distribution.py` - Session-based volatility (High–Low) distribution
+- `probability_matrix.py` - Probability of price moving X bps within Y hours
+- `event_distribution.py` - Event-specific return distributions (NFP, CPI, FOMC, etc.)
+- `surprise_price_distribution.py` - Surprise buckets (Big Beat/Miss, etc.) vs price reaction
+- `db_reader.py` - Shared loaders for OHLCV and `economic_events.db` with lazy optional-dependency handling
 
 **Security**:
 - Column whitelist
@@ -123,12 +138,28 @@ A comprehensive **pure Python** code-mode MCP system with file-based inter-agent
 - **Output**: Statistics (min/max/avg)
 - **Input**: Market data agent output
 
-#### Predictive Markets Agent (`predictive_markets_agent/`)
+#### Polymarket Agent (`polymarket_agent/`)
 - **Type**: Producer
-- **Function**: Search prediction markets
-- **Output**: URLs, titles, snippets from prediction markets
-- **Tools Used**: `search_markets`, `get_query_history`
-- **Features**: Auto-generated session IDs, query history
+- **Function**: Search Polymarket markets (Gamma API) by natural-language query
+- **Output**: Structured markets with prices, volumes, URLs, and metadata
+- **Tools Used**: `search_polymarket_markets`, `get_polymarket_history`, `get_market_price_history`
+- **Features**: Auto-generated session IDs, query history, optional historical price comparison
+
+#### EventData Puller Agent (`eventdata_puller_agent/`)
+- **Type**: Producer
+- **Function**: Fetch, store, and query economic calendar events (Trading Economics)
+- **Output**: Event lists with actual/forecast/previous values, surprises, and summary stats
+- **Tools Used**: `fetch_economic_calendar`, `query_event_history`, WebSocket streaming tools
+
+#### Analytics / Distro Agent (`analytics_agent/`)
+- **Type**: Consumer/Analyzer
+- **Function**: Perform statistical analysis and generate plots (histograms, scatter, bar) over arbitrary numeric data and market/economic datasets
+- **Output**: Statistics JSON + SVG/PNG plots; can call Distro analytics tools for OHLCV-based distributions
+
+#### Orchestrator Agent (`orchestrator_agent/`)
+- **Type**: Meta-agent
+- **Function**: Two-stage planning, tool selection, code generation, and execution across agents (market data, Polymarket, EventData, analytics)
+- **Output**: Consolidated answer + structured worker outputs; writes both to DB and file bus
 
 **Common Features**:
 - Input validation
@@ -142,6 +173,9 @@ A comprehensive **pure Python** code-mode MCP system with file-based inter-agent
 
 **Current**:
 - `logging_config.py` - Centralized logging setup
+- `telegram_notifier.py` - Telegram Bot API for push alerts
+- `schedule_store.py` - SQLite-based event scheduling
+- `run_store.py` - Central run persistence for orchestration (`data/metadata.db` + `runs/{run_id}/`)
 
 ---
 
@@ -215,7 +249,46 @@ A comprehensive **pure Python** code-mode MCP system with file-based inter-agent
    write_atomic(out/000001.json, output_data)
    
 10. Run Log Write
-    write_atomic(logs/{timestamp}.json, log_data)
+   write_atomic(logs/{timestamp}.json, log_data)
+```
+
+### Flow 3: Economic Event Data (EventData Puller)
+
+```
+1. Calendar Update
+   eventdata_puller_agent.run(action="update_calendar", country="US", importance="high")
+
+2. Trading Economics Fetch
+   fetch_economic_calendar → Trading Economics REST API
+
+3. SQLite Storage
+   Upsert into workspace/economic_events.db (economic_events table)
+
+4. Querying
+   eventdata_puller_agent.run(action="query_event", event_name="Non-Farm Payrolls")
+   → query_event_history tool → returns events + summary stats
+
+5. File Bus Output
+   write_atomic(workspace/agents/eventdata-puller-agent/out/000001.json, output_data)
+```
+
+### Flow 4: Distro Analytics on OHLCV (PostgreSQL)
+
+```
+1. User Request
+   analytics_agent.run(analysis_type="returns_distribution", params={"symbol": "ZN"})
+
+2. Tool Call
+   mcp_client.call_tool("compute_returns_distribution", {"symbol": "ZN", "interval": "1h"})
+
+3. Data Load
+   get_ohlcv_from_db(symbol_pattern="ZN%", start_date, end_date) → PostgreSQL ohlcv_1m
+
+4. Distro Processing
+   ReturnsCalculator + ReturnsPlotter → statistics + PNG plot(s)
+
+5. File Bus Output
+   write_atomic(workspace/agents/analytics-agent/out/000001.json, analytics_result)
 ```
 
 ---
@@ -305,7 +378,7 @@ A comprehensive **pure Python** code-mode MCP system with file-based inter-agent
 
 ## Database Schemas
 
-### market_data Table
+### market_data Table (SQLite - legacy, still used by `market_data_agent`)
 ```sql
 CREATE TABLE market_data (
     id INTEGER PRIMARY KEY,
@@ -340,6 +413,47 @@ CREATE INDEX idx_session_id ON polymarket_queries(session_id);
 CREATE INDEX idx_timestamp ON polymarket_queries(timestamp);
 ```
 
+### economic_events Table (SQLite)
+
+Backed by `workspace/economic_events.db`, populated by Trading Economics tools and the EventData Puller Agent.
+
+```sql
+CREATE TABLE economic_events (
+    id INTEGER PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    event_name TEXT NOT NULL,
+    country TEXT NOT NULL,
+    category TEXT,
+    importance TEXT,
+    event_date TEXT NOT NULL,
+    actual REAL,
+    consensus REAL,
+    forecast REAL,
+    previous REAL,
+    revised REAL,
+    unit TEXT,
+    ticker TEXT,
+    source TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+```
+
+### ohlcv_1m Table (PostgreSQL)
+
+Primary OHLCV source for Distro analytics tools.
+
+```sql
+CREATE TABLE ohlcv_1m (
+    ts_event TIMESTAMPTZ NOT NULL,
+    symbol TEXT NOT NULL,
+    open DOUBLE PRECISION,
+    high DOUBLE PRECISION,
+    low DOUBLE PRECISION,
+    close DOUBLE PRECISION,
+    volume DOUBLE PRECISION
+);
+```
 
 ---
 
@@ -449,17 +563,24 @@ from src.core.my_util import my_function
 
 ## Dependencies
 
-### Runtime
-- Python 3.11+ stdlib only
-  - `sqlite3` - Database
+### Core Runtime
+- Python 3.11+ stdlib
+  - `sqlite3` - Local databases (market_data, economic_events, orchestrator_results)
   - `json` - Serialization
   - `pathlib` - File operations
-  - `urllib` - HTTP requests (Polymarket API)
-  - `secrets` - Session ID generation
+  - `urllib` / `http.client` - HTTP requests (Polymarket, Trading Economics)
+  - `secrets` / `uuid` - Session ID generation
+
+### Optional Runtime (for advanced features)
+- `openai` / `anthropic` – Orchestrator task planning, optional LLM relevance scoring
+- `websockets` – Trading Economics WebSocket client
+- `pandas`, `numpy`, `scipy`, `matplotlib`, `seaborn`, `pyarrow` – Analytics + Distro analytics
+- `psycopg2-binary` – PostgreSQL OHLCV connectivity (`ohlcv_1m` for Distro tools)
 
 ### External APIs
-- Polymarket API (for prediction markets)
-- OpenAI API (optional, for LLM-based relevance scoring)
+- Polymarket API (prediction markets + CLOB price history)
+- Trading Economics API + WebSocket (economic calendar and live events)
+- OpenAI / Anthropic APIs (optional, for planning and validation)
 
 ### Testing
 - pytest>=7.4.0
@@ -523,7 +644,7 @@ from src.core.my_util import my_function
 2. Inspect output files directly (JSON)
 3. Query polymarket_queries table for search history
 4. Use `scripts/show_logs.py` for overview
-5. Run `scripts/verify_setup.py` to check configuration
+5. Check `runs/{run_id}/` for orchestration artifacts
 
 ### Common Issues
 - **Tool not found**: Check `__init__.py` imports in tool server

@@ -1,0 +1,30 @@
+{
+  "cycle": "C018",
+  "slug": "vol_regime",
+  "tier": "EXPLORATORY",
+  "status": "REVIEWED",
+  "opened_utc": "2026-08-13T21:09:00Z",
+  "closed_utc": "2026-08-13T21:13:00Z",
+  "backlog_ref": "BL-19",
+  "parent_cycle": null,
+  "data_window_used": {
+    "start": "2022-01-05",
+    "end": "2022-04-25"
+  },
+  "dates_used_source": "workspace/analysis/move_exhaustion_v2/experiments/X1_20260813T143427Z/manifest.json",
+  "holdout_opened": false,
+  "artifact_paths": [
+    "workspace/analysis/move_exhaustion_v2/loop/C018_vol_regime/"
+  ],
+  "advisor_decision": "PARKED",
+  "worker_model": "composer-2.5 (in-IDE fallback; Codex sandbox cannot access Y: share)",
+  "worker_agent_id": null,
+  "advisor_models": ["gpt-5.6-sol-max"],
+  "solo_review_reason": "Human waived the Fable 5 seat on 2026-08-13. Solo reviews may not PROMOTE_REQUEST.",
+  "headline_metrics": {
+    "t3_minus_t1_reversal_pp": 18.072289156626503,
+    "n_valid": 1244,
+    "tod_restatement": false
+  },
+  "wall_clock_minutes": 1
+}

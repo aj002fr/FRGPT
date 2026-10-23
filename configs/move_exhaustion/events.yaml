@@ -1,0 +1,26 @@
+# events.yaml — Phase 1 detector defaults
+max_event_horizon_minutes: 30
+sensitivity_horizons_minutes: [15, 60]
+decision_stride: 1min
+detectors:
+  A_price_shock:
+    L_seconds: [30, 60, 120, 300]
+    threshold: [2.0, 2.5, 3.0]
+  B_price_plus_flow:
+    move_z_min: 2.0
+    directional_flow_z_min: 1.5
+  C_v2_residual_shock:
+    abs_residual_z: 2.0
+  D_breakout_velocity:
+    trailing_extreme_minutes: 30
+    move_z_60s_min: 2.0
+termination:
+  max_horizon: true
+  terminal_reversal_barrier: true
+  retrace_frac_of_initial: 0.75
+  session_end: true
+  invalid_data: true
+dedupe:
+  one_active_event_per_symbol: true
+  allow_cross_symbol_coexistence: true
+row_weight: inverse_rows_in_event

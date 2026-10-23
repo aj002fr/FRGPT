@@ -1,12 +1,14 @@
 """Stage 1 Planner - Task Decomposition and Agent Assignment."""
 
 import logging
+import re
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 from src.mcp.taskmaster_client import TaskPlannerClient
 from .task_mapper import TaskMapper
 from .dependency_analyzer import DependencyAnalyzer
-from .config import AGENT_CAPABILITIES
+from .config import AGENT_CAPABILITIES, get_enabled_agent_capabilities
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +45,7 @@ class PlannerStage1:
         Args:
             query: User query in natural language
             num_subtasks: Number of subtasks (optional, AI decides if None)
-            agent_capabilities: Agent registry (uses AGENT_CAPABILITIES if None)
+            agent_capabilities: Agent registry (uses enabled AGENT_CAPABILITIES if None)
             
         Returns:
             Task plan dictionary with:
@@ -53,17 +55,25 @@ class PlannerStage1:
             - metadata: Analysis metadata
         """
         logger.info(f"Planning for query: '{query[:100]}...'")
+
+        planning_query, normalization_note = _normalize_multi_year_date_blocks_query(query)
+        if planning_query != query:
+            logger.info(
+                "Normalized multi-year date-block query for Planner 1 (%s)",
+                normalization_note or "normalized",
+            )
+            logger.debug("Planner 1 normalized query: %r", planning_query)
         
-        # Use default capabilities if not provided
+        # Use default capabilities if not provided (only enabled agents)
         if agent_capabilities is None:
-            agent_capabilities = AGENT_CAPABILITIES
+            agent_capabilities = get_enabled_agent_capabilities()
         
-        # Step 1: AI-powered task decomposition
+        # Step 1: AI-powered task decomposition (only enabled agents)
         available_agents = list(agent_capabilities.keys())
-        logger.info(f"Available agents: {available_agents}")
+        logger.info(f"Available agents (enabled only): {available_agents}")
         
         task_plan = self.task_planner.plan_task(
-            query=query,
+            query=planning_query,
             available_agents=available_agents,
             num_subtasks=num_subtasks
         )
@@ -124,6 +134,7 @@ class PlannerStage1:
                 'parallel_groups': analysis['parallel_groups'],
                 'independent_tasks': analysis['independent_tasks'],
                 'available_agents': available_agents,
+                'planning_query': planning_query,
                 # For each task (typically leaves), a canonical dependency path
                 'task_dependency_paths': task_dependency_paths
             }
@@ -297,4 +308,86 @@ class PlannerStage1:
                 root_tasks.append(task)
         
         return root_tasks
+
+
+_MONTHS = {
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+}
+
+
+def _normalize_multi_year_date_blocks_query(query: str) -> tuple[str, str]:
+    """Normalize compressed multi-year date-block queries into explicit date strings.
+
+    Example input (common failure mode for Planner 1):
+        "2024: december 29, december 30, december 31 2023: december 29, ..."
+
+    Output:
+        "... December 29, 2024; December 30, 2024; ..."
+
+    Returns:
+        (normalized_query, note). If no normalization applied, returns (query, "").
+    """
+    text = query.strip()
+    # Quick check to avoid work for most queries
+    if not re.search(r"\b(19|20)\d{2}\s*:", text):
+        return query, ""
+
+    # Find "YYYY:" sections and parse month/day occurrences inside each.
+    year_matches = list(re.finditer(r"\b(?P<year>(?:19|20)\d{2})\s*:", text))
+    if not year_matches:
+        return query, ""
+
+    extracted_dates: list[tuple[int, int, int]] = []
+    for i, m in enumerate(year_matches):
+        year = int(m.group("year"))
+        start = m.end()
+        end = year_matches[i + 1].start() if i + 1 < len(year_matches) else len(text)
+        section = text[start:end]
+
+        # Match repeated "month day" patterns like "december 29" (month may repeat)
+        for month_str, day_str in re.findall(
+            r"\b("
+            r"january|february|march|april|may|june|july|august|september|october|november|december"
+            r")\s+(\d{1,2})\b",
+            section,
+            flags=re.IGNORECASE,
+        ):
+            month = _MONTHS.get(month_str.lower())
+            day = int(day_str)
+            if not month:
+                continue
+            try:
+                # Validate date
+                datetime(year, month, day)
+            except ValueError:
+                continue
+            extracted_dates.append((year, month, day))
+
+    # Only normalize if it looks like the user actually provided a list of dates
+    extracted_dates = sorted(set(extracted_dates))
+    if len(extracted_dates) < 2:
+        return query, ""
+
+    # Render in a format the Planner 1 prompt examples already handle well.
+    rendered: list[str] = []
+    for (y, m, d) in extracted_dates:
+        rendered.append(f"{datetime(y, m, d).strftime('%B')} {d}, {y}")
+
+    normalized_query = (
+        "For each of the following days, generate a candlestick (OHLC) chart: "
+        + "; ".join(rendered)
+        + "."
+    )
+    return normalized_query, f"expanded {len(rendered)} dates from YYYY: blocks"
 

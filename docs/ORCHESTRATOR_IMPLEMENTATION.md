@@ -6,12 +6,12 @@ The Orchestrator Agent is a meta-agent that coordinates multiple worker agents t
 The current implementation uses a **Two-Stage Planner Architecture**:
 
 - **Planner 1**: AI-powered task decomposition + dependency analysis (via `TaskPlannerClient`)
-- **Planner 2**: Tool discovery and parameter extraction per dependency path (lazy loading)
+- **Planner 2**: Tool discovery and parameter extraction per dependency path (lazy loading). See [Planner 2 Metrics](ORCHESTRATOR_PLANNER2_METRICS.md) for evaluation criteria.
 - **Coder**: Script generation that executes worker agents and writes to SQLite + file bus
 - **Workers**: Existing agents (`market_data_agent`, `polymarket_agent`)
 - **Runner**: DB-based consolidation and AI validation
 
-Legacy single-stage components (`code_generator.py`, `consolidator.py`) are retained only for tests and backwards compatibility; the production path uses the two-stage system.
+The production path uses the two-stage planner system with `runner_agent` for final answer generation.
 
 ## Architecture
 
@@ -28,12 +28,17 @@ src/agents/orchestrator_agent/
 ├── dependency_analyzer.py   # DAG analysis + dependency paths
 ├── planner_stage1.py        # Planner 1: task decomposition + dependencies
 ├── planner_stage2.py        # Planner 2: tool discovery per path
+├── tool_loader.py           # Lazy tool loading for context isolation
+├── tool_schema_generator.py # Tool documentation generator for Planner 2
 ├── coder.py                 # Script generation (async + DB/file bus)
 ├── worker_executor.py       # Executes generated scripts
-├── workers_db.py            # SQLite database (worker_runs, task_outputs, task_plan)
-├── runner.py                # DB-based result consolidation
-├── validator.py             # Answer validation layer
+├── workers_db.py            # SQLite database (worker_runs, task_outputs, planner1_tasks)
+├── planner_metrics.py       # Planner 1 evaluation metrics
+├── planner2_metrics.py      # Planner 2 evaluation metrics
 └── prompt.md                # Orchestrator instructions and examples
+
+src/agents/runner_agent/
+└── run.py                   # RunnerAgent for final answer generation (GPT)
 
 src/mcp/
 └── taskmaster_client.py     # TaskPlannerClient (AI planning/validation client)
@@ -44,11 +49,6 @@ scripts/
 tests/e2e/
 └── test_orchestrator_e2e.py # End-to-end tests
 ```
-
-**Legacy single-stage components (used only in tests)**
-
-- `src/agents/orchestrator_agent/code_generator.py` – Original dynamic script generator (replaced by `coder.py`)
-- `src/agents/orchestrator_agent/consolidator.py` – Original result consolidator (replaced by `runner.py`)
 
 ### Workflow (Two-Stage Planner)
 
@@ -493,17 +493,7 @@ def _plan_tasks(self, query: str, num_subtasks: int) -> Dict[str, Any]:
 
 ### Custom Validation
 
-Replace/extend validation in `validator.py`:
-
-```python
-def _perform_local_checks(self, query, answer, consolidated_result):
-    # Your custom validation logic
-    return {
-        "issues": [...],
-        "suggestions": [...],
-        "critical_issues": bool
-    }
-```
+Validation is now handled by the `runner_agent` during final answer generation. To customize validation logic, extend `src/agents/runner_agent/run.py`.
 
 ## Troubleshooting
 
@@ -542,10 +532,10 @@ def _perform_local_checks(self, query, answer, consolidated_result):
 **Symptom**: "Generated script missing main()" or syntax errors
 
 **Solution**:
-- Review `code_generator.py` templates
+- Review `coder.py` templates
 - Check task mapping correctness
 - Verify agent parameters format
-- Check generated script in `workspace/agents/orchestrator-agent/generated_scripts/`
+- Check generated script in `runs/{run_id}/scripts/`
 
 ## Limitations
 

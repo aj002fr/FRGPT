@@ -4,6 +4,39 @@ pytest>=7.4.0
 # AI/LLM Integration (for Reasoning Agent)
 openai>=2.0.0
 
+# Telegram Bot Integration
+python-telegram-bot>=20.0
+
+# Date parsing (flexible date/time input for tagging)
+dateparser>=1.2.0
+pandas-market-calendars>=5.4.0
+duckdb>=1.5.0
+pyarrow>=21.0.0
+zstandard>=0.25.0
+
+# Web server & tunneling (for live dashboards)
+flask>=2.3.0
+flask-cors>=4.0.0
+pyngrok>=7.0.0
+
+# Plotting (for candlestick charts)
+plotly>=5.18.0
+kaleido>=0.2.1
+
+# Excel COM automation (for Bloomberg RTD integration)
+xlwings>=0.30.0
+openpyxl>=3.1.0
+
+# Redis pre-alert streaming service
+redis>=5.0.0
+apscheduler>=3.10.0
+psycopg2-binary>=2.9.0
+
 # Optional: Environment management (not required for core functionality)
 # python-dotenv>=1.0.0
+
+# Optional: DistroDashboard analytics (advanced distribution analysis)
+# Install separately with: pip install -r requirements-distro.txt
+# Required for: compute_returns_distribution, compute_volatility_distribution,
+#               compute_probability_matrix, compute_event_distribution
 

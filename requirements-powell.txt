@@ -1,0 +1,12 @@
+# Powell Speech Sentiment Analyzer Dependencies
+# Install with: pip install -r requirements-powell.txt
+# Then run: playwright install chromium
+
+# Browser automation for scraping StreamText
+playwright>=1.40.0
+
+# OpenAI API for LLM-powered sentiment analysis
+openai>=1.0.0
+
+
+
