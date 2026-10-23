@@ -4,7 +4,9 @@
 
 .DESCRIPTION
   Items:
-    v3      5053         scripts\aggression_dashboard_v3\{print_reconcile,live_publisher,app}.py
+    v3      5053         the whole V3 package (scripts\aggression_dashboard_v3\**, tests\test_v3_*.py and the
+                         aggression_v3_{causal_backfill,historical_states,roll_research}.py helpers), listed from
+                         -BaseRef and -ReleaseRef so added and removed files are deployed too
     v1      5050         scripts\aggression_dashboard\app.py (V1's launcher loop restarts it)
     events  5064 + 5065  flow-history events.py + app.py, supply-weeks app.py, keys.env DSN line,
                          the 5064 calendar-source note in .cursorrules
@@ -37,9 +39,11 @@ $LogDir = Join-Path $env:LOCALAPPDATA 'market_data_puller\logs'
 $Utf8 = New-Object System.Text.UTF8Encoding($false)
 
 $Items = @{
-    v3     = @{ Files = @('scripts/aggression_dashboard_v3/print_reconcile.py',
-                          'scripts/aggression_dashboard_v3/live_publisher.py',
-                          'scripts/aggression_dashboard_v3/app.py') }
+    v3     = @{ Tree = @('scripts/aggression_dashboard_v3',
+                         'tests',
+                         'scripts/aggression_v3_causal_backfill.py',
+                         'scripts/aggression_v3_historical_states.py',
+                         'scripts/aggression_v3_roll_research.py') }
     v3core = @{ Files = @('scripts/aggression_dashboard_v3/core.py') }
     v1     = @{ Files = @('scripts/aggression_dashboard/app.py') }
     events = @{ Files = @('scripts/aggression_flow_history_dash/events.py',
@@ -56,12 +60,12 @@ $CursorRulesNew = 'Calendar source is Yaman''s Postgres `economic_events` (read-
 
 $RollbackHint = 'rollback: `powershell -File C:\dev\market_data_puller\ops\release0\deploy_release0.ps1 -Item {ITEM} -Action restore`; source of truth `C:\dev\market_data_puller` branch `ops/local-runtime`.'
 $Notes = @{
-    v3     = '- Release 0 R0.2 deployed {TIME} ET (V3 5053): vectorized exact print matcher (`_matched_incoming`; the 11:37 bisect loop is kept as `_matched_incoming_reference` and the bad-input fallback), `LiveOverlayCache` re-matches only the lookback edges, rebuilds coalesce to >=60 s (5 s while warming), the picture is prepared off-lock and JSON-encoded once, trade broadcasts are queued under the lock, catch-up runs in 2000-print batches. Golden/replay tests on the 9/23 US-open fixture: `tests/test_v3_reconcile_golden.py`. 5053 now runs headless from task `MDP R0 v3 5053` (log `%LOCALAPPDATA%\market_data_puller\logs\v3_5053.log`); ' + $RollbackHint
+    v3     = '- V3 package deployed from {REF} at {TIME} ET (5053; whole package, base {BASE}); ' + $RollbackHint
     v3core = '- V3 exchange-time history deployed {TIME} ET (5053, user-approved 9/24): `fetch_trades_with_contract` stores Databento `ts_event` (the DataFrame index is `ts_recv`, 0.17-90 ms late), cache `trades_v3`; the 1 ms reconcile now pairs Databento history with AccessAPI live prints (9/23 13:00-13:30 UTC TY 4,576/4,576, was 48.7%), so overlap windows no longer carry 29-46% duplicate prints. This restart also made the parallel session''s pending V3 edits live. 5053 now runs headless from task `MDP R0 v3 5053`; ' + $RollbackHint
     v1     = '- Release 0 R0.3 deployed {TIME} ET (V1 5050): ten-day Databento bars are no longer persisted to `flow_history.sqlite` (refresher and startup seed); live AccessAPI writes are unchanged, and minutes when V1 was down stay as holes. Test: `tests/test_v1_no_tenday_persist.py`; ' + $RollbackHint
     events = '- Release 0 R0.4 deployed {TIME} ET (5064/5065): economic events come from Yaman''s Postgres `economic_events` (read-only role; DSN `ECON_EVENTS_PG_DSN` in `config/keys.env`) through an in-memory cache refreshed every 60 s with a last-good file; 5064 `/api/status` and 5065 `/api/bootstrap` + `/api/live` carry an `events` block. Postgres is a one-time copy of the 9/23 12:26 SQLite build until Yaman''s pipeline writes to it. 5064 now runs headless from task `MDP R0 flow 5064`; ' + $RollbackHint
 }
-$NoteMarker = @{ v3 = 'Release 0 R0.2 deployed'; v3core = 'V3 exchange-time history deployed'; v1 = 'Release 0 R0.3 deployed'; events = 'Release 0 R0.4 deployed' }
+$NoteMarker = @{ v3 = "V3 package deployed from $ReleaseRef"; v3core = 'V3 exchange-time history deployed'; v1 = 'Release 0 R0.3 deployed'; events = 'Release 0 R0.4 deployed' }
 $NoteTargets = @(
     @{ Rel = 'memory-bank/progress.md'; Heading = '## 2026-09-24' },
     @{ Rel = 'memory-bank/activeContext.md'; Heading = '## Recent Changes (2026-09-24)' }
@@ -85,6 +89,23 @@ function Get-GitBytes([string]$Ref, [string]$Path) {
     }
 }
 
+function Get-RefText([string]$Ref, [string]$Path) {
+    git -C $Repo cat-file -e "${Ref}:$Path" 2>$null
+    if ($LASTEXITCODE -ne 0) { return $null }
+    return Norm (Get-GitBytes $Ref $Path)
+}
+
+function Get-TreeFiles([string]$Ref) {
+    $out = git -C $Repo ls-tree -r --name-only $Ref -- @($Items[$Item].Tree)
+    if ($LASTEXITCODE -ne 0) { throw "git ls-tree $Ref failed" }
+    return @($out | Where-Object { $_ -notmatch '/__pycache__/' -and ($_ -notlike 'tests/*' -or $_ -like 'tests/test_v3_*.py') })
+}
+
+function Get-ItemFiles {
+    if (-not $Items[$Item].Tree) { return @($Items[$Item].Files) }
+    return @((@(Get-TreeFiles $BaseRef) + @(Get-TreeFiles $ReleaseRef)) | Sort-Object -Unique)
+}
+
 function Norm([byte[]]$Bytes) {
     $text = $Utf8.GetString($Bytes)
     if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }
@@ -92,17 +113,22 @@ function Norm([byte[]]$Bytes) {
 }
 
 function Write-Release([string]$Path, [string]$NormText, [byte[]]$Original) {
-    $text = if ($Utf8.GetString($Original).Contains("`r`n")) { $NormText.Replace("`n", "`r`n") } else { $NormText }
+    $text = if ($Original -and $Utf8.GetString($Original).Contains("`r`n")) { $NormText.Replace("`n", "`r`n") } else { $NormText }
+    New-Item -ItemType Directory -Force (Split-Path $Path) | Out-Null
     [IO.File]::WriteAllText($Path, $text, $Utf8)
 }
 
-function File-State([string]$Rel) {
+function Get-YText([string]$Rel) {
     $yPath = Join-Path $Target ($Rel -replace '/', '\')
-    $y = Norm ([IO.File]::ReadAllBytes($yPath))
-    $base = Norm (Get-GitBytes $BaseRef $Rel)
-    $release = Norm (Get-GitBytes $ReleaseRef $Rel)
-    if ($y -eq $release) { return 'release' }
-    if ($y -eq $base) { return 'base' }
+    if (-not (Test-Path -LiteralPath $yPath)) { return $null }
+    return Norm ([IO.File]::ReadAllBytes($yPath))
+}
+
+# A file missing on Y: and in a ref counts as equal to that ref.
+function File-State([string]$Rel) {
+    $y = Get-YText $Rel
+    if ($y -ceq (Get-RefText $ReleaseRef $Rel)) { return 'release' }
+    if ($y -ceq (Get-RefText $BaseRef $Rel)) { return 'base' }
     return 'OTHER'
 }
 
@@ -111,6 +137,14 @@ function Backup-Path([string]$Rel) { return Join-Path (Join-Path $BackupRoot $It
 function Save-Backup([string]$Rel) {
     $src = Join-Path $Target ($Rel -replace '/', '\')
     $dst = Backup-Path $Rel
+    $manifest = Join-Path (Join-Path $BackupRoot $Item) 'manifest.txt'
+    if (-not (Test-Path -LiteralPath $src)) {
+        if ((Test-Path $manifest) -and (Select-String -LiteralPath $manifest -SimpleMatch "  $Rel" -Quiet)) { Log "backup kept (already recorded): $Rel"; return }
+        New-Item -ItemType Directory -Force (Split-Path $manifest) | Out-Null
+        Add-Content -Path $manifest -Value "ABSENT  $Rel" -Encoding utf8
+        Log "recorded $Rel as absent before deploy"
+        return
+    }
     if (Test-Path $dst) { Log "backup kept (already present): $dst"; return }
     New-Item -ItemType Directory -Force (Split-Path $dst) | Out-Null
     Copy-Item -LiteralPath $src -Destination $dst
@@ -237,7 +271,7 @@ function Deploy-Extras {
 }
 
 function Add-MemoryNote {
-    $text = $Notes[$Item].Replace('{TIME}', (Get-Date -Format 'HH:mm')).Replace('{ITEM}', $Item)
+    $text = $Notes[$Item].Replace('{TIME}', (Get-Date -Format 'HH:mm')).Replace('{ITEM}', $Item).Replace('{REF}', $ReleaseRef).Replace('{BASE}', $BaseRef)
     foreach ($spec in $NoteTargets) {
         $path = Join-Path $Target ($spec.Rel -replace '/', '\')
         if (-not (Test-Path $path)) { continue }
@@ -272,7 +306,7 @@ function Remove-MemoryNote {
 
 switch ($Action) {
     'status' {
-        foreach ($rel in $Items[$Item].Files) {
+        foreach ($rel in Get-ItemFiles) {
             $bk = if (Test-Path (Backup-Path $rel)) { 'backup present' } else { 'no backup' }
             Write-Host ('{0,-8} {1,-55} {2}' -f (File-State $rel), $rel, $bk)
         }
@@ -282,16 +316,23 @@ switch ($Action) {
         if ($Item -in 'v3', 'v3core' -and $ReleaseRef -eq 'release0') {
             throw 'release0 v3 files predate the parallel V3 work now on Y:; pass an explicit -ReleaseRef built on the latest yshare-sync'
         }
+        $files = Get-ItemFiles
         $states = @{}
-        foreach ($rel in $Items[$Item].Files) { $states[$rel] = File-State $rel }
+        foreach ($rel in $files) { $states[$rel] = File-State $rel }
         $other = @($states.Keys | Where-Object { $states[$_] -eq 'OTHER' })
         if ($other.Count) { throw "Y: changed since the merge base; re-sync before deploying: $($other -join ', ')" }
-        foreach ($rel in $Items[$Item].Files) {
+        foreach ($rel in $files) {
             if ($states[$rel] -eq 'release') { Log "already deployed: $rel"; continue }
             Save-Backup $rel
             $yPath = Join-Path $Target ($rel -replace '/', '\')
-            $original = [IO.File]::ReadAllBytes($yPath)
-            Write-Release $yPath (Norm (Get-GitBytes $ReleaseRef $rel)) $original
+            $release = Get-RefText $ReleaseRef $rel
+            if ($null -eq $release) {
+                Remove-Item -LiteralPath $yPath -Force
+                Log "removed $rel (not in $ReleaseRef)"
+                continue
+            }
+            $original = if (Test-Path -LiteralPath $yPath) { [IO.File]::ReadAllBytes($yPath) } else { $null }
+            Write-Release $yPath $release $original
             if ((File-State $rel) -ne 'release') { throw "copy verification failed: $rel" }
             Log "deployed $rel"
         }
@@ -305,6 +346,11 @@ switch ($Action) {
         if (-not (Test-Path $manifest)) { throw "no backups for $Item" }
         foreach ($entry in Get-Content $manifest) {
             $hash, $rel = $entry -split '\s+', 2
+            if ($hash -eq 'ABSENT') {
+                $yPath = Join-Path $Target ($rel -replace '/', '\')
+                if (Test-Path -LiteralPath $yPath) { Remove-Item -LiteralPath $yPath -Force; Log "removed $rel (absent before deploy)" }
+                continue
+            }
             $src = Backup-Path $rel
             if ((Get-FileHash -LiteralPath $src -Algorithm SHA256).Hash -ne $hash) { throw "backup hash mismatch: $rel" }
             Copy-Item -LiteralPath $src -Destination (Join-Path $Target ($rel -replace '/', '\')) -Force
