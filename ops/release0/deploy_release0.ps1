@@ -90,7 +90,8 @@ function Get-GitBytes([string]$Ref, [string]$Path) {
 }
 
 function Get-RefText([string]$Ref, [string]$Path) {
-    git -C $Repo cat-file -e "${Ref}:$Path" 2>$null
+    # Through cmd.exe: under -ErrorAction Stop, PowerShell 5.1 throws on any native stderr line.
+    cmd.exe /c "git -C `"$Repo`" cat-file -e `"${Ref}:$Path`" 2>nul"
     if ($LASTEXITCODE -ne 0) { return $null }
     return Norm (Get-GitBytes $Ref $Path)
 }
